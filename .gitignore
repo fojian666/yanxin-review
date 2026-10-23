@@ -7,8 +7,8 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 
-# 工作流运行草稿（机器生成）；.zcode/workflows/ 下的已保存定义需要入库
-.zcode/workflow-drafts/
+# ZCode 本地目录（工作流定义仅本地使用，不入库）
+.zcode/
 
 # 含真实个人信息，不入版本库（公开仓库）
 3.科研课题申请书（终稿）.docx
