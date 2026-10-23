@@ -76,9 +76,18 @@ class LLMClient:
             raise LLMError(f"千问服务返回 {resp.status_code}：{detail}")
         try:
             data = resp.json()
-            return (data["choices"][0]["message"]["content"] or "").strip()
+            message = data["choices"][0]["message"] or {}
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
             raise LLMError(f"千问返回格式异常：{resp.text[:300]}") from exc
+        content = (message.get("content") or "").strip() if isinstance(message, dict) else ""
+        if content:
+            return content
+        if isinstance(message, dict) and message.get("reasoning_content"):
+            raise LLMError(
+                "千问仅返回思考内容（reasoning_content）而无正文；"
+                "请在服务侧关闭思考模式（enable_thinking=false）或将结果输出到 content 字段"
+            )
+        raise LLMError("千问返回了空内容")
 
     def stream_chat(
         self,
@@ -110,12 +119,14 @@ class LLMClient:
             raise LLMError(f"千问服务返回 {resp.status_code}：{detail}")
         emitted = False
         try:
-            for line in resp.iter_lines(decode_unicode=True):
-                if not line:
+            for raw_line in resp.iter_lines(decode_unicode=True):
+                line = (raw_line or "").strip()
+                if not line or line.startswith("event:"):
                     continue
-                line = line.strip()
                 if line.startswith("data:"):
                     line = line[5:].strip()
+                if not line:
+                    continue
                 if line == "[DONE]":
                     break
                 try:
@@ -123,9 +134,13 @@ class LLMClient:
                 except json.JSONDecodeError:
                     continue
                 choices = data.get("choices") or []
-                if not choices:
+                if not isinstance(choices, list) or not choices:
                     continue
-                delta = choices[0].get("delta") or {}
+                first = choices[0] if isinstance(choices[0], dict) else {}
+                delta = first.get("delta") or {}
+                if not isinstance(delta, dict):
+                    continue
+                # 思考模型的 delta.reasoning_content 不作为正文输出
                 text = delta.get("content")
                 if text:
                     emitted = True
@@ -135,7 +150,10 @@ class LLMClient:
         finally:
             resp.close()
         if not emitted:
-            raise LLMError("千问没有返回内容")
+            raise LLMError(
+                "千问没有返回正文内容（若使用 Qwen3 思考模式，请在服务侧关闭 "
+                "enable_thinking，或将结果输出到 content 字段）"
+            )
 
 
 llm = LLMClient()

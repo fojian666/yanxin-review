@@ -79,6 +79,8 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
                 questions.append("请补充科研诚信、数据安全、伦理审查与知识产权归属的承诺和具体措施。")
             elif sec["key"] == "background":
                 questions.append("请补充立项背景、问题指向与研究目标的对应关系。")
+            elif sec["key"] == "content":
+                questions.append("请补充研究内容，并说明各研究任务与考核指标的对应关系。")
             elif sec["key"] == "method":
                 questions.append("请补充技术路线的关键节点、数据来源、方法选择和风险预案。")
 

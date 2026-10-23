@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -75,11 +76,19 @@ class ToolCheckRequest(BaseModel):
     top_k: int = Field(default=8, ge=1, le=20)
 
 
-def _infer_kind(filename: str) -> str:
+def _infer_kind(filename: str, text: str = "") -> str:
     name = (filename or "").lower()
     if any(k in name for k in ("政策", "办法", "规定", "条例", "指南", "规范", "细则")):
         return "policy"
     if any(k in name for k in ("本子", "申请书", "申报书", "课题", "项目申报")):
+        return "proposal"
+    # 文件名判断不了时嗅探正文：政策文件有条款结构，本子有固定章节
+    head = (text or "")[:2000]
+    if re.search(r"第[一二三四五六七八九十百零]+条", head) or any(
+        k in head for k in ("管理办法", "实施细则", "暂行办法", "实施办法")
+    ):
+        return "policy"
+    if any(k in head for k in ("立项背景", "研究内容", "考核指标", "技术路线")):
         return "proposal"
     return "other"
 
@@ -161,25 +170,24 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=f"不支持的文件类型：{suffix or '未知'}")
     if kind not in config.DOC_KINDS:
         kind = "auto"
-    if kind == "auto":
-        kind = _infer_kind(filename)
 
     doc_id = db.new_id()
     target = config.UPLOAD_DIR / f"{doc_id}_{filename}"
     await _save_upload(file, target)
     try:
         parsed = await run_in_threadpool(parse_upload, target)
+        text = "\n".join(p.get("text", "") for p in parsed["pages"])
+        if kind == "auto":
+            kind = _infer_kind(filename, text)
+        chunks = await run_in_threadpool(
+            chunk_document, parsed["pages"], config.CHUNK_SIZE, config.CHUNK_OVERLAP
+        )
     except ParseError as exc:
         target.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         target.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"解析失败：{exc}") from exc
-
-    text = "\n".join(p.get("text", "") for p in parsed["pages"])
-    chunks = await run_in_threadpool(
-        chunk_document, parsed["pages"], config.CHUNK_SIZE, config.CHUNK_OVERLAP
-    )
     title_value = (title or "").strip() or guess_title(filename, text)
     year_value = int(year) if str(year).isdigit() else extract_year(filename, text)
     warning = parsed.get("warning") or ""
@@ -200,7 +208,8 @@ async def upload_document(
     }
     db.insert_document(doc, chunks)
     if kind == "paper":
-        db.insert_paper(
+        # 文献类型的文档重复上传时允许（用于查重演示），但文献表去重
+        db.insert_paper_if_new(
             {
                 "doc_id": doc_id,
                 "title": title_value,
@@ -329,11 +338,13 @@ async def import_papers(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         temp.unlink(missing_ok=True)
+    inserted = 0
     for row in rows:
         row["is_sample"] = 0
         row["source"] = "csv"
-        db.insert_paper(row)
-    return {"ok": True, "count": len(rows)}
+        if db.insert_paper_if_new(row):
+            inserted += 1
+    return {"ok": True, "count": inserted, "skipped": len(rows) - inserted}
 
 
 @app.get("/api/experts")
@@ -353,9 +364,11 @@ async def import_experts(file: UploadFile = File(...)):
     await _save_upload(file, temp)
     try:
         rows = await run_in_threadpool(parse_experts_csv, temp)
+        inserted = 0
         for row in rows:
-            db.insert_expert(row)
-        return {"ok": True, "count": len(rows)}
+            if db.insert_expert_if_new(row):
+                inserted += 1
+        return {"ok": True, "count": inserted, "skipped": len(rows) - inserted}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:

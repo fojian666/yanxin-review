@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime
@@ -65,6 +66,11 @@ CREATE TABLE IF NOT EXISTS experts (
     is_sample INTEGER DEFAULT 0,
     source TEXT DEFAULT 'manual',
     created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
@@ -306,3 +312,46 @@ def stats() -> dict[str, int]:
         "experts": experts,
         "sample_experts": sample_experts,
     }
+
+
+def get_meta(key: str) -> str | None:
+    with connect() as conn:
+        row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else None
+
+
+def set_meta(key: str, value: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO meta (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+
+
+def _norm_key(*parts: Any) -> str:
+    return "|".join(re.sub(r"\s+", "", str(p or "")).casefold() for p in parts)
+
+
+def insert_paper_if_new(paper: dict[str, Any]) -> bool:
+    """同一文献（标题+年份）重复导入时跳过，保证 CSV 重复导入幂等。"""
+    key = _norm_key(paper.get("title"), paper.get("year"))
+    with connect() as conn:
+        rows = conn.execute("SELECT title, year FROM papers").fetchall()
+    for row in rows:
+        if _norm_key(row["title"], row["year"]) == key:
+            return False
+    insert_paper(paper)
+    return True
+
+
+def insert_expert_if_new(expert: dict[str, Any]) -> bool:
+    """同一专家（姓名+单位）重复导入时跳过。"""
+    key = _norm_key(expert.get("name"), expert.get("institution"))
+    with connect() as conn:
+        rows = conn.execute("SELECT name, institution FROM experts").fetchall()
+    for row in rows:
+        if _norm_key(row["name"], row["institution"]) == key:
+            return False
+    insert_expert(expert)
+    return True

@@ -20,11 +20,12 @@ class Retriever:
 
     def rebuild(self) -> None:
         with self._lock:
-            rows = db.get_chunks()
+            docs = {d["id"]: d for d in db.list_documents()}
             chunks = []
-            for row in rows:
-                doc = db.get_document(row["doc_id"])
+            for row in db.get_chunks():
+                doc = docs.get(row["doc_id"])
                 if not doc:
+                    # 文档已删除但分块残留（孤儿块），不进入索引
                     continue
                 item = dict(row)
                 item["doc_name"] = doc["name"]

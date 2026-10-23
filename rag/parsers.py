@@ -76,10 +76,30 @@ def _docx_table_text(tbl: ET.Element) -> str:
     return "\n".join(lines)
 
 
+def _docx_notes_text(z: zipfile.ZipFile) -> list[str]:
+    """脚注/尾注常承载参考文献与补充说明，只解析正文会整体丢失。"""
+    paras: list[str] = []
+    for part in ("word/footnotes.xml", "word/endnotes.xml"):
+        try:
+            xml = z.read(part)
+        except KeyError:
+            continue
+        try:
+            root = ET.fromstring(xml)
+        except ET.ParseError:
+            continue
+        for p in root.iter(f"{W}p"):
+            text = _docx_paragraph_text(p)
+            if text:
+                paras.append(text)
+    return paras
+
+
 def parse_docx(path: Path) -> dict:
     try:
         with zipfile.ZipFile(path) as z:
             xml = z.read("word/document.xml")
+            notes = _docx_notes_text(z)
     except Exception as exc:
         raise ParseError(f"无法读取 DOCX：{exc}") from exc
     try:
@@ -100,6 +120,8 @@ def parse_docx(path: Path) -> dict:
             text = _docx_table_text(child)
             if text:
                 blocks.append(text)
+    if notes:
+        blocks.extend(notes)
     full = normalize_text("\n".join(blocks))
     return {
         "pages": [{"page": None, "text": full}],

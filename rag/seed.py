@@ -83,11 +83,26 @@ def _abstract(year: int, title: str, keywords: str, idx: int) -> str:
     )
 
 
+def _seeded(key: str) -> bool:
+    """种子标记存放在数据库 meta 表中，与库同生命周期；
+    旧的文件标记（.seeded_*）只读取迁移，避免删库后标记残留导致不再播种。"""
+    if db.get_meta(f"seeded_{key}"):
+        return True
+    legacy = config.DATA_DIR / f".seeded_{key}"
+    if legacy.exists():
+        db.set_meta(f"seeded_{key}", "seeded")
+        return True
+    return False
+
+
+def _mark_seeded(key: str) -> None:
+    db.set_meta(f"seeded_{key}", "seeded")
+
+
 def seed_demo_papers() -> int:
     if not config.SEED_DEMO_PAPERS:
         return 0
-    marker = config.DATA_DIR / ".seeded_papers"
-    if marker.exists():
+    if _seeded("papers"):
         return 0
     inserted = 0
     for idx, (year, title, keywords) in enumerate(_PAPER_ROWS):
@@ -104,18 +119,19 @@ def seed_demo_papers() -> int:
             }
         )
         inserted += 1
-    marker.write_text("seeded\n", encoding="utf-8")
+    _mark_seeded("papers")
     return inserted
 
 
 def seed_sample_document() -> bool:
     if not config.SEED_SAMPLE_DOC:
         return False
-    marker = config.DATA_DIR / ".seeded_doc"
-    if marker.exists() or not config.SAMPLE_DOCX.exists():
+    if _seeded("doc"):
+        return False
+    if not config.SAMPLE_DOCX.exists():
         return False
     if db.list_documents():
-        marker.write_text("skipped\n", encoding="utf-8")
+        _mark_seeded("doc")
         return False
     target = config.UPLOAD_DIR / "sample_proposal.docx"
     shutil.copyfile(config.SAMPLE_DOCX, target)
@@ -137,10 +153,11 @@ def seed_sample_document() -> bool:
             "meta": {"seeded": True, "original": config.SAMPLE_DOCX.name},
         }
         db.insert_document(doc, chunks)
-        marker.write_text("seeded\n", encoding="utf-8")
+        _mark_seeded("doc")
         return True
     except Exception:
-        marker.write_text("failed\n", encoding="utf-8")
+        # 解析失败也标记，避免每次启动重复尝试损坏文件
+        _mark_seeded("doc")
         return False
 
 
@@ -235,14 +252,13 @@ _EXPERTS = [
 
 
 def seed_demo_experts() -> int:
-    marker = config.DATA_DIR / ".seeded_experts"
-    if marker.exists():
+    if _seeded("experts"):
         return 0
     inserted = 0
     for expert in _EXPERTS:
         db.insert_expert({**expert, "is_sample": 1, "source": "demo"})
         inserted += 1
-    marker.write_text("seeded\n", encoding="utf-8")
+    _mark_seeded("experts")
     return inserted
 
 
