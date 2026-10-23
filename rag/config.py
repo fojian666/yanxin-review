@@ -35,6 +35,9 @@ LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1400"))
 
+# 外部系统数据推送（/api/ingest/*）的令牌；为空时本机原型不鉴权
+INGEST_TOKEN = (os.getenv("INGEST_TOKEN") or "").strip()
+
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
 DOC_KINDS = {"auto", "proposal", "policy", "paper", "other"}
 

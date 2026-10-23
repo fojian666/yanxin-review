@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile
 from pydantic import ValidationError
 
 import app as app_module
-from rag import config, db, parsers, seed, trends
+from rag import config, db, ingest, parsers, schemas, seed, trends
 
 
 def _tmp_db(tmp_path, monkeypatch):
@@ -186,3 +186,46 @@ def test_infer_kind_falls_back_to_content_sniffing():
     assert app_module._infer_kind("某文件.docx", "一、立项背景\n二、研究内容") == "proposal"
     assert app_module._infer_kind("某文件.docx", "这是一段普通文本。") == "other"
     assert app_module._infer_kind("管理办法.pdf", "") == "policy"
+
+
+def test_ingest_experts_and_papers_idempotent(tmp_path, monkeypatch):
+    """外部推送接口必须幂等：重复推送同一批数据只计跳过。"""
+    _tmp_db(tmp_path, monkeypatch)
+    experts = [
+        schemas.ExternalExpert(
+            name="王五", institution="省厅信息中心",
+            research_areas=["科研诚信", "数据治理"], workload=2,
+        ),
+        schemas.ExternalExpert(name="赵六", institution="某大学"),
+    ]
+    assert ingest.ingest_experts(experts) == (2, 0)
+    assert ingest.ingest_experts(experts) == (0, 2)
+    row = next(e for e in db.list_experts() if e["name"] == "王五")
+    assert row["research_areas"] == "科研诚信;数据治理"
+    assert row["source"] == "system"
+    papers = [schemas.ExternalPaper(title="真实文献A", year=2024, keywords=["大模型"])]
+    assert ingest.ingest_papers(papers) == (1, 0)
+    assert ingest.ingest_papers(papers) == (0, 1)
+    assert db.count_papers() == 1
+
+
+def test_ingest_token_enforced_only_when_configured(monkeypatch):
+    """INGEST_TOKEN 未配置时不拦（本机原型），配置后错令牌必须 401。"""
+    monkeypatch.setattr(config, "INGEST_TOKEN", "")
+    assert app_module._require_ingest_token(x_ingest_token="") is None
+    monkeypatch.setattr(config, "INGEST_TOKEN", "s3cret")
+    with pytest.raises(HTTPException) as exc:
+        app_module._require_ingest_token(x_ingest_token="wrong")
+    assert exc.value.status_code == 401
+    assert app_module._require_ingest_token(x_ingest_token="s3cret") is None
+
+
+def test_ingest_schema_documents_contract():
+    """schema 端点必须自描述：可接收实体 + 预留实体齐全。"""
+    contract = app_module.ingest_schema()
+    assert set(contract["accepted"]) == {"experts", "papers"}
+    assert set(contract["reserved"]) == {"projects", "integrity_records", "policy_meta"}
+    expert_props = contract["accepted"]["experts"]["schema"]["properties"]
+    assert {"name", "institution", "research_areas", "workload", "available"} <= set(expert_props)
+    assert contract["reserved"]["projects"]["schema"]["required"] == ["project_id", "title"]
+    assert contract["auth"]["header"] == "X-INGEST-Token"

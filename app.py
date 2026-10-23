@@ -11,15 +11,16 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from rag import config, db, qa, review, trends
+from rag import config, db, qa, review, schemas, trends
 from rag import experts as expert_service
+from rag import ingest as ingest_service
 from rag.llm import LLMError, llm
 from rag.experts import parse_experts_csv
 from rag.parsers import ParseError, parse_papers_csv, parse_upload
@@ -41,7 +42,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="研信智评 API",
-    version="0.2.0",
+    version="0.3.0",
     description="科研诚信 RAG 智能评审助手：问答、预审、文献趋势",
     lifespan=lifespan,
 )
@@ -74,6 +75,22 @@ class TrendRequest(BaseModel):
 class ToolCheckRequest(BaseModel):
     doc_id: str = ""
     top_k: int = Field(default=8, ge=1, le=20)
+
+
+class IngestExpertsRequest(BaseModel):
+    experts: list[schemas.ExternalExpert] = Field(default_factory=list, max_length=1000)
+
+
+class IngestPapersRequest(BaseModel):
+    papers: list[schemas.ExternalPaper] = Field(default_factory=list, max_length=1000)
+
+
+def _require_ingest_token(
+    x_ingest_token: str = Header(default="", alias="X-INGEST-Token"),
+) -> None:
+    expected = (config.INGEST_TOKEN or "").strip()
+    if expected and x_ingest_token != expected:
+        raise HTTPException(status_code=401, detail="无效的数据接入令牌")
 
 
 def _infer_kind(filename: str, text: str = "") -> str:
@@ -390,6 +407,59 @@ def tool_check(payload: ToolCheckRequest):
         return expert_service.run_tool_check(doc_id, top_k=payload.top_k)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ---------- 外部数据接入（预留接口） ----------
+
+
+@app.post("/api/ingest/experts", dependencies=[Depends(_require_ingest_token)])
+def ingest_experts(payload: IngestExpertsRequest):
+    """外部系统推送专家数据；同名同单位自动跳过，幂等可重放。"""
+    inserted, skipped = ingest_service.ingest_experts(payload.experts)
+    return {"ok": True, "count": inserted, "skipped": skipped}
+
+
+@app.post("/api/ingest/papers", dependencies=[Depends(_require_ingest_token)])
+def ingest_papers(payload: IngestPapersRequest):
+    """外部系统推送文献数据；同标题同年份自动跳过，幂等可重放。"""
+    inserted, skipped = ingest_service.ingest_papers(payload.papers)
+    return {"ok": True, "count": inserted, "skipped": skipped}
+
+
+@app.get("/api/ingest/schema")
+def ingest_schema():
+    """数据接入契约：字段结构、鉴权方式、预留实体，供对接方自查。"""
+    token_required = bool((config.INGEST_TOKEN or "").strip())
+    return {
+        "version": app.version,
+        "auth": {"header": "X-INGEST-Token", "required": token_required},
+        "accepted": {
+            "experts": {
+                "endpoint": "POST /api/ingest/experts",
+                "body_key": "experts",
+                "schema": schemas.ExternalExpert.model_json_schema(),
+            },
+            "papers": {
+                "endpoint": "POST /api/ingest/papers",
+                "body_key": "papers",
+                "schema": schemas.ExternalPaper.model_json_schema(),
+            },
+        },
+        "reserved": {
+            "projects": {
+                "schema": schemas.ProjectRecord.model_json_schema(),
+                "status": "结构已预留（查重/谱系/统计），接收端点未启用",
+            },
+            "integrity_records": {
+                "schema": schemas.IntegrityRecord.model_json_schema(),
+                "status": "结构已预留（风险提示），接收端点未启用",
+            },
+            "policy_meta": {
+                "schema": schemas.PolicyMeta.model_json_schema(),
+                "status": "结构已预留（版本化合规），接收端点未启用",
+            },
+        },
+    }
 
 
 @app.delete("/api/papers/sample")
