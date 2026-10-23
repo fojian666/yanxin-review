@@ -1,0 +1,171 @@
+import { AnimatePresence, motion } from "framer-motion";
+import { FileText, UploadCloud, X } from "lucide-react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
+import { api } from "../api";
+import { useApp } from "../AppContext";
+
+export function UploadModal() {
+  const { uploadOpen, setUploadOpen, uploadSeedFile, clearUploadSeed, refreshDocs, refreshPapers, toast } = useApp();
+  const [file, setFile] = useState<File | null>(null);
+  const [kind, setKind] = useState("auto");
+  const [year, setYear] = useState("");
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!uploadOpen) return;
+    setFile(uploadSeedFile ?? null);
+    setKind("auto");
+    setYear("");
+    setTitle("");
+    setBusy(false);
+    setDragging(false);
+    clearUploadSeed();
+    // Only initialize when the modal opens; the seed is consumed once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadOpen]);
+
+  const pickFile = (picked: File | null | undefined) => {
+    if (!picked) return;
+    const suffix = (picked.name.split(".").pop() || "").toLowerCase();
+    if (!["docx", "pdf", "txt", "md"].includes(suffix)) {
+      toast("仅支持 DOCX / PDF / TXT / MD", "error");
+      return;
+    }
+    if (picked.size > 30 * 1024 * 1024) {
+      toast("文件超过 30MB", "error");
+      return;
+    }
+    setFile(picked);
+  };
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    pickFile(event.dataTransfer.files?.[0]);
+  };
+
+  const submit = async () => {
+    if (!file) {
+      toast("请先选择文件", "error");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await api.uploadDocument(file, { kind, year, title });
+      await Promise.all([refreshDocs(), refreshPapers()]);
+      toast(result.warning || "文档已上传并建立索引");
+      setUploadOpen(false);
+    } catch (err) {
+      toast(`上传失败：${(err as Error).message}`, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {uploadOpen && (
+        <motion.div
+          className="modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="modal-backdrop" onClick={() => !busy && setUploadOpen(false)} />
+          <motion.div
+            className="modal-card"
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow">UPLOAD</div>
+                <h2>上传文档</h2>
+              </div>
+              <button className="icon-btn" onClick={() => setUploadOpen(false)} aria-label="关闭">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              className={`modal-drop ${dragging ? "dragover" : ""}`}
+              onClick={() => inputRef.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+            >
+              <div className="drop-icon small">
+                {file ? <FileText size={22} /> : <UploadCloud size={22} />}
+              </div>
+              <p>{file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : "点击选择或拖拽 DOCX / PDF / TXT"}</p>
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".docx,.pdf,.txt,.md"
+                hidden
+                onChange={(event) => pickFile(event.target.files?.[0])}
+              />
+            </div>
+
+            <div className="form-grid">
+              <label className="field">
+                <span>资料类型</span>
+                <select value={kind} onChange={(event) => setKind(event.target.value)}>
+                  <option value="auto">自动判断</option>
+                  <option value="proposal">本子 / 申报书</option>
+                  <option value="policy">政策 / 管理办法</option>
+                  <option value="paper">文献 / 论文</option>
+                  <option value="other">其他资料</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>年份（可选）</span>
+                <input
+                  type="number"
+                  min={1990}
+                  max={2035}
+                  value={year}
+                  onChange={(event) => setYear(event.target.value)}
+                  placeholder="如 2024"
+                />
+              </label>
+              <label className="field span-2">
+                <span>标题（可选）</span>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="留空则自动取文件名或正文首行"
+                />
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setUploadOpen(false)} disabled={busy}>
+                取消
+              </button>
+              <button className="btn btn-primary" onClick={submit} disabled={busy}>
+                {busy ? "解析中…" : "开始解析"}
+              </button>
+            </div>
+            {busy && (
+              <div className="upload-progress">
+                <span />
+                <em>正在解析与建立索引…</em>
+                <div className="upload-bar"><i /></div>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

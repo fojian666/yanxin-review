@@ -1,0 +1,418 @@
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Box,
+  Info,
+  LineChart,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api";
+import { useApp } from "../AppContext";
+import { AnnualChart3D, TopicMatrix3D, TrendBar2D, TrendLine2D } from "../charts/TrendCharts";
+import { KpiCard } from "../components/KpiCard";
+import { Markdown } from "../components/Markdown";
+import { hasWebGL } from "../components/EChart";
+import { EASE, SPRING, staggerContainer, staggerItem } from "../motion";
+import type { TrendData } from "../types";
+
+const CHIPS = ["科研诚信", "大模型", "语义查重", "知识图谱", "专家评审", "成果转化", "自然资源"];
+
+function yearOptions(start: number, end: number) {
+  const from = Math.min(2005, start);
+  const to = Math.max(2035, end);
+  return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+}
+
+export function TrendPage() {
+  const { papers, refreshPapers, toast } = useApp();
+  const [query, setQuery] = useState("科研诚信");
+  const [start, setStart] = useState(2019);
+  const [end, setEnd] = useState(2025);
+  const [data, setData] = useState<TrendData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [view, setView] = useState<"3d" | "2d">("3d");
+  const webgl = useMemo(() => hasWebGL(), []);
+  const initialized = useRef(false);
+  const loadingRef = useRef(false);
+
+  const run = async (q: string, s: number, e: number) => {
+    const topic = q.trim();
+    if (!topic) {
+      toast("请输入一个分析主题", "error");
+      return;
+    }
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setLoading(true);
+    setError("");
+    try {
+      const result = await api.trends(topic, s, e);
+      setData(result);
+      setQuery(topic);
+    } catch (err) {
+      setError((err as Error).message);
+      toast(`趋势分析失败：${(err as Error).message}`, "error");
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!loading) {
+      setShowLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowLoading(true), 280);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    void run("科研诚信", 2019, 2025);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!papers.length) return;
+    const years = papers.map((p) => p.year).filter((y): y is number => Boolean(y));
+    if (!years.length) return;
+    setStart(Math.min(...years));
+    setEnd(Math.max(...years));
+  }, [papers]);
+
+  const options = yearOptions(start, end);
+  const effectiveView = webgl ? view : "2d";
+  const stats = data?.stats;
+  const kpiSignal = data
+    ? `${data.query}|${data.stats.total}|${data.stats.year_start}|${data.stats.year_end}|${data.stats.top_keyword}|${data.stats.growth_pct}`
+    : "empty";
+
+  const clearSamples = async () => {
+    if (!confirm("确定移除所有演示文献？导入的真实文献不受影响。")) return;
+    try {
+      const result = await api.removeSamplePapers();
+      await refreshPapers();
+      toast(`已移除 ${result.removed || 0} 篇演示文献`);
+      await run(query, start, end);
+    } catch (err) {
+      toast(`移除失败：${(err as Error).message}`, "error");
+    }
+  };
+
+  return (
+    <div className="trend-page">
+      <div className="panel trend-hero">
+        <div className="trend-hero-copy">
+          <div className="eyebrow">HISTORICAL EVOLUTION</div>
+          <h2>历史沿革 · 多年文献趋势</h2>
+          <p>
+            不限定主题。输入任何一个方面，系统会筛出相关文献，按年份统计主题热度、发文量，并给出有数据依据的趋势研判。
+          </p>
+        </div>
+        <div className="trend-controls">
+          <div className="search-box">
+            <Search size={18} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void run(query, start, end);
+              }}
+              placeholder="任意方面，如：大模型在科研诚信中的应用"
+            />
+          </div>
+          <div className="year-row">
+            <select value={start} onChange={(event) => setStart(Number(event.target.value))}>
+              {options.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+            <span>—</span>
+            <select value={end} onChange={(event) => setEnd(Number(event.target.value))}>
+              {options.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+            <motion.button
+              className="btn btn-primary"
+              onClick={() => void run(query, start, end)}
+              disabled={showLoading}
+              whileHover={showLoading ? undefined : { y: -1 }}
+              whileTap={showLoading ? undefined : { scale: 0.97 }}
+              transition={{ duration: 0.15, ease: EASE }}
+            >
+              {showLoading ? "分析中…" : "分析趋势"}
+            </motion.button>
+          </div>
+        </div>
+      </div>
+
+      <div className="chips">
+        {CHIPS.map((chip) => (
+          <motion.button
+            key={chip}
+            className={`chip ${query === chip ? "active" : ""}`}
+            onClick={() => {
+              setQuery(chip);
+              void run(chip, start, end);
+            }}
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ duration: 0.14, ease: EASE }}
+          >
+            {chip}
+          </motion.button>
+        ))}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {data?.sample && (
+          <motion.div
+            className="notice"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: EASE }}
+          >
+            <div><strong>演示数据</strong> · 当前趋势图使用合成文献验证功能，不代表真实研究结论。</div>
+            <button className="btn btn-ghost btn-sm" onClick={() => void clearSamples()}>
+              <Trash2 size={14} />
+              移除演示文献
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="panel error-panel"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: EASE }}
+          >
+            <Info size={18} />{error}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="kpi-grid">
+        <KpiCard
+          key={`kpi-total-${kpiSignal}`}
+          label="相关文献"
+          value={stats?.total ?? 0}
+          suffix="篇"
+          sub={`真实 ${stats?.real_count ?? 0} · 演示 ${stats?.sample_count ?? 0}`}
+          tone="teal"
+          delay={0}
+        />
+        <KpiCard
+          key={`kpi-years-${kpiSignal}`}
+          label="年份跨度"
+          value={stats ? `${stats.year_start}—${stats.year_end}` : "—"}
+          sub="按发表年份统计"
+          delay={0.05}
+        />
+        <KpiCard
+          key={`kpi-topic-${kpiSignal}`}
+          label="最热主题"
+          value={stats?.top_keyword || "—"}
+          sub="出现频次最高的主题词"
+          tone="gold"
+          delay={0.1}
+        />
+        <KpiCard
+          key={`kpi-growth-${kpiSignal}`}
+          label="年度变化"
+          value={stats?.growth_pct == null ? "新增" : `${stats.growth_pct > 0 ? "+" : ""}${stats.growth_pct}%`}
+          sub={`首年 ${stats?.first_year_count ?? 0} 篇 → 末年 ${stats?.last_year_count ?? 0} 篇`}
+          delay={0.15}
+        />
+      </div>
+
+      <div className="trend-toolbar">
+        <div>
+          <span className={`live-dot ${showLoading ? "loading" : ""}`} />
+          趋势视图
+          <span className="muted"> · 3D 可拖拽旋转 · 滚轮滚动页面 / 2D 便于读数</span>
+        </div>
+        <div className="view-toggle">
+          <motion.span
+            className="view-pill"
+            animate={{ x: effectiveView === "3d" ? "0%" : "100%" }}
+            transition={SPRING}
+          />
+          <button
+            className={effectiveView === "3d" ? "active" : ""}
+            onClick={() => webgl && setView("3d")}
+            disabled={!webgl}
+            title={webgl ? "3D 视图" : "当前浏览器不支持 WebGL"}
+          >
+            <Box size={14} /><span>3D</span>
+          </button>
+          <button
+            className={effectiveView === "2d" ? "active" : ""}
+            onClick={() => setView("2d")}
+          >
+            <LineChart size={14} /><span>2D</span>
+          </button>
+        </div>
+      </div>
+
+      {data ? (
+        <>
+          <div className="trend-grid three-d">
+            <div className="panel chart-panel chart-dark">
+              <div className="panel-head">
+                <div>
+                  <h2>年度发文量</h2>
+                  <p>{effectiveView === "3d" ? "3D 立体柱 · 自动旋转" : "相关文献的年份分布"}</p>
+                </div>
+                <span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>
+                  {effectiveView === "3d" ? "LIVE 3D" : "2D"}
+                </span>
+              </div>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={effectiveView}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: EASE }}
+                >
+                  {effectiveView === "3d" ? <AnnualChart3D data={data} /> : <TrendBar2D data={data} />}
+                </motion.div>
+              </AnimatePresence>
+              {showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}
+            </div>
+            <div className="panel chart-panel chart-dark">
+              <div className="panel-head">
+                <div>
+                  <h2>主题热度矩阵</h2>
+                  <p>{effectiveView === "3d" ? "主题 × 年份 × 文献数 · 可旋转" : "按年度统计主题出现次数"}</p>
+                </div>
+                <span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>
+                  {effectiveView === "3d" ? "3D MATRIX" : "2D"}
+                </span>
+              </div>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={effectiveView}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: EASE }}
+                >
+                  {effectiveView === "3d" ? <TopicMatrix3D data={data} /> : <TrendLine2D data={data} />}
+                </motion.div>
+              </AnimatePresence>
+              {showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}
+            </div>
+          </div>
+
+          <motion.div
+            className="panel summary-panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.26, ease: EASE }}
+          >
+            <div className="panel-head">
+              <div>
+                <h2>AI 趋势研判</h2>
+                <p>基于当前文献集合统计生成，不替代文献综述</p>
+              </div>
+              <span className={`mode-badge ${data.mode === "qwen" ? "online" : ""}`}>
+                {data.mode === "qwen" ? "千问生成" : "规则摘要"}
+              </span>
+            </div>
+            <motion.div
+              key={`summary-${data.query}-${data.mode}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.24, ease: EASE }}
+            >
+            <Markdown content={data.summary || "暂无趋势摘要。"} className="summary-body" />
+            {data.top_keywords_by_year.length > 0 && (
+              <motion.div
+                className="year-topic-grid"
+                key={`topics-${data.query}`}
+                variants={staggerContainer}
+                initial="initial"
+                animate="animate"
+              >
+                {data.top_keywords_by_year
+                  .filter((x) => x.keywords.length > 0)
+                  .map((item) => (
+                    <motion.div className="year-topic" key={item.year} variants={staggerItem}>
+                      <div className="year-topic-year">{item.year}</div>
+                      <div className="year-topic-chips">
+                        {item.keywords.map((kw) => (
+                          <span key={kw.name}>{kw.name} <em>{kw.count}</em></span>
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+              </motion.div>
+            )}
+            </motion.div>
+          </motion.div>
+
+          <div className="panel">
+            <div className="panel-head">
+              <div>
+                <h2>代表性文献</h2>
+                <p>与当前主题最相关的文献，可回到原文核对</p>
+              </div>
+              <span className="muted">{data.papers.length ? `展示前 ${data.papers.length} 篇` : ""}</span>
+            </div>
+            <motion.div
+              className="paper-list"
+              key={`papers-${data.query}-${data.stats.total}`}
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
+              {data.papers.length === 0 ? (
+                <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
+                  <p>没有匹配的文献。可以换一个主题词，或在文档库导入真实文献 CSV。</p>
+                </div>
+              ) : (
+                data.papers.map((paper, index) => (
+                  <motion.div
+                    className="paper-card"
+                    key={`${paper.id}-${index}`}
+                    variants={staggerItem}
+                    whileHover={{ y: -2 }}
+                  >
+                    <div className="paper-year">
+                      {paper.year} {paper.is_sample && <span className="badge-sample">演示</span>}
+                    </div>
+                    <div className="paper-title">{paper.title}</div>
+                    <div className="paper-meta">{paper.keywords}</div>
+                  </motion.div>
+                ))
+              )}
+            </motion.div>
+          </div>
+        </>
+      ) : (
+        <div className="panel skeleton-panel">
+          <div className="skeleton skeleton-title" />
+          <div className="skeleton-grid">
+            <div className="skeleton" />
+            <div className="skeleton" />
+          </div>
+        </div>
+      )}
+
+      {!webgl && (
+        <div className="webgl-note">
+          <Info size={15} />
+          当前浏览器未启用 WebGL，已自动使用 2D 图表；3D 视图在支持 WebGL 的浏览器中可用。
+        </div>
+      )}
+    </div>
+  );
+}

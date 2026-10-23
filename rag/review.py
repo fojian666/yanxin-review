@@ -1,0 +1,408 @@
+from __future__ import annotations
+
+import json
+import re
+from datetime import datetime
+from typing import Any
+
+from . import db
+from .llm import LLMError, llm
+from .retrieval import retriever
+from .text import truncate
+
+REQUIRED_SECTIONS = [
+    {"key": "background", "label": "立项背景与研究目标", "terms": ["立项背景", "研究背景", "研究目标", "研究意义"], "core": True},
+    {"key": "content", "label": "研究内容", "terms": ["研究内容", "主要研究内容"], "core": True},
+    {"key": "method", "label": "研究方法与技术路线", "terms": ["研究方法", "技术路线", "研究路线"], "core": True},
+    {"key": "innovation", "label": "创新点与特色", "terms": ["创新点", "创新之处", "特色与创新", "创新性"], "core": False},
+    {"key": "indicators", "label": "考核指标与预期成果", "terms": ["考核指标", "预期成果", "成果形式", "提交成果"], "core": True},
+    {"key": "budget", "label": "经费预算", "terms": ["经费预算", "经费测算", "预算"], "core": False},
+    {"key": "team", "label": "研究基础与团队分工", "terms": ["研究基础", "承担单位", "主要研究人员", "人员分工", "团队"], "core": False},
+    {"key": "integrity", "label": "科研诚信与数据安全", "terms": ["科研诚信", "学术不端", "科研伦理", "科技伦理", "数据安全", "保密", "知识产权", "利益冲突"], "core": True},
+]
+
+INTEGRITY_TERMS = ["科研诚信", "学术不端", "科研伦理", "科技伦理", "数据安全", "保密", "知识产权", "利益冲突"]
+
+DISCLAIMER = "本报告由 AI 基于上传文档自动生成，仅作为形式检查与评审辅助参考，不构成立项、资助、处罚结论，须经专家和管理人员复核。"
+
+
+def _find_evidence(text: str, terms: list[str]) -> str:
+    for term in terms:
+        for line in text.splitlines():
+            if term in line and len(line.strip()) > 2:
+                return truncate(line.strip(), 160)
+    return ""
+
+
+def _map_status(value: str, default: str = "warn") -> str:
+    s = (value or "").strip().lower()
+    if s in {"pass", "ok", "通过", "符合", "低", "low", "无风险"}:
+        return "pass"
+    if s in {"warn", "warning", "关注", "存疑", "中", "medium", "一般"}:
+        return "warn"
+    if s in {"fail", "risk", "不通过", "不符合", "高", "high", "风险"}:
+        return "fail"
+    return default
+
+
+def _overall_status(items: list[dict]) -> str:
+    statuses = [i.get("status") for i in items]
+    if "fail" in statuses:
+        return "fail"
+    if "warn" in statuses:
+        return "warn"
+    return "pass"
+
+
+def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], policy_cites: list[dict]) -> tuple[list[dict], list[str]]:
+    completeness_items = []
+    questions: list[str] = []
+    for sec in REQUIRED_SECTIONS:
+        found = [t for t in sec["terms"] if t in text]
+        status = "pass" if found else ("fail" if sec["core"] else "warn")
+        completeness_items.append(
+            {
+                "label": sec["label"],
+                "status": status,
+                "detail": f"已识别：{'、'.join(found[:3])}" if found else "未在文档中识别到对应章节或表述",
+                "evidence": _find_evidence(text, sec["terms"]),
+            }
+        )
+        if not found:
+            if sec["key"] == "innovation":
+                questions.append("请补充与已有研究/同类项目相比的差异化创新点，并说明可验证的创新依据。")
+            elif sec["key"] == "indicators":
+                questions.append("请补充可量化、可验收的考核指标，并说明与研究内容的一一对应关系。")
+            elif sec["key"] == "budget":
+                questions.append("请补充经费测算依据，说明与研究任务、考核指标的匹配关系。")
+            elif sec["key"] == "integrity":
+                questions.append("请补充科研诚信、数据安全、伦理审查与知识产权归属的承诺和具体措施。")
+            elif sec["key"] == "background":
+                questions.append("请补充立项背景、问题指向与研究目标的对应关系。")
+            elif sec["key"] == "method":
+                questions.append("请补充技术路线的关键节点、数据来源、方法选择和风险预案。")
+
+    integrity_items = []
+    found_integrity = [t for t in INTEGRITY_TERMS if t in text]
+    integrity_items.append(
+        {
+            "label": "科研诚信与数据安全表述",
+            "status": "pass" if found_integrity else "warn",
+            "detail": f"已识别：{'、'.join(found_integrity[:4])}" if found_integrity else "未识别到科研诚信/数据安全/伦理/知识产权相关表述",
+            "evidence": _find_evidence(text, INTEGRITY_TERMS),
+        }
+    )
+    has_refs = ("参考文献" in text) or bool(re.search(r"\[\d{1,3}\]", text))
+    integrity_items.append(
+        {
+            "label": "参考文献与引用规范",
+            "status": "pass" if has_refs else "warn",
+            "detail": "已识别参考文献或编号引用" if has_refs else "未识别到参考文献或编号引用，建议补充以支撑立项依据",
+            "evidence": "参考文献" if "参考文献" in text else "",
+        }
+    )
+    integrity_items.append(
+        {
+            "label": "文档完整性",
+            "status": "pass" if len(text) >= 1500 else "fail",
+            "detail": f"共 {len(text)} 字、{len(text.splitlines())} 个文本段落" + ("，内容偏短，可能解析不完整" if len(text) < 1500 else ""),
+            "evidence": "",
+        }
+    )
+
+    duplicate_items = []
+    for m in duplicate_matches:
+        sim = float(m.get("similarity") or 0)
+        if sim < 0.25:
+            continue
+        duplicate_items.append(
+            {
+                "label": f"与《{m.get('matched_doc_name','')}》存在相似内容",
+                "status": "fail" if sim >= 0.55 else "warn",
+                "detail": f"最高段落相似度 {sim:.2f}；需人工判断是合理引用、同一团队延续研究还是重复申报。",
+                "evidence": f"本子：{truncate(m.get('source_snippet',''), 120)}｜比对：{truncate(m.get('matched_snippet',''), 120)}",
+            }
+        )
+    if not duplicate_items:
+        duplicate_items.append(
+            {
+                "label": "未发现高相似历史文档",
+                "status": "pass",
+                "detail": "在当前已入库文档范围内未发现相似度超过阈值的段落；入库范围越大，查重越有效。",
+                "evidence": "",
+            }
+        )
+
+    policy_items = []
+    if policy_cites:
+        for c in policy_cites[:3]:
+            policy_items.append(
+                {
+                    "label": f"政策依据：《{c.get('doc_name','')}》",
+                    "status": "warn",
+                    "detail": "已检索到可能相关的政策条款，需人工核对适用版本与具体条款。",
+                    "evidence": truncate(c.get("text", ""), 180),
+                }
+            )
+    else:
+        policy_items.append(
+            {
+                "label": "政策库未接入",
+                "status": "warn",
+                "detail": "当前未上传政策文件，仅做通用完整性检查；上传政策库后可启用条款级合规比对。",
+                "evidence": "",
+            }
+        )
+
+    sections = [
+        {"key": "completeness", "title": "形式完整性", "status": _overall_status(completeness_items), "items": completeness_items},
+        {"key": "integrity", "title": "科研诚信与规范性", "status": _overall_status(integrity_items), "items": integrity_items},
+        {"key": "duplicate", "title": "语义查重", "status": _overall_status(duplicate_items), "items": duplicate_items},
+        {"key": "policy", "title": "政策合规", "status": _overall_status(policy_items), "items": policy_items},
+    ]
+    generic_questions = [
+        "研究内容、考核指标与经费预算之间是否形成清晰的对应关系？",
+        "技术路线的关键节点、数据来源和风险预案是否明确、可执行？",
+        "预期成果的署名、知识产权归属和转化路径是否清晰？",
+    ]
+    for q in generic_questions:
+        if q not in questions:
+            questions.append(q)
+    return sections, questions[:6]
+
+
+def _risk_level(sections: list[dict]) -> str:
+    statuses = [s.get("status") for s in sections]
+    if "fail" in statuses:
+        return "高"
+    if "warn" in statuses:
+        return "中"
+    return "低"
+
+
+def _summary(doc: dict, text: str, sections: list[dict], questions: list[str]) -> str:
+    fail = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "fail")
+    warn = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "warn")
+    passed = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "pass")
+    return (
+        f"文档《{doc['name']}》共 {len(text)} 字。本次预审共检查 {passed + warn + fail} 项："
+        f"通过 {passed} 项、需关注 {warn} 项、风险 {fail} 项；"
+        f"形成 {len(questions)} 个建议向申报人/评审专家核实的问题。"
+    )
+
+
+def _select_llm_chunks(chunks: list[dict], limit: int = 10) -> list[dict]:
+    if len(chunks) <= limit:
+        return chunks
+    key_terms = [t for sec in REQUIRED_SECTIONS for t in sec["terms"]]
+    selected: list[dict] = []
+    for c in chunks:
+        section = c.get("section") or ""
+        if any(t in section for t in key_terms):
+            selected.append(c)
+        if len(selected) >= limit - 2:
+            break
+    for c in chunks:
+        if c not in selected:
+            selected.append(c)
+        if len(selected) >= limit:
+            break
+    return selected[:limit]
+
+
+def _build_llm_prompt(doc: dict, text: str, chunks: list[dict], duplicate_matches: list[dict], policy_cites: list[dict]) -> list[dict]:
+    selected = _select_llm_chunks(chunks)
+    context = "\n\n".join(
+        f"【本子片段{i}】{c.get('section') or '正文'}\n{truncate(c.get('text',''), 900)}"
+        for i, c in enumerate(selected, 1)
+    )
+    dup_text = "；".join(
+        f"与《{m.get('matched_doc_name','')}》相似度 {m.get('similarity',0):.2f}"
+        for m in duplicate_matches[:3]
+        if float(m.get("similarity") or 0) >= 0.25
+    ) or "未发现高相似文档"
+    policy_text = "\n".join(
+        f"《{c.get('doc_name','')}》{truncate(c.get('text',''), 500)}" for c in policy_cites[:3]
+    ) or "未提供政策库"
+    system = """你是科研项目评审辅助专家。请对申报书做预审，只输出合法 JSON，不要 Markdown 代码块，不要额外解释。
+严格依据提供的本子内容和政策资料，不编造条款、数据或结论；不给出立项结论和评分。
+每个判断必须给出 evidence（原文摘录或“未识别到”）。"""
+    user = f"""申报书名称：{doc['name']}
+文档字数：{len(text)}
+
+【本子内容】
+{context}
+
+【系统查重结果】
+{dup_text}
+
+【政策资料】
+{policy_text}
+
+请输出如下 JSON 结构：
+{{
+  "summary": "150字以内的总体判断",
+  "risk_level": "低|中|高",
+  "sections": [
+    {{
+      "key": "completeness",
+      "title": "形式完整性",
+      "status": "pass|warn|fail",
+      "items": [
+        {{"label": "检查项", "status": "pass|warn|fail", "detail": "判断说明", "evidence": "原文摘录或未识别到"}}
+      ]
+    }},
+    {{
+      "key": "integrity",
+      "title": "科研诚信与规范性",
+      "status": "pass|warn|fail",
+      "items": []
+    }},
+    {{
+      "key": "policy",
+      "title": "政策合规",
+      "status": "pass|warn|fail",
+      "items": []
+    }}
+  ],
+  "questions": ["建议向申报人或评审专家核实的问题"]
+}}
+
+检查要求：形式完整性关注立项背景、研究内容、方法/技术路线、创新点、考核指标、经费预算、团队分工；诚信与规范性关注科研诚信、数据安全、伦理、知识产权、参考文献；政策合规仅在提供了政策资料时做条款级判断，否则说明“政策库未接入”。查重由系统完成，不要编造查重结果。"""
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def _parse_llm_json(text: str) -> dict | None:
+    text = (text or "").strip()
+    if not text:
+        return None
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        return json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
+def review_document(doc_id: str) -> dict:
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise ValueError("文档不存在")
+    chunks = db.get_chunks(doc_id)
+    text = "\n".join(c["text"] for c in chunks)
+    if not text.strip():
+        raise ValueError("文档没有可用文本，可能解析失败或为扫描件；请上传可复制文本的文件")
+
+    duplicate_matches = retriever.similarity_between_docs(doc_id, top_k=5)
+    policy_docs = [d for d in db.list_documents() if d.get("kind") == "policy"]
+    policy_cites: list[dict] = []
+    if policy_docs:
+        policy_cites = retriever.search(
+            "科研诚信 项目管理 评审 合规 经费 数据安全 知识产权",
+            scope=[d["id"] for d in policy_docs],
+            top_k=4,
+        )
+
+    sections, questions = _heuristic_sections(text, doc, duplicate_matches, policy_cites)
+    summary = _summary(doc, text, sections, questions)
+    if not policy_docs:
+        summary += " 政策库尚未接入，政策合规项仅作提示，未计入风险等级。"
+    risk_sections = [
+        s for s in sections if not (s.get("key") == "policy" and not policy_docs)
+    ]
+    risk = _risk_level(risk_sections)
+    mode = "offline"
+    warning = ""
+
+    if llm.configured:
+        try:
+            raw = llm.chat(
+                _build_llm_prompt(doc, text, chunks, duplicate_matches, policy_cites),
+                temperature=0.1,
+                max_tokens=1800,
+            )
+            parsed = _parse_llm_json(raw)
+            if parsed and isinstance(parsed.get("sections"), list):
+                llm_sections = []
+                for sec in parsed["sections"]:
+                    if not isinstance(sec, dict):
+                        continue
+                    items = []
+                    for item in sec.get("items") or []:
+                        if not isinstance(item, dict):
+                            continue
+                        items.append(
+                            {
+                                "label": str(item.get("label") or "检查项"),
+                                "status": _map_status(item.get("status")),
+                                "detail": str(item.get("detail") or ""),
+                                "evidence": str(item.get("evidence") or ""),
+                            }
+                        )
+                    if items:
+                        llm_sections.append(
+                            {
+                                "key": str(sec.get("key") or "custom"),
+                                "title": str(sec.get("title") or "检查项"),
+                                "status": _map_status(sec.get("status"), _overall_status(items)),
+                                "items": items,
+                            }
+                        )
+                if llm_sections:
+                    existing = {s["key"] for s in llm_sections}
+                    duplicate_section = next((s for s in sections if s["key"] == "duplicate"), None)
+                    if duplicate_section and "duplicate" not in existing:
+                        llm_sections.append(duplicate_section)
+                    sections = llm_sections
+                    summary = str(parsed.get("summary") or summary).strip()
+                    section_risk = _risk_level(sections)
+                    risk = _max_risk(_map_risk(parsed.get("risk_level"), section_risk), section_risk)
+                    llm_questions = [str(q).strip() for q in (parsed.get("questions") or []) if str(q).strip()]
+                    if llm_questions:
+                        questions = llm_questions[:8]
+                    mode = "qwen"
+        except LLMError as exc:
+            warning = f"千问调用失败，已使用规则预审：{exc}"
+        except Exception as exc:
+            warning = f"千问结果解析失败，已使用规则预审：{exc}"
+
+    return {
+        "doc": {
+            "id": doc["id"],
+            "name": doc["name"],
+            "kind": doc.get("kind"),
+            "year": doc.get("year"),
+            "char_count": len(text),
+            "chunk_count": len(chunks),
+        },
+        "overall": {
+            "summary": summary,
+            "risk_level": risk,
+            "checked_items": sum(len(s.get("items", [])) for s in sections),
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
+        },
+        "sections": sections,
+        "duplicate": {"matches": duplicate_matches[:3]},
+        "questions": questions,
+        "mode": mode,
+        "warning": warning,
+        "disclaimer": DISCLAIMER,
+    }
+
+
+def _max_risk(a: str, b: str) -> str:
+    order = {"低": 1, "中": 2, "高": 3}
+    return a if order.get(a, 0) >= order.get(b, 0) else b
+
+
+def _map_risk(value: Any, default: str) -> str:
+    s = str(value or "").strip().lower()
+    if s in {"低", "low", "1"}:
+        return "低"
+    if s in {"中", "medium", "2"}:
+        return "中"
+    if s in {"高", "high", "3"}:
+        return "高"
+    return default

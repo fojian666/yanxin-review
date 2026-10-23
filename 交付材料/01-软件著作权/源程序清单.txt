@@ -1,0 +1,43 @@
+源程序清单（首期原型）
+生成时间：2026-10-23
+
+后端（Python）
+       1 rag/__init__.py
+      72 rag/config.py
+     141 rag/llm.py
+     152 rag/retrieval.py
+     184 rag/qa.py
+     207 rag/parsers.py
+     254 rag/seed.py
+     284 rag/text.py
+     285 rag/trends.py
+     300 rag/experts.py
+     306 rag/db.py
+     408 rag/review.py
+     422 app.py
+    3016 total
+
+前端（TypeScript/TSX/CSS）
+       1 frontend/src/echarts-gl.d.ts
+      10 frontend/src/main.tsx
+      18 frontend/src/components/EmptyState.tsx
+      18 frontend/src/components/StatusPill.tsx
+      39 frontend/src/motion.ts
+      49 frontend/src/components/EChart.tsx
+      61 frontend/src/components/Topbar.tsx
+      71 frontend/src/components/Sidebar.tsx
+      76 frontend/src/App.tsx
+      81 frontend/src/components/Markdown.tsx
+      84 frontend/src/components/KpiCard.tsx
+     152 frontend/src/AppContext.tsx
+     160 frontend/src/api.ts
+     171 frontend/src/components/UploadModal.tsx
+     242 frontend/src/types.ts
+     255 frontend/src/pages/LibraryPage.tsx
+     331 frontend/src/charts/TrendCharts.tsx
+     348 frontend/src/pages/ReviewPage.tsx
+     418 frontend/src/pages/TrendPage.tsx
+     448 frontend/src/pages/ChatPage.tsx
+     451 frontend/src/pages/MatchPage.tsx
+     832 frontend/src/styles.css
+    4316 total
