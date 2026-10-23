@@ -53,9 +53,10 @@ cp .env.example .env        # 可选：填入千问配置
 
 1. 创建 `data/app.db` 与 `data/uploads/`；
 2. 把当前目录的课题申请书 `3.科研课题申请书（终稿）.docx` 作为“示例本子”入库（该文件含个人信息，**未纳入版本库**；clone 后如需示例本子，请自行放入项目根目录，下次启动会自动入库）；
-3. 写入 42 篇合成演示文献，用于验证趋势功能。
+3. 写入 42 篇合成演示文献，用于验证趋势功能；
+4. 写入 12 位合成演示专家（`is_sample=1`），用于验证专家匹配。
 
-不需要演示数据时，在 `.env` 中设置 `SEED_SAMPLE_DOC=0`、`SEED_DEMO_PAPERS=0`，或在界面中删除示例本子、点击“移除演示文献”。
+不需要演示数据时，在 `.env` 中设置 `SEED_SAMPLE_DOC=0`、`SEED_DEMO_PAPERS=0`，或在界面中删除示例本子、点击“移除演示文献”；演示专家无环境变量开关、首次启动会无条件写入，可在“查重匹配”页点击“移除演示专家”一键清理。
 
 ---
 
@@ -244,7 +245,7 @@ QWEN_MODEL=qwen2.5:7b
 |---|---|
 | React 19 + TypeScript | 组件化 UI |
 | Vite 6 | 开发服务器与生产构建 |
-| React Router 6 | 页面路由（`/chat`、`/trend`、`/review`、`/library`） |
+| React Router 6 | 页面路由（`/chat`、`/trend`、`/match`、`/review`、`/library`） |
 | ECharts 5.6 + ECharts GL 2.0 | 2D/3D 图表 |
 | Framer Motion 12 | 页面、卡片、风险环动画 |
 | Lucide React | 图标 |
@@ -351,7 +352,7 @@ QWEN_MODEL=qwen2.5:7b
 回归测试（无需前端构建，纯后端）：
 
 ```bash
-python3 -m pytest tests/ -q          # 8 passed
+python3 -m pytest tests/ -q          # 18 passed
 ```
 
 `tests/test_robustness.py` 覆盖的加固点：
