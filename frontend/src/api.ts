@@ -60,11 +60,6 @@ export const api = {
   health: () => request<Health>("/health"),
   documents: () => request<{ documents: DocItem[] }>("/documents"),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
-  chat: (question: string, history: ChatHistoryItem[], scope: string[]) =>
-    request<{ answer: string; citations: Citation[]; mode: string; warning: string }>(
-      "/chat",
-      jsonOptions({ question, history, scope })
-    ),
   review: (docId: string) =>
     request<ReviewReport>("/review", jsonOptions({ doc_id: docId })),
   trends: (query: string, startYear: number, endYear: number) =>
