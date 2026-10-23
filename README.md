@@ -156,6 +156,22 @@ QWEN_MODEL=qwen2.5:7b
 
 也支持 `title,year,authors,venue,abstract,keywords`。关键词用 `;`、`,`、`、` 分隔均可。重复导入相同文献（标题+年份一致）会自动跳过，接口返回 `count`（新增）与 `skipped`（跳过）。
 
+### 外部系统推送（预留接口）
+
+当前文献/专家/示例本子均为**演示数据**。真实数据接入已预留三种路径：
+
+| 路径 | 状态 | 说明 |
+|---|---|---|
+| CSV 导入 | 已有 | 界面人工批量导入（本文档上文） |
+| JSON 推送 `/api/ingest/*` | 已实现 | 外部系统直接推送，幂等去重，可重放 |
+| 只读 API 拉取 | 规划中 | 对接省厅科技管理系统（实施方案 §7 数据外挂） |
+
+- `POST /api/ingest/experts`：body `{"experts": [{name, institution, ..., research_areas: [], workload, available}]}`，同名同单位跳过；
+- `POST /api/ingest/papers`：body `{"papers": [{title, year, authors, venue, abstract, keywords: []}]}`，同题同年跳过；
+- `GET /api/ingest/schema`：自描述契约，含字段 JSON Schema、鉴权方式与预留实体，供对接方自查；
+- 鉴权：`.env` 设置 `INGEST_TOKEN` 后，推送接口要求请求头 `X-INGEST-Token` 匹配；未设置时本机演示不鉴权；
+- **预留未启用**：项目/课题（ProjectRecord）、诚信记录（IntegrityRecord）、政策版本（PolicyMeta）的结构已在 `rag/schemas.py` 冻结并通过 `/api/ingest/schema` 公开，存储与接收端点待接入真实数据源后启用。
+
 ### 演示数据说明
 
 42 篇演示文献是**合成的**，仅用于验证趋势图、主题统计和交互，不代表真实研究结论。界面和导出内容均会标注“演示”。导入真实 CSV 后可点击“移除演示文献”。
@@ -257,6 +273,8 @@ QWEN_MODEL=qwen2.5:7b
 ├── rag/
 │   ├── config.py           # 路径、模型、分块参数
 │   ├── db.py               # SQLite 表与读写
+│   ├── schemas.py          # 外部数据接入契约（含预留实体）
+│   ├── ingest.py           # 系统间推送数据写入（幂等）
 │   ├── parsers.py          # DOCX/PDF/TXT/CSV 解析
 │   ├── text.py             # 清洗、分块、关键词
 │   ├── retrieval.py        # TF-IDF 检索与查重
@@ -278,7 +296,9 @@ QWEN_MODEL=qwen2.5:7b
 │   ├── package.json
 │   └── vite.config.ts
 ├── data/                   # 运行时生成：SQLite + 上传文件
+├── tests/                  # pytest 健壮性回归（18 项）
 ├── requirements.txt
+├── requirements-dev.txt
 ├── .env.example
 └── run.sh
 ```
@@ -304,6 +324,9 @@ QWEN_MODEL=qwen2.5:7b
 | POST | `/api/experts/import` | 专家 CSV 导入 |
 | DELETE | `/api/experts/sample` | 移除演示专家 |
 | POST | `/api/tool/check` | 查重 + 专家匹配一体化检查 |
+| POST | `/api/ingest/experts` | 外部系统推送专家（JSON，幂等去重） |
+| POST | `/api/ingest/papers` | 外部系统推送文献（JSON，幂等去重） |
+| GET | `/api/ingest/schema` | 数据接入契约：字段、鉴权、预留实体 |
 
 交互式文档：<http://127.0.0.1:8010/docs>。
 
@@ -321,7 +344,7 @@ QWEN_MODEL=qwen2.5:7b
 - 动效与可访问性：验证导航滑块、页面过渡、3D/2D 交叉淡入、预审步骤进度、聊天跨页持久化；`prefers-reduced-motion` 下 3D 仍可用且无控制台错误。
 - 查重匹配：同文档重复上传识别相似度 0.997；专家库 12 人，按可用/负载/回避过滤后推荐 8 人，排除 2 人；专家 CSV 导入通过。
 - 交付材料：`交付材料/` 下已提供考核指标对照表、软著说明书/源代码说明/申请信息表、本地验证报告初稿、研究报告初稿、论文提纲。
-- 健壮性回归：pytest 15 项通过，覆盖空库趋势、SPA 路径穿越、错误脱敏、top_k 边界、WAL、超长截断、DOCX 脚注解析、文献/专家导入去重、孤儿分块过滤、种子标记入库与旧标记迁移、分块失败清理上传文件、类型内容嗅探。
+- 健壮性回归：pytest 18 项通过，覆盖空库趋势、SPA 路径穿越、错误脱敏、top_k 边界、WAL、超长截断、DOCX 脚注解析、文献/专家导入去重、孤儿分块过滤、种子标记入库与旧标记迁移、分块失败清理上传文件、类型内容嗅探、接入推送幂等、接入令牌条件鉴权、接入契约完整性。
 
 ### 健壮性与测试
 
@@ -356,7 +379,7 @@ python3 -m pytest tests/ -q          # 8 passed
 - 无 OCR；扫描件需先转文本。
 - 当前检索为 TF-IDF，不是向量检索；语义召回能力有限。
 - 3D 图表依赖 WebGL；无 WebGL 自动降级 2D。
-- 已做路由级 code splitting：首屏 JS 约 405KB；3D 趋势页按需加载约 1.66MB（ECharts GL 占比较大）。
+- 已做路由级 code splitting：首屏 JS 约 411KB；3D 趋势页按需加载约 1.66MB（ECharts GL 占比较大）。
 - 预审为规则 + 可选千问，不替代专家评审；查重结果需人工复核。
 - 专家匹配目前是原型：示例专家为合成数据；真实专家库、回避关系和负载数据需接入现有系统或 CSV 授权导入。
 - 正式研究报告、省厅试点验证报告、论文、软著尚未提交；`交付材料/` 中是初稿/模板，不能当作已验收成果。
