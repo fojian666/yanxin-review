@@ -2,7 +2,7 @@ import {
   Eye, EyeOff, FileSearch, Loader2, LogIn, MapPinned,
   ScanSearch, ShieldCheck, TrendingUp, Users,
 } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
 import { useApp } from "../AppContext";
 import type { UserRole } from "../types";
 
@@ -32,11 +32,39 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
     document.title = "登录 · 研信智评";
     nameRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    };
+  }, []);
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const { clientX, clientY } = event;
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      const page = pageRef.current;
+      if (!page) return;
+      const width = window.innerWidth || 1;
+      const height = window.innerHeight || 1;
+      page.style.setProperty("--px", ((clientX / width - 0.5) * 2).toFixed(3));
+      page.style.setProperty("--py", ((clientY / height - 0.5) * 2).toFixed(3));
+    });
+  };
+
+  const resetParallax = () => {
+    pageRef.current?.style.setProperty("--px", "0");
+    pageRef.current?.style.setProperty("--py", "0");
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -64,7 +92,12 @@ export function LoginPage() {
   };
 
   return (
-    <div className="login-page">
+    <div
+      className="login-page"
+      ref={pageRef}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={resetParallax}
+    >
       <svg
           className="login-terrain"
           viewBox="0 0 1440 900"
@@ -93,6 +126,7 @@ export function LoginPage() {
 
         <div className="login-card">
           <div className="login-brand">
+            <span className="login-side-label" aria-hidden="true">自然资源 · 科研诚信</span>
             <div className="login-sheet-meta">
               <span>JIANGSU · NATURAL RESOURCES</span>
               <span>32°03′N · 118°47′E</span>
@@ -104,13 +138,29 @@ export function LoginPage() {
               aria-hidden="true"
             >
               <g className="login-contour-lines">
+                <path pathLength={1} d="M-50 20 C 80 -30, 200 80, 340 10 S 500 60, 470 140" />
                 <path pathLength={1} d="M-50 96 C 70 20, 180 150, 320 70 S 470 130, 430 210" />
                 <path pathLength={1} d="M-50 136 C 80 60, 190 190, 330 110 S 480 170, 440 250" />
                 <path pathLength={1} d="M-50 176 C 90 100, 200 230, 340 150 S 490 210, 450 290" />
                 <path pathLength={1} d="M-70 390 C 50 310, 160 440, 290 370 S 430 430, 430 530" />
                 <path pathLength={1} d="M-70 430 C 60 350, 170 480, 300 410 S 440 470, 440 570" />
                 <path pathLength={1} d="M-70 470 C 70 390, 180 520, 310 450 S 450 510, 450 610" />
+                <path pathLength={1} d="M-60 300 C 80 230, 190 350, 330 280 S 480 340, 450 420" />
+                <path pathLength={1} d="M-60 340 C 90 270, 210 390, 350 320 S 500 380, 460 460" />
+                <path pathLength={1} d="M-60 540 C 70 470, 180 590, 310 520 S 450 580, 450 670" />
+                <path pathLength={1} d="M-60 590 C 80 520, 190 640, 320 570 S 460 630, 460 720" />
+                <path
+                  id="login-active-contour"
+                  className="login-contour-active"
+                  pathLength={1}
+                  d="M-30 250 C 90 170, 210 300, 350 220 S 500 280, 460 360"
+                />
               </g>
+              <circle className="login-survey" r="3.2">
+                <animateMotion dur="16s" begin="0.8s" repeatCount="indefinite">
+                  <mpath href="#login-active-contour" />
+                </animateMotion>
+              </circle>
               <g className="login-contour-peak">
                 <ellipse cx="300" cy="150" rx="86" ry="44" />
                 <ellipse cx="300" cy="150" rx="62" ry="31" />
@@ -123,6 +173,7 @@ export function LoginPage() {
                 <circle cx="96" cy="500" r="2.5" />
               </g>
             </svg>
+            <span className="login-scan" aria-hidden="true" />
 
             <div className="login-seal-wrap">
               <span className="login-seal-ring" aria-hidden="true" />
