@@ -89,9 +89,6 @@ export function TrendPage() {
   const endOptions = yearOptions(start, Math.max(2035, end));
   const effectiveView = webgl ? view : "2d";
   const stats = data?.stats;
-  const kpiSignal = data
-    ? `${data.query}|${data.stats.total}|${data.stats.year_start}|${data.stats.year_end}|${data.stats.top_keyword}|${data.stats.growth_pct}`
-    : "empty";
 
   const clearSamples = async () => {
     if (!confirm("确定移除所有演示文献？导入的真实文献不受影响。")) return;
@@ -203,7 +200,6 @@ export function TrendPage() {
 
       <div className="kpi-grid">
         <KpiCard
-          key={`kpi-total-${kpiSignal}`}
           label="相关文献"
           value={stats?.total ?? 0}
           suffix="篇"
@@ -212,14 +208,12 @@ export function TrendPage() {
           delay={0}
         />
         <KpiCard
-          key={`kpi-years-${kpiSignal}`}
           label="年份跨度"
           value={stats ? `${stats.year_start}—${stats.year_end}` : "—"}
           sub="按发表年份统计"
           delay={0.05}
         />
         <KpiCard
-          key={`kpi-topic-${kpiSignal}`}
           label="最热主题"
           value={stats?.top_keyword || "—"}
           sub="出现频次最高的主题词"
@@ -227,7 +221,6 @@ export function TrendPage() {
           delay={0.1}
         />
         <KpiCard
-          key={`kpi-growth-${kpiSignal}`}
           label="年度变化"
           value={stats?.growth_pct == null ? "新增" : `${stats.growth_pct > 0 ? "+" : ""}${stats.growth_pct}%`}
           sub={`首年 ${stats?.first_year_count ?? 0} 篇 → 末年 ${stats?.last_year_count ?? 0} 篇`}

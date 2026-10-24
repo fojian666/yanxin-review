@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, UploadCloud, X } from "lucide-react";
+import { CheckCircle2, FileText, UploadCloud, X } from "lucide-react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { api } from "../api";
 import { useApp } from "../AppContext";
+import { EASE, prefersReducedMotion } from "../motion";
 
 export function UploadModal() {
   const { health, uploadOpen, setUploadOpen, uploadSeedFile, clearUploadSeed, refreshDocs, refreshPapers, toast } = useApp();
@@ -12,6 +13,7 @@ export function UploadModal() {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [done, setDone] = useState(false);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -27,6 +29,7 @@ export function UploadModal() {
     setTitle("");
     setBusy(false);
     setProgress(0);
+    setDone(false);
     setDragging(false);
     clearUploadSeed();
     // Only initialize when the modal opens; the seed is consumed once.
@@ -119,9 +122,15 @@ export function UploadModal() {
     }
     setBusy(true);
     setProgress(0);
+    setDone(false);
     try {
       const result = await api.uploadDocument(file, { kind, year, title }, setProgress);
+      setProgress(100);
+      setDone(true);
       await Promise.all([refreshDocs(), refreshPapers()]);
+      if (!prefersReducedMotion()) {
+        await new Promise((resolve) => window.setTimeout(resolve, 420));
+      }
       toast(result.warning || "文档已上传并建立索引");
       setUploadOpen(false);
     } catch (err) {
@@ -184,10 +193,34 @@ export function UploadModal() {
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
             >
-              <div className="drop-icon small">
-                {file ? <FileText size={22} /> : <UploadCloud size={22} />}
-              </div>
-              <p>{file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : `点击选择或拖拽 DOCX / PDF / TXT / MD（≤ ${limitMb}MB）`}</p>
+              <AnimatePresence mode="wait" initial={false}>
+                {file ? (
+                  <motion.div
+                    key={`file-${file.name}-${file.size}`}
+                    className="upload-file-state"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.24, ease: EASE }}
+                  >
+                    <div className="drop-icon small"><FileText size={22} /></div>
+                    <strong>{file.name}</strong>
+                    <small>{(file.size / 1024 / 1024).toFixed(1)} MB · 点击可重新选择</small>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    className="upload-file-state"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: EASE }}
+                  >
+                    <div className="drop-icon small"><UploadCloud size={22} /></div>
+                    <p>点击选择或拖拽 DOCX / PDF / TXT / MD（≤ {limitMb}MB）</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <input
                 ref={inputRef}
                 type="file"
@@ -238,15 +271,15 @@ export function UploadModal() {
                 取消
               </button>
               <button className="btn btn-primary" onClick={submit} disabled={busy}>
-                {busy ? (uploading ? `上传中 ${progress}%` : "解析中…") : "开始上传"}
+                {busy ? (done ? "完成" : uploading ? `上传中 ${progress}%` : "解析中…") : "开始上传"}
               </button>
             </div>
             {busy && (
-              <div className="upload-progress" role="status" aria-live="polite">
-                <span />
-                <em>{uploading ? `正在上传 ${progress}%` : "服务器解析与建立索引中…"}</em>
-                <div className={`upload-bar ${uploading ? "determinate" : ""}`}>
-                  <i style={uploading ? { width: `${progress}%` } : undefined} />
+              <div className={`upload-progress ${done ? "done" : ""}`} role="status" aria-live="polite">
+                {done ? <CheckCircle2 size={16} /> : <span />}
+                <em>{done ? "上传完成，正在刷新索引…" : uploading ? `正在上传 ${progress}%` : "服务器解析与建立索引中…"}</em>
+                <div className={`upload-bar ${uploading || done ? "determinate" : ""}`}>
+                  <i style={uploading || done ? { width: `${progress}%` } : undefined} />
                 </div>
               </div>
             )}

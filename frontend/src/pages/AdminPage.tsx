@@ -21,6 +21,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ username: "", password: "", role: "viewer", display_name: "" });
   const [busy, setBusy] = useState(false);
+  const [highlightUser, setHighlightUser] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -45,16 +46,18 @@ export function AdminPage() {
       return;
     }
     setBusy(true);
+    const username = form.username.trim();
     try {
       await api.createUser({
-        username: form.username.trim(),
+        username,
         password: form.password,
         role: form.role,
         display_name: form.display_name.trim(),
       });
-      toast(`已创建用户 ${form.username.trim()}`);
+      toast(`已创建用户 ${username}`);
       setForm({ username: "", password: "", role: "viewer", display_name: "" });
       await load();
+      setHighlightUser(username);
     } catch (err) {
       toast(`创建失败：${(err as Error).message}`, "error");
     } finally {
@@ -86,6 +89,7 @@ export function AdminPage() {
                 {users.filter(Boolean).map((user) => (
                   <motion.tr
                     key={user.username}
+                    className={user.username === highlightUser ? "row-flash" : undefined}
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.23, ease: EASE }}

@@ -1,11 +1,16 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { EASE } from "../motion";
+import { EASE, prefersReducedMotion } from "../motion";
 
 function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
+  const [display, setDisplay] = useState(() => (prefersReducedMotion() ? value : 0));
   const fromRef = useRef(0);
   useEffect(() => {
+    if (prefersReducedMotion()) {
+      fromRef.current = value;
+      setDisplay(value);
+      return;
+    }
     const from = fromRef.current;
     const start = performance.now();
     const duration = 1050;
@@ -39,9 +44,20 @@ interface KpiCardProps {
 }
 
 export function KpiCard({ label, value, suffix, sub, tone = "ink", delay = 0 }: KpiCardProps) {
+  const [flash, setFlash] = useState(false);
+  const previous = useRef(value);
+  useEffect(() => {
+    if (previous.current === value) return;
+    previous.current = value;
+    if (prefersReducedMotion()) return;
+    setFlash(true);
+    const timer = window.setTimeout(() => setFlash(false), 900);
+    return () => window.clearTimeout(timer);
+  }, [value]);
+
   return (
     <motion.div
-      className={`kpi kpi-${tone}`}
+      className={`kpi kpi-${tone} ${flash ? "kpi-flash" : ""}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2, transition: { duration: 0.21, ease: EASE, delay: 0 } }}

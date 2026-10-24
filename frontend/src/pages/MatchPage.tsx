@@ -181,7 +181,6 @@ export function MatchPage() {
     URL.revokeObjectURL(url);
   };
 
-  const signal = result ? `${result.generated_at}-${result.doc.id}` : "empty";
   const duplicate = result?.duplicate;
   const match = result?.match;
 
@@ -227,27 +226,34 @@ export function MatchPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="panel error-panel"><AlertTriangle size={18} />{error}</div>
-      )}
+      <AnimatePresence initial={false}>
+        {error && (
+          <motion.div
+            className="panel error-panel"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: EASE }}
+          >
+            <AlertTriangle size={18} />{error}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="kpi-grid">
         <KpiCard
-          key={`match-high-${signal}`}
           label="最高相似度"
           value={duplicate ? `${Math.round(duplicate.highest * 100)}%` : "—"}
           sub={duplicate ? `高相似 ${duplicate.high_count} · 关注 ${duplicate.watch_count}` : "尚未检查"}
           tone="teal"
         />
         <KpiCard
-          key={`match-dup-${signal}`}
           label="查重命中"
           value={duplicate ? duplicate.matches.length : 0}
           suffix="个"
           sub="仅统计已入库文档"
         />
         <KpiCard
-          key={`match-cand-${signal}`}
           label="候选专家"
           value={match ? match.candidates.length : 0}
           suffix="位"
@@ -255,7 +261,6 @@ export function MatchPage() {
           tone="gold"
         />
         <KpiCard
-          key={`match-excl-${signal}`}
           label="已排除专家"
           value={match ? match.excluded.length : 0}
           suffix="位"
@@ -274,13 +279,29 @@ export function MatchPage() {
               {duplicate ? (duplicate.high_count ? "高风险" : duplicate.watch_count ? "需关注" : "未发现高相似") : "待检查"}
             </span>
           </div>
-          {!result ? (
-            <EmptyState
-              icon={<FileSearch size={38} />}
-              description="运行检查后，这里会显示与已入库文档的相似段落和证据。"
-            />
-          ) : (
-            <div className="match-body">
+          <AnimatePresence mode="wait" initial={false}>
+            {!result ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: EASE }}
+              >
+                <EmptyState
+                  icon={<FileSearch size={38} />}
+                  description="运行检查后，这里会显示与已入库文档的相似段落和证据。"
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`duplicate-${result.generated_at}-${result.doc.id}`}
+                className="match-body"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.28, ease: EASE }}
+              >
               <div className="match-callout">{duplicate?.summary}</div>
               {duplicate?.matches.length ? (
                 <motion.div variants={staggerContainer} initial="initial" animate="animate">
@@ -303,8 +324,9 @@ export function MatchPage() {
               ) : (
                 <EmptyState icon={<CheckCircle2 size={34} />} description="当前已入库文档范围内未发现相似文档；入库范围越大，查重越有效。" />
               )}
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="panel match-panel">
@@ -315,13 +337,29 @@ export function MatchPage() {
             </div>
             <span className="count-badge">{match?.candidates.length ?? 0}</span>
           </div>
-          {!result ? (
-            <EmptyState
-              icon={<Users size={38} />}
-              description="运行检查后，这里会显示候选专家、匹配理由和排除原因。"
-            />
-          ) : (
-            <div className="match-body">
+          <AnimatePresence mode="wait" initial={false}>
+            {!result ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: EASE }}
+              >
+                <EmptyState
+                  icon={<Users size={38} />}
+                  description="运行检查后，这里会显示候选专家、匹配理由和排除原因。"
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`experts-${result.generated_at}-${result.doc.id}`}
+                className="match-body"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.28, ease: EASE }}
+              >
               <div className="match-callout">
                 <strong>申报单位：</strong>{match?.applicant.institutions.join("、") || "未识别"}
                 <br />
@@ -351,8 +389,9 @@ export function MatchPage() {
                   </div>
                 </details>
               ) : null}
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

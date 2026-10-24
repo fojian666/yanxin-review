@@ -4,6 +4,7 @@ import {
   FileSpreadsheet,
   FileText,
   FolderOpen,
+  Loader2,
   MessageSquareText,
   ShieldCheck,
   Trash2,
@@ -28,16 +29,20 @@ export function LibraryPage() {
   const navigate = useNavigate();
   const csvRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const limitMb = health?.upload_limit_mb ?? 30;
 
   const deleteDocument = async (id: string, name: string) => {
     if (!confirm(`确定删除《${name}》及其索引？`)) return;
+    setDeletingId(id);
     try {
       await api.deleteDocument(id);
       await Promise.all([refreshDocs(), refreshPapers()]);
       toast("文档已删除");
     } catch (err) {
       toast(`删除失败：${(err as Error).message}`, "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -145,12 +150,15 @@ export function LibraryPage() {
                 <tr><th>文档</th><th>类型</th><th>年份</th><th>文本块</th><th>状态</th><th>操作</th></tr>
               </thead>
               <tbody>
+                <AnimatePresence initial={false}>
                 {docs.map((doc, index) => (
                   <motion.tr
                     key={doc.id}
+                    layout="position"
                     variants={staggerItem}
                     initial="initial"
                     animate="animate"
+                    exit={{ opacity: 0, transition: { duration: 0.18, delay: 0 } }}
                     transition={{ duration: 0.29, ease: EASE, delay: Math.min(index * 0.035, 0.2) }}
                   >
                     <td>
@@ -183,14 +191,20 @@ export function LibraryPage() {
                           <ShieldCheck size={13} />预审
                         </button>
                         {can("delete-doc") && (
-                        <button className="table-btn danger" onClick={() => void deleteDocument(doc.id, doc.name)}>
-                          <Trash2 size={13} />删除
+                        <button
+                          className="table-btn danger"
+                          onClick={() => void deleteDocument(doc.id, doc.name)}
+                          disabled={deletingId === doc.id}
+                        >
+                          {deletingId === doc.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
+                          {deletingId === doc.id ? "删除中…" : "删除"}
                         </button>
                         )}
                       </div>
                     </td>
                   </motion.tr>
                 ))}
+                </AnimatePresence>
               </tbody>
             </table>
           )}
@@ -250,11 +264,14 @@ export function LibraryPage() {
                 <tr><th>标题</th><th>年份</th><th>关键词</th><th>来源</th></tr>
               </thead>
               <tbody>
+                <AnimatePresence initial={false}>
                 {papers.slice(0, 100).map((paper, index) => (
                   <motion.tr
                     key={paper.id}
+                    layout="position"
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, transition: { duration: 0.16, delay: 0 } }}
                     transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.012, 0.18) }}
                   >
                     <td><div className="doc-title" title={paper.title}>{paper.title}</div></td>
@@ -271,6 +288,7 @@ export function LibraryPage() {
                     </td>
                   </motion.tr>
                 ))}
+                </AnimatePresence>
               </tbody>
             </table>
           )}

@@ -70,7 +70,17 @@ export function Topbar() {
           }
         >
           <span className="status-dot" />
-          {online ? `千问 · ${health?.llm.model}` : "离线演示"}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={online ? `online-${health?.llm.model ?? ""}` : "offline"}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -3 }}
+              transition={{ duration: 0.2, ease: EASE }}
+            >
+              {online ? `千问 · ${health?.llm.model}` : "离线演示"}
+            </motion.span>
+          </AnimatePresence>
         </span>
         {can("upload") && (
           <motion.button
