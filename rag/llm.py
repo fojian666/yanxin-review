@@ -48,13 +48,16 @@ class LLMClient:
         return headers
 
     def _payload(self, messages: list[dict], stream: bool, temperature: float, max_tokens: int) -> dict:
-        return {
+        payload = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
         }
+        if config.LLM_ENABLE_THINKING is not None:
+            payload["enable_thinking"] = config.LLM_ENABLE_THINKING
+        return payload
 
     def chat(
         self,

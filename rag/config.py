@@ -78,6 +78,11 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") not in {"0", "false", "False"}
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1400"))
+# None = 不向服务端发送该参数；False/True = 显式关闭/开启 Qwen3 思考模式
+_thinking = (os.getenv("LLM_ENABLE_THINKING") or "").strip().lower()
+LLM_ENABLE_THINKING: bool | None = (
+    None if not _thinking else _thinking not in {"0", "false", "no"}
+)
 
 # 外部系统数据推送（/api/ingest/*）的令牌；为空时本机原型不鉴权
 INGEST_TOKEN = (os.getenv("INGEST_TOKEN") or "").strip()

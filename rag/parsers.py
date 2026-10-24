@@ -29,6 +29,13 @@ def _check_zip_size(z: zipfile.ZipFile) -> None:
         )
 
 
+def _reject_unsafe_xml(xml: bytes) -> None:
+    """DOCX 正文不需要 DTD/实体声明；出现即视为实体展开攻击。"""
+    head = xml[:65536].lower()
+    if b"<!doctype" in head or b"<!entity" in head:
+        raise ParseError("DOCX 包含不安全的 XML 实体声明，已拒绝解析")
+
+
 def apply_content_limit(parsed: dict, max_chars: int | None = None) -> dict:
     """Cap total parsed text so oversized uploads cannot explode chunking/index.
 
@@ -95,6 +102,7 @@ def _docx_notes_text(z: zipfile.ZipFile) -> list[str]:
             xml = z.read(part)
         except KeyError:
             continue
+        _reject_unsafe_xml(xml)
         try:
             root = ET.fromstring(xml)
         except ET.ParseError:
@@ -116,6 +124,7 @@ def parse_docx(path: Path) -> dict:
         raise
     except Exception as exc:
         raise ParseError(f"无法读取 DOCX：{exc}") from exc
+    _reject_unsafe_xml(xml)
     try:
         root = ET.fromstring(xml)
     except ET.ParseError as exc:

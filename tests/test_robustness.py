@@ -469,6 +469,35 @@ def test_docx_rejects_oversized_uncompressed_content(tmp_path, monkeypatch):
     assert "体积过大" in str(exc.value)
 
 
+def test_docx_rejects_entity_declarations(tmp_path):
+    """正文 XML 不允许 DTD/实体声明，防止实体展开攻击。"""
+    path = tmp_path / "entity.docx"
+    xml = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE foo [<!ENTITY xxe "boom">]>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        "<w:body/></w:document>"
+    )
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("word/document.xml", xml)
+    with pytest.raises(parsers.ParseError) as exc:
+        parsers.parse_docx(path)
+    assert "实体" in str(exc.value)
+
+
+def test_llm_payload_thinking_toggle(monkeypatch):
+    from rag.llm import llm as llm_client
+
+    monkeypatch.setattr(config, "LLM_ENABLE_THINKING", False)
+    payload = llm_client._payload(
+        [{"role": "user", "content": "hi"}], False, 0.1, 100
+    )
+    assert payload["enable_thinking"] is False
+    monkeypatch.setattr(config, "LLM_ENABLE_THINKING", None)
+    payload = llm_client._payload([], False, 0.1, 100)
+    assert "enable_thinking" not in payload
+
+
 def test_clean_history_ignores_non_string_content():
     """history.content 为对象时不能 500。"""
     cleaned = qa._clean_history(
