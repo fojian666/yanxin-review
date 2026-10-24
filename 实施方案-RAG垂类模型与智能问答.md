@@ -588,6 +588,7 @@ flowchart LR
 - 登录与角色（原型）：账号密码（PBKDF2 加盐哈希）+ SQLite 会话 + HttpOnly Cookie；admin/manager/reviewer/viewer 四角色，后端中间件统一拦截、写操作按角色 403，前端按角色隐藏操作；`/admin` 用户管理；生产替换 SSO 时沿用角色模型。
 - 安全加固（P0/P1 审查）：真实申请书默认不入库；演示账号仅本机监听创建 + 自助改密；3D tooltip XSS 转义；DOCX 解压总量上限；回避约束未识别申报人时明确告警；SSE 流式生命周期与结果串档治理；中文输入法回车防误发。
 - 安全加固（P2 审查）：**公网 LLM 端点默认阻止**（`ALLOW_EXTERNAL_LLM` 显式授权，内网判定覆盖 CGNAT/保留网段）；登录失败限速（5 次/300 秒，429+Retry-After）；上传弹窗焦点陷阱与键盘可达。
+- 安全加固（P3–P5 审查）：`/api/experts` 最小权限（viewer 不可读回避画像）；DOCX XML 实体声明直接拒绝；PDF 解析页数上限（`MAX_PDF_PAGES`，默认 2000）；`LLM_ENABLE_THINKING` 三态开关（Qwen3 兼容）；`COOKIE_SECURE` 会话加密传输；ASGI 真实权限矩阵回归（401/403/200）。
 
 **下一轮 4 周（建议）**
 

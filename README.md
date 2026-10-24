@@ -43,6 +43,9 @@
 - 登录后可在“用户管理”页自助改密（`POST /api/auth/password`，改密后所有旧会话失效）；
 - 登录失败限速：同一用户名+IP 连续失败 5 次（窗口 300 秒）返回 429，可配 `LOGIN_MAX_FAILURES` / `LOGIN_WINDOW_SECONDS`；
 - **数据不出内网（代码级强制）**：LLM 端点仅放行回环/内网/内网域名，公网 DashScope/OpenAI 默认阻止（健康检查显示“公网出口已阻止”），确需使用须显式设 `ALLOW_EXTERNAL_LLM=1`；
+- 专家库读取（`GET /api/experts`）限评审专家/科研管理/管理员——访客不可见回避关系与负载画像；
+- Qwen3 思考模式：`LLM_ENABLE_THINKING` 留空不发送（兼容旧服务）、设 0 显式关闭（避免只返回思考内容）、设 1 开启；
+- 解析边界：单文件 30MB、DOCX 解压总量 120MB、PDF 默认只解析前 2000 页（`MAX_PDF_PAGES` 可调，0 为不限）；HTTPS 部署设 `COOKIE_SECURE=1` 强制会话 Cookie 加密传输；
 | `manager` | 科研管理 | 上传/删除文档、导入文献与专家、移除演示数据、外部推送 `/api/ingest/*` |
 | `reviewer` | 评审专家 | 问答、预审、查重匹配、文献趋势；文档库只读 |
 | `viewer` | 访客 | 问答与文献趋势（只读演示） |

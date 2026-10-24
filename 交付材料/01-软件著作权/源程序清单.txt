@@ -1,55 +1,56 @@
 源程序清单（首期原型 V0.3）
-生成时间：2026-10-24（与代码同步重新生成）
+生成时间：2026-10-24（P3–P5 合并后重新生成）
 
 后端（Python）
-612 app.py
+687 app.py
        1 rag/__init__.py
-      75 rag/config.py
-     373 rag/db.py
+     162 rag/config.py
+     386 rag/db.py
      107 rag/schemas.py
-      31 rag/ingest.py
-     263 rag/parsers.py
+      33 rag/ingest.py
+     293 rag/parsers.py
      284 rag/text.py
      153 rag/retrieval.py
-     159 rag/llm.py
-     184 rag/qa.py
-     410 rag/review.py
-     300 rag/experts.py
+     171 rag/llm.py
+     187 rag/qa.py
+     421 rag/review.py
+     329 rag/experts.py
      287 rag/trends.py
-     132 rag/auth.py
-     290 rag/seed.py
-    3661 total
+     205 rag/auth.py
+     333 rag/seed.py
+    4039 total
 前端（TypeScript/TSX/CSS）
-239 frontend/src/api.ts
+261 frontend/src/api.ts
        1 frontend/src/echarts-gl.d.ts
       27 frontend/src/motion.ts
      259 frontend/src/types.ts
-      96 frontend/src/App.tsx
-     257 frontend/src/AppContext.tsx
+     105 frontend/src/App.tsx
+     273 frontend/src/AppContext.tsx
       10 frontend/src/main.tsx
-    1092 frontend/src/styles.css
+    1144 frontend/src/styles.css
      172 frontend/src/pages/AdminPage.tsx
-     464 frontend/src/pages/ChatPage.tsx
+     495 frontend/src/pages/ChatPage.tsx
      262 frontend/src/pages/LibraryPage.tsx
      143 frontend/src/pages/LoginPage.tsx
-     456 frontend/src/pages/MatchPage.tsx
-     352 frontend/src/pages/ReviewPage.tsx
+     459 frontend/src/pages/MatchPage.tsx
+     362 frontend/src/pages/ReviewPage.tsx
      421 frontend/src/pages/TrendPage.tsx
       69 frontend/src/components/EChart.tsx
       18 frontend/src/components/EmptyState.tsx
       49 frontend/src/components/ErrorBoundary.tsx
       84 frontend/src/components/KpiCard.tsx
       81 frontend/src/components/Markdown.tsx
-     130 frontend/src/components/Sidebar.tsx
+     117 frontend/src/components/Sidebar.tsx
       18 frontend/src/components/StatusPill.tsx
-      70 frontend/src/components/Topbar.tsx
-     213 frontend/src/components/UploadModal.tsx
-     332 frontend/src/charts/TrendCharts.tsx
-    5315 total
+     134 frontend/src/components/Topbar.tsx
+     258 frontend/src/components/UploadModal.tsx
+     334 frontend/src/charts/TrendCharts.tsx
+    5556 total
 测试（Python）
-291 tests/test_robustness.py
+754 tests/test_robustness.py
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
-- 登录与角色：rag/auth.py（PBKDF2 认证）、用户管理页 AdminPage.tsx、登录页 LoginPage.tsx；
+- 登录与角色：rag/auth.py（PBKDF2 认证 + 登录限速）、用户管理页 AdminPage.tsx、登录页 LoginPage.tsx；
 - 外部数据接入契约：rag/schemas.py、rag/ingest.py；
+- 解析安全：rag/parsers.py（DOCX 实体防护、PDF 页数上限、解压总量上限）；
 - 提交软著时按本清单导出前后各 30 页源程序（每页约 50 行），页眉标注软件名称/版本号/页码。
