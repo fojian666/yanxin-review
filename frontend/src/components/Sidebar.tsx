@@ -13,8 +13,7 @@ const NAV = [
 ];
 
 export function Sidebar() {
-  const { health, can, sidebarCollapsed, toggleSidebar } = useApp();
-  const online = Boolean(health?.llm.configured);
+  const { can, sidebarCollapsed, toggleSidebar } = useApp();
   const nav = can("admin") ? [...NAV, { to: "/admin", label: "用户管理", icon: UserCog }] : NAV;
 
   // 部分 webview 的 CSS 宽度过渡会冻结布局，改用 rAF 逐帧内联样式补间（每帧强制重排，可靠）
@@ -97,15 +96,6 @@ export function Sidebar() {
       </nav>
 
       <div className="sidebar-foot">
-        <div className={`llm-status ${online ? "online" : ""}`}>
-          <span className="status-dot" />
-          <div>
-            <div className="status-title">{online ? "千问已连接" : "离线演示模式"}</div>
-            <div className="status-sub">
-              {online ? health?.llm.model : "检索式回答 · 可配置千问"}
-            </div>
-          </div>
-        </div>
         <div className="sidebar-note">
           江苏省自然资源科研课题
           <br />

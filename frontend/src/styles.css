@@ -117,7 +117,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .nav-item.active svg { opacity: 1; color: #8be4d2; }
 .sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 6px; }
-.llm-status {
   display: flex; gap: 10px; align-items: flex-start;
   padding: 11px 12px;
   border: 1px solid rgba(255,255,255,.10);
@@ -125,7 +124,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   border-radius: var(--radius);
 }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 4px rgba(178,106,31,.14); flex: 0 0 auto; margin-top: 6px; }
-.llm-status.online .status-dot { background: #39c7a7; box-shadow: 0 0 0 4px rgba(57,199,167,.14); }
 .status-title { font-size: 12px; color: #f2f7f4; }
 .status-sub { font-size: 10.5px; color: rgba(233,242,239,.5); margin-top: 2px; }
 .sidebar-note { font-size: 10.5px; line-height: 1.8; color: rgba(233,242,239,.34); padding-left: 2px; }
@@ -527,8 +525,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   .nav-item { justify-content: center; padding: 12px 0; border-left: 0; border-radius: 4px; }
   .nav-item.active { background: rgba(14, 124, 107, .28); }
   .sidebar-foot { align-items: center; }
-  .llm-status { padding: 10px; justify-content: center; }
-  .llm-status .status-dot { margin: 0; }
   .user-chip { justify-content: center; padding: 8px 4px; }
   .main { margin-left: 76px; }
   .sidebar-toggle { display: none; }
@@ -767,7 +763,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .view-pill { right: auto; }
 .live-dot.loading { animation: livePulse 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .llm-status.online .status-dot, .mode-chip.online .status-dot { animation: none !important; }
 }
 
 

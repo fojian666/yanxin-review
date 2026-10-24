@@ -347,7 +347,6 @@ export function MatchPage() {
                   </div>
                 </details>
               ) : null}
-              <div className="disclaimer">{match?.disclaimer}</div>
             </div>
           )}
         </div>
