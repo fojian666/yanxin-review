@@ -5,14 +5,17 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 
 export function UploadModal() {
-  const { uploadOpen, setUploadOpen, uploadSeedFile, clearUploadSeed, refreshDocs, refreshPapers, toast } = useApp();
+  const { health, uploadOpen, setUploadOpen, uploadSeedFile, clearUploadSeed, refreshDocs, refreshPapers, toast } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [kind, setKind] = useState("auto");
   const [year, setYear] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const limitMb = health?.upload_limit_mb ?? 30;
 
   useEffect(() => {
     if (!uploadOpen) return;
@@ -21,11 +24,27 @@ export function UploadModal() {
     setYear("");
     setTitle("");
     setBusy(false);
+    setProgress(0);
     setDragging(false);
     clearUploadSeed();
     // Only initialize when the modal opens; the seed is consumed once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadOpen]);
+
+  // 对话框无障碍：打开后聚焦卡片、ESC 关闭、锁定背景滚动
+  useEffect(() => {
+    if (!uploadOpen) return;
+    cardRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) setUploadOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [uploadOpen, busy, setUploadOpen]);
 
   const pickFile = (picked: File | null | undefined) => {
     if (!picked) return;
@@ -34,8 +53,8 @@ export function UploadModal() {
       toast("仅支持 DOCX / PDF / TXT / MD", "error");
       return;
     }
-    if (picked.size > 30 * 1024 * 1024) {
-      toast("文件超过 30MB", "error");
+    if (picked.size > limitMb * 1024 * 1024) {
+      toast(`文件超过 ${limitMb}MB`, "error");
       return;
     }
     setFile(picked);
@@ -47,14 +66,25 @@ export function UploadModal() {
     pickFile(event.dataTransfer.files?.[0]);
   };
 
+  // 年份只允许数字、最多 4 位；范围在提交时校验
+  const onYearChange = (value: string) => {
+    setYear(value.replace(/\D/g, "").slice(0, 4));
+  };
+
   const submit = async () => {
     if (!file) {
       toast("请先选择文件", "error");
       return;
     }
+    const y = year.trim();
+    if (y && (+y < 1990 || +y > 2035)) {
+      toast("年份需在 1990–2035 之间", "error");
+      return;
+    }
     setBusy(true);
+    setProgress(0);
     try {
-      const result = await api.uploadDocument(file, { kind, year, title });
+      const result = await api.uploadDocument(file, { kind, year, title }, setProgress);
       await Promise.all([refreshDocs(), refreshPapers()]);
       toast(result.warning || "文档已上传并建立索引");
       setUploadOpen(false);
@@ -64,6 +94,8 @@ export function UploadModal() {
       setBusy(false);
     }
   };
+
+  const uploading = busy && progress < 100;
 
   return (
     <AnimatePresence>
@@ -76,11 +108,16 @@ export function UploadModal() {
         >
           <div className="modal-backdrop" onClick={() => !busy && setUploadOpen(false)} />
           <motion.div
+            ref={cardRef}
             className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="上传文档"
+            tabIndex={-1}
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.34 }}
           >
             <div className="modal-head">
               <div>
@@ -105,7 +142,7 @@ export function UploadModal() {
               <div className="drop-icon small">
                 {file ? <FileText size={22} /> : <UploadCloud size={22} />}
               </div>
-              <p>{file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : "点击选择或拖拽 DOCX / PDF / TXT"}</p>
+              <p>{file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : `点击选择或拖拽 DOCX / PDF / TXT / MD（≤ ${limitMb}MB）`}</p>
               <input
                 ref={inputRef}
                 type="file"
@@ -118,7 +155,7 @@ export function UploadModal() {
             <div className="form-grid">
               <label className="field">
                 <span>资料类型</span>
-                <select value={kind} onChange={(event) => setKind(event.target.value)}>
+                <select value={kind} onChange={(event) => setKind(event.target.value)} disabled={busy}>
                   <option value="auto">自动判断</option>
                   <option value="proposal">本子 / 申报书</option>
                   <option value="policy">政策 / 管理办法</option>
@@ -132,9 +169,11 @@ export function UploadModal() {
                   type="number"
                   min={1990}
                   max={2035}
+                  inputMode="numeric"
                   value={year}
-                  onChange={(event) => setYear(event.target.value)}
+                  onChange={(event) => onYearChange(event.target.value)}
                   placeholder="如 2024"
+                  disabled={busy}
                 />
               </label>
               <label className="field span-2">
@@ -144,6 +183,7 @@ export function UploadModal() {
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="留空则自动取文件名或正文首行"
+                  disabled={busy}
                 />
               </label>
             </div>
@@ -153,14 +193,16 @@ export function UploadModal() {
                 取消
               </button>
               <button className="btn btn-primary" onClick={submit} disabled={busy}>
-                {busy ? "解析中…" : "开始解析"}
+                {busy ? (uploading ? `上传中 ${progress}%` : "解析中…") : "开始上传"}
               </button>
             </div>
             {busy && (
-              <div className="upload-progress">
+              <div className="upload-progress" role="status" aria-live="polite">
                 <span />
-                <em>正在解析与建立索引…</em>
-                <div className="upload-bar"><i /></div>
+                <em>{uploading ? `正在上传 ${progress}%` : "服务器解析与建立索引中…"}</em>
+                <div className={`upload-bar ${uploading ? "determinate" : ""}`}>
+                  <i style={uploading ? { width: `${progress}%` } : undefined} />
+                </div>
               </div>
             )}
           </motion.div>

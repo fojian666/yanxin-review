@@ -17,7 +17,10 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
     if (!containerRef.current) return;
     const chart = echarts.init(containerRef.current, undefined, { renderer: "canvas" });
     chartRef.current = chart;
-    const observer = new ResizeObserver(() => chart.resize());
+    const observer = new ResizeObserver(() => {
+      // 容器尺寸变化时图表平滑形变而非跳变
+      chart.resize({ animation: { duration: 350, easing: "cubicOut" } } as never);
+    });
     observer.observe(containerRef.current);
     return () => {
       observer.disconnect();

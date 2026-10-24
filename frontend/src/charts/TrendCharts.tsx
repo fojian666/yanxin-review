@@ -18,8 +18,8 @@ export function AnnualChart3D({ data }: { data: TrendData }) {
     return {
       backgroundColor: "transparent",
       animation: !reduce,
-      animationDuration: reduce ? 0 : 900,
-      animationDurationUpdate: 600,
+      animationDuration: reduce ? 0 : 1150,
+      animationDurationUpdate: 800,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         backgroundColor: "rgba(7,24,30,.94)",
@@ -64,7 +64,7 @@ export function AnnualChart3D({ data }: { data: TrendData }) {
         boxHeight: 78,
         viewControl: {
           autoRotate: !reduce,
-          autoRotateSpeed: 4,
+          autoRotateSpeed: 3.2,
           autoRotateAfterStill: 4,
           distance: 172,
           alpha: 18,
@@ -97,7 +97,7 @@ export function AnnualChart3D({ data }: { data: TrendData }) {
           bevelSmoothness: 3,
           itemStyle: { opacity: 0.96 },
           emphasis: { itemStyle: { color: "#f3c877" } },
-          animationDuration: reduce ? 0 : 1100,
+          animationDuration: reduce ? 0 : 1400,
           animationEasing: "cubicOut",
         },
       ],
@@ -126,8 +126,8 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
     return {
       backgroundColor: "transparent",
       animation: !reduce,
-      animationDuration: reduce ? 0 : 900,
-      animationDurationUpdate: 600,
+      animationDuration: reduce ? 0 : 1150,
+      animationDurationUpdate: 800,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         backgroundColor: "rgba(7,24,30,.94)",
@@ -183,7 +183,7 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
         boxHeight: 64,
         viewControl: {
           autoRotate: !reduce,
-          autoRotateSpeed: 4.5,
+          autoRotateSpeed: 3.6,
           autoRotateAfterStill: 4,
           distance: 188,
           alpha: 20,
@@ -215,7 +215,7 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
           bevelSmoothness: 3,
           itemStyle: { opacity: 0.95 },
           emphasis: { itemStyle: { color: "#ffffff" } },
-          animationDuration: reduce ? 0 : 1200,
+          animationDuration: reduce ? 0 : 1500,
           animationEasing: "cubicOut",
         },
       ],
@@ -230,8 +230,8 @@ export function TrendLine2D({ data }: { data: TrendData }) {
     () => ({
       backgroundColor: "transparent",
       color: COLORS,
-      animationDuration: 700,
-      animationDurationUpdate: 500,
+      animationDuration: 900,
+      animationDurationUpdate: 650,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         trigger: "axis",
@@ -279,8 +279,8 @@ export function TrendBar2D({ data }: { data: TrendData }) {
   const option = useMemo(
     () => ({
       backgroundColor: "transparent",
-      animationDuration: 700,
-      animationDurationUpdate: 500,
+      animationDuration: 900,
+      animationDurationUpdate: 650,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         trigger: "axis",

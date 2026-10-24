@@ -8,7 +8,7 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
   useEffect(() => {
     const from = fromRef.current;
     const start = performance.now();
-    const duration = 850;
+    const duration = 1050;
     let frame = 0;
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / duration);
@@ -44,8 +44,8 @@ export function KpiCard({ label, value, suffix, sub, tone = "ink", delay = 0 }: 
       className={`kpi kpi-${tone}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2, transition: { duration: 0.16, ease: EASE, delay: 0 } }}
-      transition={{ duration: 0.35, ease: EASE, delay }}
+      whileHover={{ y: -2, transition: { duration: 0.21, ease: EASE, delay: 0 } }}
+      transition={{ duration: 0.45, ease: EASE, delay }}
     >
       <div className="kpi-label">{label}</div>
       <div className="kpi-value">
@@ -58,7 +58,7 @@ export function KpiCard({ label, value, suffix, sub, tone = "ink", delay = 0 }: 
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18, ease: EASE }}
+              transition={{ duration: 0.23, ease: EASE }}
             >
               {value}
             </motion.span>
@@ -73,7 +73,7 @@ export function KpiCard({ label, value, suffix, sub, tone = "ink", delay = 0 }: 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.16, ease: EASE }}
+            transition={{ duration: 0.21, ease: EASE }}
           >
             {sub}
           </motion.div>
