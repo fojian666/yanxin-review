@@ -1516,9 +1516,9 @@ a, img, svg, canvas,
 }
 .user-trigger:hover { transform: translateY(-1px); border-color: #b8d8cf; box-shadow: 0 4px 12px rgba(16,36,46,.08); }
 .user-avatar.small { width: 30px; height: 30px; font-size: 13px; border-radius: 50%; }
-.user-trigger-text { display: grid; gap: 1px; text-align: left; line-height: 1.2; }
+.user-trigger-text { display: grid; justify-items: center; gap: 2px; text-align: center; line-height: 1.2; }
 .user-trigger-text strong { font-size: 13px; color: var(--ink); font-weight: 600; }
-.user-trigger-text .role-badge { margin-top: 0; font-size: 11px; }
+.user-trigger-text .role-badge { margin-top: 0; font-size: 11px; line-height: 1.35; }
 .user-dropdown {
   position: absolute; right: 0; top: calc(100% + 8px);
   min-width: 190px; z-index: 60;
