@@ -19,7 +19,8 @@
 | 查重匹配 | 对应考核指标“智能查重、专家匹配一体化工具”：同一份本子同时做段落级查重和专家画像匹配，给出证据、回避/负载约束、可解释排序，可导出结果 |
 | 历史沿革 | 任意主题的多年文献趋势：年度发文量、主题热度、年度高频主题、代表性文献、规则/千问趋势研判 |
 | 3D 趋势视图 | ECharts GL 3D 柱状图 + 主题×年份×文献数 3D 矩阵，自动旋转、可拖拽缩放；支持一键切 2D；WebGL 不可用时自动降级 |
-| 统一动效 | 路由页面过渡、导航滑块、消息/证据入场、KPI 数值与字符串切换、3D/2D 交叉淡入、预审步骤进度与风险环、表格/上传/Toast；换主题时 KPI/摘要/年度主题/文献/图表联动；支持减少动态效果 |
+| 登录与品牌 | 地形等高线动态背景（描边生长、虚线流动、双层视差、扫描带、纸纹颗粒）、2×2 核心能力卡、四角色演示卡一键填充；纯 SVG+CSS，`prefers-reduced-motion` 下全关 |
+| 统一动效 | 路由页面过渡、导航滑块、消息/证据入场、KPI 数值滚动与更新闪光、3D/2D 交叉淡入、预审步骤进度与风险环、表格行增删退出、匹配空↔结果切换、上传完成对勾、Toast；换主题时 KPI/摘要/年度主题/文献/图表联动；支持减少动态效果 |
 | 文献数据 | CSV 批量导入；内置 42 篇**合成演示文献**，可一键移除；真实文献导入后趋势自动使用真实数据 |
 | 专家库 | 专家 CSV 导入；内置 12 位**合成演示专家**；不包含性别/年龄；按可用性、在研负载、回避关系过滤 |
 | 模型切换 | DashScope 千问 / 内网 vLLM、SGLang、Ollama 的 OpenAI 兼容接口；无配置自动降级 |
@@ -38,6 +39,9 @@
 | 账号 | 角色 | 权限 |
 |---|---|---|
 | `admin` | 管理员 | 全部功能 + 用户管理（`/admin` 创建账号） |
+| `manager` | 科研管理 | 上传/删除文档、导入文献与专家、移除演示数据、外部推送 `/api/ingest/*` |
+| `reviewer` | 评审专家 | 问答、预审、查重匹配、文献趋势；文档库只读 |
+| `viewer` | 访客 | 问答与文献趋势（只读演示） |
 
 - 演示账号**仅在本机监听（127.0.0.1）时自动创建**；对外监听默认不创建，确需演示设 `SEED_DEMO_USERS=1` 并用 `DEMO_USER_PASSWORD` 指定强密码（留空则生成随机密码打印到日志）；
 - 登录后可在“用户管理”页自助改密（`POST /api/auth/password`，改密后所有旧会话失效）；
@@ -46,9 +50,6 @@
 - 专家库读取（`GET /api/experts`）限评审专家/科研管理/管理员——访客不可见回避关系与负载画像；
 - Qwen3 思考模式：`LLM_ENABLE_THINKING` 留空不发送（兼容旧服务）、设 0 显式关闭（避免只返回思考内容）、设 1 开启；
 - 解析边界：单文件 30MB、DOCX 解压总量 120MB、PDF 默认只解析前 2000 页（`MAX_PDF_PAGES` 可调，0 为不限）；HTTPS 部署设 `COOKIE_SECURE=1` 强制会话 Cookie 加密传输；
-| `manager` | 科研管理 | 上传/删除文档、导入文献与专家、移除演示数据、外部推送 `/api/ingest/*` |
-| `reviewer` | 评审专家 | 问答、预审、查重匹配、文献趋势；文档库只读 |
-| `viewer` | 访客 | 问答与文献趋势（只读演示） |
 
 - 会话：登录后签发 HttpOnly Cookie（7 天有效）；任何接口返回 401 时前端自动回到登录页。
 - 权限双层执行：前端按角色隐藏按钮，后端中间件统一拦截 `/api/*` 并对写操作按角色返回 403。
@@ -144,7 +145,7 @@ QWEN_API_KEY=ollama
 QWEN_MODEL=qwen2.5:7b
 ```
 
-重启后右上角会显示“千问 · 模型名”，侧边栏显示“千问已连接”。未配置时显示“离线演示”。
+重启后顶栏模式芯片显示“千问 · 模型名”；未配置时显示“离线演示”。
 
 **注意**：如果使用公网 DashScope，上传的评审材料会离开内网；真实评审场景请使用内网 Qwen 或完成数据合规审批。
 
@@ -250,6 +251,9 @@ QWEN_MODEL=qwen2.5:7b
 - 分析请求做 280ms 防抖：快速响应不闪 loading 遮罩，慢请求才显示“分析中…”；按钮不使用持续旋转图标；
 - 每次分析 KPI 四张卡整体重新入场，年份跨度等不变值也有反馈；
 - 支持 `prefers-reduced-motion`：关闭自动旋转、CSS 动画与 Framer 位移动画；
+- 登录页动态地形：等高线 `pathLength` 描边生长 + 虚线流动 + 远/近双层漂移（指针视差 `--px/--py`）+ 扫描带 + 纸纹颗粒；入场只用 transform，保证任何一帧内容都可见；
+- 状态变化动效（Framer `AnimatePresence`）：表格行删除退出、匹配面板空↔结果切换、上传弹窗文件芯片切换、KPI 数值变化 900ms 闪光；
+- 全局尺度：正文 15px、表格 13.5px、标签 12px、控件高 40px、侧栏 264px（折叠 84px）、主区留白 32–48px；≤1400px 表格自动紧凑；
 - 路由级 code splitting，3D 图表按需加载。
 
 ### 交互边界
@@ -321,7 +325,7 @@ QWEN_MODEL=qwen2.5:7b
 │   └── seed.py             # 示例本子 + 演示文献/专家
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/          # Chat / Trend / Match / Review / Library
+│   │   ├── pages/          # Login / Chat / Trend / Match / Review / Library / Admin
 │   │   ├── components/     # 布局、上传、Markdown、KPI、EChart
 │   │   ├── charts/         # ECharts GL 3D / 2D 图表
 │   │   ├── App.tsx
@@ -331,7 +335,7 @@ QWEN_MODEL=qwen2.5:7b
 │   ├── package.json
 │   └── vite.config.ts
 ├── data/                   # 运行时生成：SQLite + 上传文件
-├── tests/                  # pytest 健壮性回归（22 项）
+├── tests/                  # pytest 健壮性回归（50 项）
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── .env.example
@@ -354,6 +358,7 @@ QWEN_MODEL=qwen2.5:7b
 | GET | `/api/documents` | 文档列表 |
 | POST | `/api/documents` | 上传文档（multipart：file、kind、year、title） |
 | DELETE | `/api/documents/<id>` | 删除文档与索引 |
+| DELETE | `/api/documents/sample` | 移除演示本子 |
 | POST | `/api/chat` | 非流式问答 |
 | POST | `/api/chat/stream` | SSE 流式问答 |
 | POST | `/api/review` | 本子预审（doc_id） |
@@ -387,13 +392,15 @@ QWEN_MODEL=qwen2.5:7b
 - 交付材料：`交付材料/` 下已提供考核指标对照表、软著说明书/源代码说明/申请信息表、本地验证报告初稿、研究报告初稿、论文提纲。
 - 登录与角色：未登录 401、viewer 删除 403、manager 正常 200、admin 用户管理页创建账号；浏览器实测三角色界面门控与登录/退出流转。
 - 健壮性回归：pytest 50 项通过，覆盖登录哈希/会话/端点、空库趋势、SPA 路径穿越、错误脱敏、top_k 边界、WAL、超长截断、DOCX 脚注解析、文献/专家导入去重、孤儿分块过滤、种子标记入库与旧标记迁移、分块失败清理上传文件、类型内容嗅探、接入推送幂等、接入令牌条件鉴权、接入契约完整性。
+- 登录页与全站动效：headless Chrome 截图 + DOM 探针验证地形背景、状态动效与 `prefers-reduced-motion` 降级，无控制台错误。
+- 文案打磨：全站标题/空态/引导语改写后逐页截图核对，无换行孤字与溢出。
 
 ### 健壮性与测试
 
 回归测试（无需前端构建，纯后端）：
 
 ```bash
-python3 -m pytest tests/ -q          # 18 passed
+python3 -m pytest tests/ -q          # 50 passed
 ```
 
 `tests/test_robustness.py` 覆盖的加固点：
@@ -416,7 +423,7 @@ python3 -m pytest tests/ -q          # 18 passed
 
 **边界**
 
-- 单机演示版：默认只监听 `127.0.0.1`；需要内网其他机器访问时设置 `HOST=0.0.0.0`，并先加登录/权限/防火墙。当前无 SSO、无 RBAC。
+- 单机演示版：默认只监听 `127.0.0.1`；内网其他机器访问设 `HOST=0.0.0.0` 前，应先配置强口令（`SEED_DEMO_USERS` + `DEMO_USER_PASSWORD`）与防火墙。已有账号密码登录与四角色权限矩阵，SSO/OIDC 待接。
 - 当前使用 Uvicorn 开发模式；生产部署请配置多 worker、Nginx、HTTPS、日志与进程守护。
 - 无 OCR；扫描件需先转文本。
 - 当前检索为 TF-IDF，不是向量检索；语义召回能力有限。

@@ -23,7 +23,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：24 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：25 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、Qwen/INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new
@@ -41,8 +41,10 @@ rag/
   auth.py               账号密码认证（PBKDF2）+ 会话（SQLite）+ 四角色
   seed.py              演示数据种子（标记存 meta 表，与库同生命周期；旧 .seeded_* 文件自动迁移）
 frontend/src/
-  pages/               Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library
+  pages/               Login(动态地形背景) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
+  styles.css           全局尺度（正文 15px/控件 40px/侧栏 264）、登录页地形/网格/纸纹关键帧、状态动效类；
+                       动效只用 transform 入场，prefers-reduced-motion 全关
 ```
 
 ## 数据事实
@@ -74,4 +76,5 @@ frontend/src/
 
 - 后端改动 → 跑 `pytest`；前端改动 → 跑 `npm run build`（含 tsc 类型检查）。
 - Conventional Commits，中文描述（`fix:` / `feat:` / `refactor:` / `init:`）。
+- 文案基调（2026-10-24 定稿）：标题/副标题/空态/引导语用勘验阅卷意象（四字格、对仗，如"以诚信为尺，勘每一卷申报"）；按钮、表头、状态词与免责声明保持直白，不修辞。
 - 文档三处需同步：`README.md`（使用与 API）、`实施方案-RAG垂类模型与智能问答.md`（§8.2 已落地清单）、`交付材料/`（若涉及软著功能描述与源程序清单——**注意源程序清单当前与代码有漂移，提交软著前需重新生成**）。
