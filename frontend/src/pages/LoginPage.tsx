@@ -104,12 +104,12 @@ export function LoginPage() {
               aria-hidden="true"
             >
               <g className="login-contour-lines">
-                <path d="M-50 96 C 70 20, 180 150, 320 70 S 470 130, 430 210" />
-                <path d="M-50 136 C 80 60, 190 190, 330 110 S 480 170, 440 250" />
-                <path d="M-50 176 C 90 100, 200 230, 340 150 S 490 210, 450 290" />
-                <path d="M-70 390 C 50 310, 160 440, 290 370 S 430 430, 430 530" />
-                <path d="M-70 430 C 60 350, 170 480, 300 410 S 440 470, 440 570" />
-                <path d="M-70 470 C 70 390, 180 520, 310 450 S 450 510, 450 610" />
+                <path pathLength={1} d="M-50 96 C 70 20, 180 150, 320 70 S 470 130, 430 210" />
+                <path pathLength={1} d="M-50 136 C 80 60, 190 190, 330 110 S 480 170, 440 250" />
+                <path pathLength={1} d="M-50 176 C 90 100, 200 230, 340 150 S 490 210, 450 290" />
+                <path pathLength={1} d="M-70 390 C 50 310, 160 440, 290 370 S 430 430, 430 530" />
+                <path pathLength={1} d="M-70 430 C 60 350, 170 480, 300 410 S 440 470, 440 570" />
+                <path pathLength={1} d="M-70 470 C 70 390, 180 520, 310 450 S 450 510, 450 610" />
               </g>
               <g className="login-contour-peak">
                 <ellipse cx="300" cy="150" rx="86" ry="44" />
@@ -138,8 +138,12 @@ export function LoginPage() {
               <span>核心能力</span>
             </div>
             <div className="login-features">
-              {FEATURES.map(({ icon: Icon, label, desc }) => (
-                <div className="login-feature" key={label}>
+              {FEATURES.map(({ icon: Icon, label, desc }, index) => (
+                <div
+                  className="login-feature"
+                  key={label}
+                  style={{ animationDelay: `${0.12 + index * 0.07}s` }}
+                >
                   <span className="login-feature-icon"><Icon size={15} /></span>
                   <div>
                     <strong>{label}</strong>

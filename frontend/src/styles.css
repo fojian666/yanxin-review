@@ -943,6 +943,12 @@ a, img, svg, canvas,
   stroke-width: 1.1;
   pointer-events: none;
   z-index: 0;
+  animation: loginTerrainDrift 70s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes loginTerrainDrift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-14px, 10px, 0) scale(1.02); }
 }
 .login-terrain-rings { stroke: rgba(181, 133, 60, .16); }
 .login-orb {
@@ -953,6 +959,7 @@ a, img, svg, canvas,
   pointer-events: none;
   z-index: 0;
   animation: loginOrbFloat 22s ease-in-out infinite alternate;
+  will-change: transform;
 }
 .login-orb-a { width: 380px; height: 380px; left: -110px; top: -110px; background: radial-gradient(circle, #0e7c6b, transparent 68%); }
 .login-orb-b { width: 340px; height: 340px; right: -90px; bottom: -120px; background: radial-gradient(circle, #b5853c, transparent 70%); animation-duration: 27s; animation-delay: -8s; }
@@ -1004,6 +1011,22 @@ a, img, svg, canvas,
   border-right: 1px solid rgba(255, 255, 255, .08);
 }
 .login-brand > * { position: relative; z-index: 1; }
+.login-brand::after {
+  content: "";
+  position: absolute;
+  width: 62%; aspect-ratio: 1;
+  right: -12%; top: -18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(143, 243, 221, .2), transparent 68%);
+  filter: blur(32px);
+  pointer-events: none;
+  z-index: 0;
+  animation: loginBrandGlow 16s ease-in-out infinite alternate;
+}
+@keyframes loginBrandGlow {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: .55; }
+  to { transform: translate3d(-20px, 26px, 0) scale(1.12); opacity: .95; }
+}
 .login-contours {
   position: absolute; inset: -2% -2%;
   width: 104%; height: 104%;
@@ -1013,6 +1036,29 @@ a, img, svg, canvas,
   pointer-events: none;
   z-index: 0;
   animation: loginContourDrift 38s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.login-contour-lines path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: loginContourDraw 1.7s cubic-bezier(.22, 1, .36, 1) forwards;
+}
+.login-contour-lines path:nth-child(2) { animation-delay: .1s; }
+.login-contour-lines path:nth-child(3) { animation-delay: .2s; }
+.login-contour-lines path:nth-child(4) { animation-delay: .3s; }
+.login-contour-lines path:nth-child(5) { animation-delay: .4s; }
+.login-contour-lines path:nth-child(6) { animation-delay: .5s; }
+@keyframes loginContourDraw {
+  to { stroke-dashoffset: 0; }
+}
+.login-contour-peak {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: loginPeakIn 1.2s ease-out .35s both;
+}
+@keyframes loginPeakIn {
+  from { opacity: 0; transform: scale(.92); }
+  to { opacity: 1; transform: none; }
 }
 .login-contour-peak { stroke: rgba(143, 243, 221, .2); }
 .login-contour-peak circle { fill: rgba(143, 243, 221, .5); stroke: none; }
@@ -1033,6 +1079,11 @@ a, img, svg, canvas,
   border-radius: 50%;
   border: 1px solid rgba(143, 243, 221, .22);
   box-shadow: 0 0 0 7px rgba(143, 243, 221, .05);
+  animation: loginSealPulse 7s ease-in-out infinite;
+}
+@keyframes loginSealPulse {
+  0%, 100% { opacity: .55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
 }
 .login-seal {
   width: 54px; height: 54px;
@@ -1081,6 +1132,11 @@ a, img, svg, canvas,
   border-radius: 8px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset;
   transition: transform .22s ease, border-color .22s ease, background .22s ease;
+  animation: loginFeatureIn .55s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes loginFeatureIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 .login-feature:hover { transform: translateY(-2px); border-color: rgba(143, 243, 221, .36); background: rgba(255, 255, 255, .11); }
 .login-feature-icon {
@@ -1089,7 +1145,9 @@ a, img, svg, canvas,
   border-radius: 6px;
   background: rgba(143, 243, 221, .12);
   color: #8ff3dd;
+  transition: background .22s ease, transform .22s ease;
 }
+.login-feature:hover .login-feature-icon { background: rgba(143, 243, 221, .2); transform: translateY(-1px); }
 .login-feature strong { display: block; font-size: 12px; color: #f2faf7; letter-spacing: .04em; overflow-wrap: anywhere; }
 .login-feature small { display: block; margin-top: 2px; font-size: 10.5px; color: rgba(238, 247, 243, .58); line-height: 1.45; overflow-wrap: anywhere; }
 .login-foot {
@@ -1129,7 +1187,14 @@ a, img, svg, canvas,
   margin-top: 12px; padding: 8px 11px;
   background: #f7e8e6; border: 1px solid #e4c4c0; border-left: 3px solid #b3453f;
   border-radius: 3px; color: #8a3530; font-size: 12px;
+  animation: loginErrorIn .26s ease-out both;
 }
+@keyframes loginErrorIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.login-form .field input { transition: border-color .18s ease, box-shadow .18s ease; }
+.login-form .field input:focus { border-color: #6fbfae; box-shadow: 0 0 0 3px rgba(14, 124, 107, .08); }
 .login-form .btn-block { margin-top: 20px; }
 .login-secure-note {
   display: flex; align-items: center; gap: 6px;
@@ -1154,6 +1219,15 @@ a, img, svg, canvas,
   align-items: center;
   min-width: 0;
   transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  animation: loginChipIn .5s cubic-bezier(.22, 1, .36, 1) both;
+}
+.login-demo-chip:nth-child(1) { animation-delay: .28s; }
+.login-demo-chip:nth-child(2) { animation-delay: .34s; }
+.login-demo-chip:nth-child(3) { animation-delay: .4s; }
+.login-demo-chip:nth-child(4) { animation-delay: .46s; }
+@keyframes loginChipIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 .login-demo-chip:hover { transform: translateY(-1px); border-color: #b8d8cf; background: #fffdf8; box-shadow: 0 4px 12px rgba(16, 36, 46, .07); }
 .login-demo-chip:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
@@ -1163,7 +1237,9 @@ a, img, svg, canvas,
   display: grid; place-items: center;
   border-radius: 6px;
   background: var(--teal-soft); color: var(--teal-deep);
+  transition: transform .2s ease, background .2s ease;
 }
+.login-demo-chip:hover .login-demo-icon { transform: scale(1.08) rotate(-3deg); }
 .login-demo-chip.role-admin { border-left-color: #c98a4b; }
 .login-demo-chip.role-manager { border-left-color: var(--teal); }
 .login-demo-chip.role-reviewer { border-left-color: #5b84ad; }
@@ -1183,9 +1259,11 @@ a, img, svg, canvas,
   line-height: 1.6;
 }
 @media (prefers-reduced-motion: reduce) {
-  .login-card { animation: none; }
-  .login-orb, .login-contours { animation: none; }
-  .login-feature, .login-demo-chip { transition: none; }
+  .login-card, .login-terrain, .login-orb, .login-contours, .login-brand::after,
+  .login-seal-ring, .login-feature, .login-demo-chip, .login-error { animation: none; }
+  .login-contour-lines path { animation: none; stroke-dashoffset: 0; }
+  .login-contour-peak { animation: none; }
+  .login-feature, .login-demo-chip, .login-feature-icon, .login-demo-icon { transition: none; }
 }
 .app-splash {
   min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 10px;
