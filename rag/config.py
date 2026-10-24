@@ -72,6 +72,8 @@ OPENAI_MODEL = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
 
 # 数据不出内网：公网模型端点默认阻止，需显式授权
 ALLOW_EXTERNAL_LLM = os.getenv("ALLOW_EXTERNAL_LLM", "0") not in {"0", "false", "False"}
+# HTTPS 部署时设为 1，会话 Cookie 只经加密连接传输
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") not in {"0", "false", "False"}
 
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))

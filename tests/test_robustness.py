@@ -640,3 +640,69 @@ def test_login_rate_limited_after_repeated_failures(tmp_path, monkeypatch):
         app_module.LoginRequest(username="admin", password="yanxin2026"), request
     )
     assert resp.status_code == 200
+
+
+def test_cookie_secure_flag_follows_config(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    monkeypatch.setattr(auth, "_login_failures", {})
+    auth.create_user("u", "secret1", "viewer")
+    monkeypatch.setattr(config, "COOKIE_SECURE", True)
+    resp = app_module.login(
+        app_module.LoginRequest(username="u", password="secret1"), _login_request()
+    )
+    assert "secure" in resp.headers["set-cookie"].lower()
+
+
+def test_auth_matrix_via_asgi(tmp_path, monkeypatch):
+    """用真实 ASGI 链路验证 401/403，而不是只测函数。"""
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(config, "SEED_DEMO_PAPERS", False)
+    monkeypatch.setattr(config, "SEED_SAMPLE_DOC", False)
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+    monkeypatch.setattr(app_module.retriever, "rebuild", lambda: None)
+    from rag import auth
+    from starlette.testclient import TestClient
+
+    monkeypatch.setattr(auth, "_login_failures", {})
+    auth.create_user("viewer1", "secret1", "viewer")
+    auth.create_user("reviewer1", "secret1", "reviewer")
+    auth.create_user("manager1", "secret1", "manager")
+
+    with TestClient(app_module.app) as client:
+        assert client.get("/api/health").status_code == 200
+        assert client.get("/api/documents").status_code == 401
+        assert client.get("/api/ingest/schema").status_code == 200
+
+        assert client.post(
+            "/api/auth/login", json={"username": "viewer1", "password": "secret1"}
+        ).status_code == 200
+        assert client.get("/api/documents").status_code == 200
+        assert client.get("/api/experts").status_code == 403
+        assert client.post("/api/ingest/papers", json={"papers": []}).status_code == 403
+        assert client.post(
+            "/api/documents",
+            data={"kind": "other", "year": "", "title": ""},
+            files={"file": ("note.txt", b"hello", "text/plain")},
+        ).status_code == 403
+
+        assert client.post("/api/auth/logout").status_code == 200
+        assert client.post(
+            "/api/auth/login", json={"username": "reviewer1", "password": "secret1"}
+        ).status_code == 200
+        assert client.get("/api/experts").status_code == 200
+        assert client.post("/api/tool/check", json={"doc_id": "missing"}).status_code == 400
+        assert client.post(
+            "/api/auth/users",
+            json={"username": "x", "password": "secret1", "role": "viewer"},
+        ).status_code == 403
+
+        assert client.post("/api/auth/logout").status_code == 200
+        assert client.post(
+            "/api/auth/login", json={"username": "manager1", "password": "secret1"}
+        ).status_code == 200
+        assert client.post(
+            "/api/auth/users",
+            json={"username": "y", "password": "secret1", "role": "viewer"},
+        ).status_code == 403
