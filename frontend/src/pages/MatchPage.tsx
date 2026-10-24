@@ -192,7 +192,7 @@ export function MatchPage() {
           <div className="eyebrow">INTEGRATED TOOL · DUPLICATE + EXPERT MATCHING</div>
           <h2>智能查重 · 专家匹配</h2>
           <p>
-            对应考核指标中的“智能查重、专家匹配一体化工具”：对同一份本子同时完成段落级查重和专家画像匹配，给出证据、回避/负载约束和可解释推荐理由。
+            一份本子，一次运行：段落级语义查重与专家画像匹配同步完成，回避与负载约束前置过滤，每一条推荐都有证据与理由，可解释、可复核——对应课题考核指标的一体化工具。
           </p>
         </div>
         <div className="match-controls">

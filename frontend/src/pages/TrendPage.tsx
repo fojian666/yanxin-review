@@ -112,7 +112,7 @@ export function TrendPage() {
           <div className="eyebrow">HISTORICAL EVOLUTION</div>
           <h2>历史沿革 · 多年文献趋势</h2>
           <p>
-            不限定主题。输入任何一个方面，系统会筛出相关文献，按年份统计主题热度、发文量，并给出有数据依据的趋势研判。
+            不限主题，不限年代。落下一个研究方向，即从多年文献中梳理热度的起伏、阶段的更迭与尚待开垦的空白——每一步研判，都有数据可依。
           </p>
         </div>
         <div className="trend-controls">

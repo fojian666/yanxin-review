@@ -366,7 +366,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .year-row .btn { margin-left: auto; }
 .chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 13px 0 15px; }
 .chip { padding: 6px 12px; border: 1px solid var(--line); background: rgba(255,253,248,.7); border-radius: 999px; font-size: 12px; color: var(--muted); transition: .26s ease; }
-.chip:hover { border-color: #b8d8cf; color: var(--teal-deep); }
+.chip:hover:not(.active) { border-color: #b8d8cf; color: var(--teal-deep); }
 .chip.active { background: var(--teal); border-color: var(--teal); color: #fff; }
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 14px; margin-bottom: 15px; border: 1px solid #ead4b0; background: #fbf2e2; color: #74501d; font-size: 12px; border-radius: 4px; }
 .notice strong { color: #5b3c12; }
@@ -889,12 +889,13 @@ a, img, svg, canvas,
 
 /* ---------- 按钮悬停动态层：扫光 + 浮起 + 光晕 ---------- */
 .btn, .chip, .icon-btn, .table-btn, .link-btn { position: relative; }
-.btn, .chip, .icon-btn { overflow: hidden; }
+.btn, .chip, .icon-btn { overflow: hidden; isolation: isolate; }
 .btn > *, .chip > * { position: relative; z-index: 1; }
 .btn::after, .chip::after, .icon-btn::after {
   content: "";
   position: absolute;
   inset: -1px;
+  z-index: -1; /* 扫光画在背景之上、文字之下——裸文本节点也被保护 */
   background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.5) 50%, transparent 65%);
   transform: translateX(-140%) skewX(-10deg);
   transition: transform .65s cubic-bezier(.22, 1, .36, 1);
@@ -910,7 +911,8 @@ a, img, svg, canvas,
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(14, 124, 107, .26); }
 .btn-ghost:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16, 36, 46, .08); }
 .chip { will-change: transform; }
-.chip:hover { transform: translateY(-1px); background: #fffdf8; }
+.chip:hover:not(.active) { transform: translateY(-1px); background: #fffdf8; }
+.chip.active:hover { transform: translateY(-1px); }
 .table-btn { border-radius: 4px; transition: background .2s ease, color .2s ease, transform .2s ease; }
 .table-btn:hover { text-decoration: none; background: var(--teal-soft); transform: translateY(-1px); }
 .table-btn.danger:hover { background: #f7e8e6; }
@@ -1130,4 +1132,18 @@ a, img, svg, canvas,
 @media (max-width: 680px) {
   .user-trigger-text { display: none; }
   .user-trigger { padding: 4px; }
+}
+
+
+/* ---------- 标题质感：墨色渐变艺术字（不支持 background-clip 时回退纯色） ---------- */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .trend-hero h2, .match-hero h2 {
+    font-size: 27px;
+    letter-spacing: 2.5px;
+    background: linear-gradient(118deg, #0d3f37 10%, #0a5f52 48%, #1c3a46 92%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
 }
