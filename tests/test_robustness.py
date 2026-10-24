@@ -498,7 +498,20 @@ def test_match_experts_warns_when_applicant_not_detected(monkeypatch):
     assert result["applicant_warning"]
     reasons = result["candidates"][0]["reasons"]
     assert "未发现回避冲突" not in reasons
-    assert any("未识别" in reason for reason in reasons)
+    assert any("回避约束未生效" in reason for reason in reasons)
+
+
+def test_match_experts_warns_when_only_institution_detected(monkeypatch):
+    text = "申报单位：示例大学\n" + "科研诚信 数据治理 评审 " * 20
+    monkeypatch.setattr(
+        expert_service, "_doc_text", lambda _: ({"id": "d", "name": "x"}, text)
+    )
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [_fake_expert()])
+    result = expert_service.match_experts("d")
+    assert result["applicant_detected"] is False
+    assert "负责人" in result["applicant_warning"]
+    assert "申报单位" not in result["applicant_warning"]
+    assert "未发现回避冲突" not in result["candidates"][0]["reasons"]
 
 
 def test_excluded_expert_does_not_affect_scores(monkeypatch):

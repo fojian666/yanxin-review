@@ -81,6 +81,7 @@ export function ChatPage() {
   const focusTimer = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
+  const runningRef = useRef(false);
 
   const scopeLabel =
     selectedDocs.length === 0
@@ -133,7 +134,7 @@ export function ChatPage() {
   }, []);
 
   const send = async (preset?: string) => {
-    if (busy) return;
+    if (busy || runningRef.current) return;
     const question = (preset ?? input).trim();
     if (!question) return;
     if (docs.length === 0) {
@@ -159,6 +160,7 @@ export function ChatPage() {
     setCitations([]);
     setInput("");
     setBusy(true);
+    runningRef.current = true;
 
     const runId = ++runIdRef.current;
     const controller = new AbortController();
@@ -227,6 +229,7 @@ export function ChatPage() {
       toast(`回答生成失败：${message}`, "error");
     } finally {
       if (isCurrent()) {
+        runningRef.current = false;
         setBusy(false);
         abortRef.current = null;
       }

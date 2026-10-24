@@ -167,11 +167,19 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
     doc, text = _doc_text(doc_id)
     experts = db.list_experts()
     applicant = extract_applicant(text)
-    applicant_detected = bool(applicant["institutions"] or applicant["people"])
+    missing_fields = [
+        label
+        for label, values in (
+            ("申报单位", applicant["institutions"]),
+            ("负责人", applicant["people"]),
+        )
+        if not values
+    ]
+    applicant_detected = not missing_fields
     applicant_warning = (
-        ""
-        if applicant_detected
-        else "未能识别申报单位/负责人，同单位与回避约束未生效，请人工核对。"
+        f"未能识别{'、'.join(missing_fields)}，相关回避约束未生效，请人工核对。"
+        if missing_fields
+        else ""
     )
     keywords = extract_keywords(text[:20000], topk=18)
     if not experts:
@@ -241,10 +249,10 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
         if expert.get("achievements"):
             reasons.append(f"代表成果：{truncate(expert['achievements'], 50)}")
         reasons.append(f"当前在研 {workload} 项")
-        if applicant_detected:
-            reasons.append("未发现回避冲突")
+        if applicant_warning:
+            reasons.append(applicant_warning.rstrip("。"))
         else:
-            reasons.append("申报单位/负责人未识别，回避约束未生效")
+            reasons.append("未发现回避冲突")
         candidates.append(
             {
                 "expert": expert,
