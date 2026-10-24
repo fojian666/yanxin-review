@@ -605,6 +605,7 @@ def test_host_classification():
     assert config._is_public_host("https://dashscope.aliyuncs.com/compatible-mode/v1")
     assert not config._is_public_host("http://127.0.0.1:8000/v1")
     assert not config._is_public_host("http://10.1.2.3:8000/v1")
+    assert not config._is_public_host("http://100.64.0.1:8000/v1")
     assert not config._is_public_host("http://qwen.internal/v1")
     assert not config._is_public_host("http://localhost:8000/v1")
 

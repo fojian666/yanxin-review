@@ -93,7 +93,7 @@ def _is_public_host(url: str) -> bool:
         return False
     try:
         ip = ipaddress.ip_address(host)
-        return not (ip.is_private or ip.is_loopback or ip.is_link_local)
+        return ip.is_global
     except ValueError:
         pass
     if host.endswith((".local", ".internal", ".intra", ".lan", ".corp")):
