@@ -38,6 +38,9 @@
 | 账号 | 角色 | 权限 |
 |---|---|---|
 | `admin` | 管理员 | 全部功能 + 用户管理（`/admin` 创建账号） |
+
+- 演示账号**仅在本机监听（127.0.0.1）时自动创建**；对外监听默认不创建，确需演示设 `SEED_DEMO_USERS=1` 并用 `DEMO_USER_PASSWORD` 指定强密码（留空则生成随机密码打印到日志）；
+- 登录后可在“用户管理”页自助改密（`POST /api/auth/password`，改密后所有旧会话失效）；
 | `manager` | 科研管理 | 上传/删除文档、导入文献与专家、移除演示数据、外部推送 `/api/ingest/*` |
 | `reviewer` | 评审专家 | 问答、预审、查重匹配、文献趋势；文档库只读 |
 | `viewer` | 访客 | 问答与文献趋势（只读演示） |
@@ -71,7 +74,7 @@ cp .env.example .env        # 可选：填入千问配置
 首次启动会自动：
 
 1. 创建 `data/app.db` 与 `data/uploads/`；
-2. 把当前目录的课题申请书 `3.科研课题申请书（终稿）.docx` 作为“示例本子”入库（该文件含个人信息，**未纳入版本库**；clone 后如需示例本子，请自行放入项目根目录，下次启动会自动入库）；
+2. 演示账号种子（仅本机监听时创建，见“登录与角色”）；课题申请书含个人信息，**默认不再自动入库**——需要示例本子时在 `.env` 显式设 `SEED_SAMPLE_DOC=1` 并把文件放入项目根目录后重启；
 3. 写入 42 篇合成演示文献，用于验证趋势功能；
 4. 写入 12 位合成演示专家（`is_sample=1`），用于验证专家匹配。
 
@@ -337,6 +340,7 @@ QWEN_MODEL=qwen2.5:7b
 | GET | `/api/auth/me` | 当前用户与角色 |
 | GET | `/api/auth/users` | 用户列表（仅管理员） |
 | POST | `/api/auth/users` | 创建用户（仅管理员） |
+| POST | `/api/auth/password` | 自助改密（改密后旧会话全失效） |
 | GET | `/api/documents` | 文档列表 |
 | POST | `/api/documents` | 上传文档（multipart：file、kind、year、title） |
 | DELETE | `/api/documents/<id>` | 删除文档与索引 |

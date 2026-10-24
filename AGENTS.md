@@ -18,7 +18,7 @@ python3 -m pytest tests/ -q                                 # 回归测试（22 
 
 PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行不需要 Node。
 
-登录演示账号：`admin` / `manager` / `reviewer` / `viewer`，密码统一 `yanxin2026`。
+登录演示账号：`admin` / `manager` / `reviewer` / `viewer`。本机监听时密码统一 `yanxin2026`；**对外监听默认不创建演示账号**，需显式 `SEED_DEMO_USERS=1` + `DEMO_USER_PASSWORD`。支持自助改密。
 
 ## 模块地图
 
@@ -65,6 +65,7 @@ frontend/src/
 - 检索是 TF-IDF，不是向量检索（升级路线已定，见实施方案 §5.2）。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。
+- 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
 - 上传大小限制由 `/api/health` 的 `upload_limit_mb` 下发，前端同步展示；上传走 XHR 以显示真实进度。
 
 ## 改动与提交约定
