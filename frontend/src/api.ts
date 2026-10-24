@@ -1,4 +1,5 @@
 import type {
+  AuthUser,
   ChatHistoryItem,
   Citation,
   DocItem,
@@ -44,7 +45,13 @@ async function request<T>(
   }
   const contentType = res.headers.get("content-type") || "";
   const data = contentType.includes("application/json") ? await res.json() : await res.text();
-  if (!res.ok) throw new Error(errorMessage(data, res.status));
+  if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/auth/login")) {
+      // 会话失效：广播给全局状态切回登录页
+      window.dispatchEvent(new CustomEvent("auth:expired"));
+    }
+    throw new Error(errorMessage(data, res.status));
+  }
   return data as T;
 }
 
@@ -56,7 +63,60 @@ function jsonOptions(body: unknown): RequestInit {
   };
 }
 
+// fetch 无法拿到上传进度，上传走 XHR
+function requestFormData<T>(
+  path: string,
+  fd: FormData,
+  onProgress?: (pct: number) => void,
+  timeoutMs = 180000
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API}${path}`);
+    xhr.timeout = timeoutMs;
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+    xhr.onload = () => {
+      let data: unknown = null;
+      const contentType = xhr.getResponseHeader("content-type") || "";
+      try {
+        data = contentType.includes("application/json")
+          ? JSON.parse(xhr.responseText)
+          : xhr.responseText;
+      } catch {
+        data = xhr.responseText;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T);
+      } else {
+        reject(new Error(errorMessage(data, xhr.status)));
+      }
+    };
+    xhr.onerror = () => reject(new Error("网络错误，无法连接到服务器"));
+    xhr.ontimeout = () => reject(new Error("上传超时，请重试"));
+    xhr.send(fd);
+  });
+}
+
 export const api = {
+  me: () => request<AuthUser>("/auth/me"),
+  login: (username: string, password: string) =>
+    request<{ ok: boolean; user: AuthUser }>(
+      "/auth/login",
+      jsonOptions({ username, password })
+    ),
+  logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+  listUsers: () =>
+    request<{ users: { username: string; role: string; display_name: string; created_at: string }[]; roles: Record<string, string> }>(
+      "/auth/users"
+    ),
+  createUser: (payload: { username: string; password: string; role: string; display_name: string }) =>
+    request<{ ok: boolean }>("/auth/users", jsonOptions(payload)),
   health: () => request<Health>("/health"),
   documents: () => request<{ documents: DocItem[] }>("/documents"),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
@@ -67,19 +127,21 @@ export const api = {
       "/trends",
       jsonOptions({ query, start_year: startYear, end_year: endYear })
     ),
-  uploadDocument: async (
+  uploadDocument: (
     file: File,
-    meta: { kind: string; year: string; title: string }
+    meta: { kind: string; year: string; title: string },
+    onProgress?: (pct: number) => void
   ) => {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("kind", meta.kind);
     fd.append("year", meta.year);
     fd.append("title", meta.title);
-    return request<{ document: DocItem; warning: string }>("/documents", {
-      method: "POST",
-      body: fd,
-    });
+    return requestFormData<{ document: DocItem; warning: string }>(
+      "/documents",
+      fd,
+      onProgress
+    );
   },
   importPapers: async (file: File) => {
     const fd = new FormData();

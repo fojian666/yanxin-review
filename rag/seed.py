@@ -3,9 +3,28 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from . import config, db
+from . import auth, config, db
 from .parsers import parse_upload
 from .text import chunk_document, extract_keywords, extract_year, guess_title
+
+
+def seed_demo_users() -> int:
+    """演示账号（密码均为 yanxin2026，仅限内网演示；正式启用前必须改密或接 SSO）。"""
+    if _seeded("users"):
+        return 0
+    inserted = 0
+    for username, role in (
+        ("admin", "admin"),
+        ("manager", "manager"),
+        ("reviewer", "reviewer"),
+        ("viewer", "viewer"),
+    ):
+        if auth.create_user(
+            username, "yanxin2026", role, auth.ROLE_LABELS[role]
+        ):
+            inserted += 1
+    _mark_seeded("users")
+    return inserted
 
 _PAPER_ROWS = [
     (2019, "科研诚信治理的政策工具与实施路径研究", "科研诚信;科技政策"),
@@ -267,4 +286,5 @@ def seed_all() -> dict:
         "papers": seed_demo_papers(),
         "sample_doc": seed_sample_document(),
         "experts": seed_demo_experts(),
+        "users": seed_demo_users(),
     }

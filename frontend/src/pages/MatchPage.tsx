@@ -39,7 +39,7 @@ function expertStatus(expert: Expert) {
 }
 
 export function MatchPage() {
-  const { docs, toast } = useApp();
+  const { docs, toast, can } = useApp();
   const [docId, setDocId] = useState("");
   const [result, setResult] = useState<ToolCheckResult | null>(null);
   const [experts, setExperts] = useState<Expert[]>([]);
@@ -364,9 +364,11 @@ export function MatchPage() {
             <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
               <Download size={14} />下载 CSV 模板
             </button>
+            {can("import") && (
             <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}>
               <Upload size={14} />导入专家 CSV
             </button>
+            )}
             <input
               ref={csvRef}
               type="file"
@@ -377,9 +379,11 @@ export function MatchPage() {
                 event.target.value = "";
               }}
             />
+            {can("remove-sample") && (
             <button className="btn btn-ghost btn-sm" onClick={() => void removeSamples()}>
               <Trash2 size={14} />移除演示专家
             </button>
+            )}
           </div>
         </div>
         <div className="table-wrap scroll-area">
@@ -398,7 +402,7 @@ export function MatchPage() {
                       key={expert.id}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, ease: EASE, delay: Math.min(index * 0.015, 0.18) }}
+                      transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.015, 0.18) }}
                     >
                       <td>
                         <div className="doc-title">{expert.name}</div>

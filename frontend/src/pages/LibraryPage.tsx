@@ -24,10 +24,11 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 export function LibraryPage() {
-  const { docs, papers, refreshDocs, refreshPapers, toast, openUpload, setSelectedDocs } = useApp();
+  const { health, docs, papers, refreshDocs, refreshPapers, toast, openUpload, setSelectedDocs, can } = useApp();
   const navigate = useNavigate();
   const csvRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const limitMb = health?.upload_limit_mb ?? 30;
 
   const deleteDocument = async (id: string, name: string) => {
     if (!confirm(`确定删除《${name}》及其索引？`)) return;
@@ -86,6 +87,7 @@ export function LibraryPage() {
 
   return (
     <div className="library-page">
+      {can("upload") && (
       <div className="panel upload-panel">
         <div
           className={`dropzone ${dragging ? "dragover" : ""}`}
@@ -99,12 +101,13 @@ export function LibraryPage() {
         >
           <div className="drop-icon"><UploadCloud size={23} /></div>
           <h3>拖拽文件到这里，或点击选择</h3>
-          <p>支持 DOCX、PDF、TXT、MD；单个文件不超过 30MB。扫描件暂未启用 OCR。</p>
+          <p>支持 DOCX、PDF、TXT、MD；单个文件不超过 {limitMb}MB。扫描件暂未启用 OCR。</p>
           <button className="btn btn-primary" onClick={(event) => { event.stopPropagation(); openUpload(); }}>
             选择文件
           </button>
         </div>
       </div>
+      )}
 
       <div className="panel">
         <div className="panel-head">
@@ -132,7 +135,7 @@ export function LibraryPage() {
                     variants={staggerItem}
                     initial="initial"
                     animate="animate"
-                    transition={{ duration: 0.22, ease: EASE, delay: Math.min(index * 0.035, 0.2) }}
+                    transition={{ duration: 0.29, ease: EASE, delay: Math.min(index * 0.035, 0.2) }}
                   >
                     <td>
                       <div className="doc-title" title={doc.name}>{doc.name}</div>
@@ -160,9 +163,11 @@ export function LibraryPage() {
                         <button className="table-btn" onClick={() => navigate(`/review?doc=${doc.id}`)}>
                           <ShieldCheck size={13} />预审
                         </button>
+                        {can("delete-doc") && (
                         <button className="table-btn danger" onClick={() => void deleteDocument(doc.id, doc.name)}>
                           <Trash2 size={13} />删除
                         </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -183,9 +188,11 @@ export function LibraryPage() {
             <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
               <Download size={14} />下载 CSV 模板
             </button>
+            {can("import") && (
             <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}>
               <FileSpreadsheet size={14} />导入文献 CSV
             </button>
+            )}
             <input
               ref={csvRef}
               type="file"
@@ -205,10 +212,10 @@ export function LibraryPage() {
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.2, ease: EASE }}
+              transition={{ duration: 0.34, ease: EASE }}
             >
               当前包含演示文献（合成数据），趋势结论仅用于功能验证。
-              <button className="link-btn" onClick={() => void clearSamples()}>移除演示文献</button>
+              {can("remove-sample") && <button className="link-btn" onClick={() => void clearSamples()}>移除演示文献</button>}
             </motion.div>
           )}
         </AnimatePresence>
@@ -229,7 +236,7 @@ export function LibraryPage() {
                     key={paper.id}
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, ease: EASE, delay: Math.min(index * 0.012, 0.18) }}
+                    transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.012, 0.18) }}
                   >
                     <td><div className="doc-title" title={paper.title}>{paper.title}</div></td>
                     <td>{paper.year ?? "—"}</td>

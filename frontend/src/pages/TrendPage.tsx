@@ -18,14 +18,13 @@ import type { TrendData } from "../types";
 
 const CHIPS = ["科研诚信", "大模型", "语义查重", "知识图谱", "专家评审", "成果转化", "自然资源"];
 
-function yearOptions(start: number, end: number) {
-  const from = Math.min(2005, start);
-  const to = Math.max(2035, end);
+function yearOptions(from: number, to: number) {
+  // 边界由调用方决定（用于区间联动：起始 ≤ 结束），此处不再强制扩展
   return Array.from({ length: to - from + 1 }, (_, i) => from + i);
 }
 
 export function TrendPage() {
-  const { papers, refreshPapers, toast } = useApp();
+  const { papers, refreshPapers, toast, can } = useApp();
   const [query, setQuery] = useState("科研诚信");
   const [start, setStart] = useState(2019);
   const [end, setEnd] = useState(2025);
@@ -85,7 +84,9 @@ export function TrendPage() {
     setEnd(Math.max(...years));
   }, [papers]);
 
-  const options = yearOptions(start, end);
+  // 区间联动：起始年只能选 ≤ 结束年，结束年只能选 ≥ 起始年，杜绝倒置区间
+  const startOptions = yearOptions(Math.min(2005, start), end);
+  const endOptions = yearOptions(start, Math.max(2035, end));
   const effectiveView = webgl ? view : "2d";
   const stats = data?.stats;
   const kpiSignal = data
@@ -128,11 +129,11 @@ export function TrendPage() {
           </div>
           <div className="year-row">
             <select value={start} onChange={(event) => setStart(Number(event.target.value))}>
-              {options.map((year) => <option key={year} value={year}>{year}</option>)}
+              {startOptions.map((year) => <option key={year} value={year}>{year}</option>)}
             </select>
             <span>—</span>
             <select value={end} onChange={(event) => setEnd(Number(event.target.value))}>
-              {options.map((year) => <option key={year} value={year}>{year}</option>)}
+              {endOptions.map((year) => <option key={year} value={year}>{year}</option>)}
             </select>
             <motion.button
               className="btn btn-primary"
@@ -140,7 +141,7 @@ export function TrendPage() {
               disabled={showLoading}
               whileHover={showLoading ? undefined : { y: -1 }}
               whileTap={showLoading ? undefined : { scale: 0.97 }}
-              transition={{ duration: 0.15, ease: EASE }}
+              transition={{ duration: 0.34, ease: EASE }}
             >
               {showLoading ? "分析中…" : "分析趋势"}
             </motion.button>
@@ -159,7 +160,7 @@ export function TrendPage() {
             }}
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.97 }}
-            transition={{ duration: 0.14, ease: EASE }}
+            transition={{ duration: 0.23, ease: EASE }}
           >
             {chip}
           </motion.button>
@@ -173,13 +174,15 @@ export function TrendPage() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: EASE }}
+            transition={{ duration: 0.34, ease: EASE }}
           >
             <div><strong>演示数据</strong> · 当前趋势图使用合成文献验证功能，不代表真实研究结论。</div>
+            {can("remove-sample") && (
             <button className="btn btn-ghost btn-sm" onClick={() => void clearSamples()}>
               <Trash2 size={14} />
               移除演示文献
             </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -191,7 +194,7 @@ export function TrendPage() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: EASE }}
+            transition={{ duration: 0.34, ease: EASE }}
           >
             <Info size={18} />{error}
           </motion.div>
@@ -280,7 +283,7 @@ export function TrendPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18, ease: EASE }}
+                  transition={{ duration: 0.23, ease: EASE }}
                 >
                   {effectiveView === "3d" ? <AnnualChart3D data={data} /> : <TrendBar2D data={data} />}
                 </motion.div>
@@ -303,7 +306,7 @@ export function TrendPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18, ease: EASE }}
+                  transition={{ duration: 0.23, ease: EASE }}
                 >
                   {effectiveView === "3d" ? <TopicMatrix3D data={data} /> : <TrendLine2D data={data} />}
                 </motion.div>
@@ -316,7 +319,7 @@ export function TrendPage() {
             className="panel summary-panel"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.26, ease: EASE }}
+            transition={{ duration: 0.34, ease: EASE }}
           >
             <div className="panel-head">
               <div>
@@ -331,7 +334,7 @@ export function TrendPage() {
               key={`summary-${data.query}-${data.mode}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.24, ease: EASE }}
+              transition={{ duration: 0.31, ease: EASE }}
             >
             <Markdown content={data.summary || "暂无趋势摘要。"} className="summary-body" />
             {data.top_keywords_by_year.length > 0 && (

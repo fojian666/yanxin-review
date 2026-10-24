@@ -1,3 +1,18 @@
+export type UserRole = "admin" | "manager" | "reviewer" | "viewer";
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "管理员",
+  manager: "科研管理",
+  reviewer: "评审专家",
+  viewer: "访客",
+};
+
+export interface AuthUser {
+  username: string;
+  role: Role;
+  display_name: string;
+}
+
 export interface LlmStatus {
   configured: boolean;
   provider: string;
@@ -18,6 +33,7 @@ export interface Health {
     sample_experts?: number;
   };
   retriever_ready: boolean;
+  upload_limit_mb?: number;
 }
 
 export interface DocItem {
@@ -50,6 +66,7 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
+  time?: string;
   citations?: Citation[];
   warning?: string;
   error?: string;

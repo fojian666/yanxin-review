@@ -176,9 +176,30 @@ def test_upload_removes_file_when_chunking_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "chunk_document", boom)
     upload = UploadFile(file=io.BytesIO("科研诚信测试内容。".encode("utf-8")), filename="test.txt")
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(app_module.upload_document(file=upload, kind="auto", year="", title=""))
+        asyncio.run(app_module.upload_document(file=upload, kind="auto", year="", title="", _user={"role": "admin", "username": "t"}))
     assert exc.value.status_code == 400
     assert list(tmp_path.iterdir()) == []
+
+
+def test_upload_ignores_out_of_range_year(tmp_path, monkeypatch):
+    """显式传入的越界年份（如 123/9999）必须被忽略并回退自动抽取，而不是入库。"""
+    monkeypatch.setattr(config, "UPLOAD_DIR", tmp_path)
+    _tmp_db(tmp_path, monkeypatch)
+    from rag.retrieval import retriever
+    monkeypatch.setattr(app_module.retriever, "rebuild", lambda: None)
+
+    async def _upload(year: str) -> dict:
+        upload = UploadFile(file=io.BytesIO("立项背景与研究内容的测试文本。".encode("utf-8")), filename="test.txt")
+        result = await app_module.upload_document(file=upload, kind="auto", year=year, title="", _user={"role": "admin", "username": "t"})
+        return result["document"]
+
+    doc_bad = asyncio.run(_upload("123"))
+    assert doc_bad["year"] is None  # 文件名与正文都无年份，回退为空
+    doc_good = asyncio.run(_upload("2024"))
+    assert doc_good["year"] == 2024
+    with db.connect() as conn:
+        conn.execute("DELETE FROM documents")
+        conn.execute("DELETE FROM chunks")
 
 
 def test_infer_kind_falls_back_to_content_sniffing():
@@ -229,3 +250,42 @@ def test_ingest_schema_documents_contract():
     assert {"name", "institution", "research_areas", "workload", "available"} <= set(expert_props)
     assert contract["reserved"]["projects"]["schema"]["required"] == ["project_id", "title"]
     assert contract["auth"]["header"] == "X-INGEST-Token"
+
+
+def test_auth_password_hash_and_login_roundtrip(tmp_path, monkeypatch):
+    """密码加盐哈希可验证；错误密码与非法注册被拒绝。"""
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    assert auth.create_user("wang", "secret1", "reviewer", "王评审") is True
+    assert auth.create_user("wang", "another1", "viewer") is False      # 重名
+    assert auth.create_user("li", "123", "viewer") is False             # 密码过短
+    assert auth.create_user("zhao", "secret1", "superuser") is False    # 非法角色
+    user = auth.verify_login("wang", "secret1")
+    assert user == {"username": "wang", "role": "reviewer", "display_name": "王评审"}
+    assert auth.verify_login("wang", "wrongpwd") is None
+    assert auth.verify_login("nobody", "secret1") is None
+
+
+def test_auth_session_lifecycle(tmp_path, monkeypatch):
+    """会话可解析、可注销；伪造令牌无效。"""
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    auth.create_user("admin", "yanxin2026", "admin")
+    token = auth.create_session("admin")
+    assert auth.resolve_session(token)["role"] == "admin"
+    assert auth.resolve_session("forged-token") is None
+    auth.delete_session(token)
+    assert auth.resolve_session(token) is None
+
+
+def test_auth_login_endpoint_sets_cookie(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    auth.create_user("manager", "yanxin2026", "manager")
+    resp = app_module.login(app_module.LoginRequest(username="manager", password="yanxin2026"))
+    cookie = resp.headers.get("set-cookie", "")
+    assert auth.SESSION_COOKIE in cookie and "httponly" in cookie.lower()
+    import json as _json
+    assert _json.loads(resp.body)["user"]["role"] == "manager"
+    with pytest.raises(HTTPException):
+        app_module.login(app_module.LoginRequest(username="manager", password="bad"))

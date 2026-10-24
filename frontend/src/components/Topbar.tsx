@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Upload } from "lucide-react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { EASE } from "../motion";
@@ -10,13 +11,19 @@ const META: Record<string, { title: string; sub: string }> = {
   "/match": { title: "查重匹配", sub: "智能查重 + 专家画像匹配一体化工具" },
   "/review": { title: "本子预审", sub: "形式、诚信、查重与政策合规的辅助检查" },
   "/library": { title: "文档库", sub: "上传资料、管理索引、导入文献数据" },
+  "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
 };
 
 export function Topbar() {
   const { pathname } = useLocation();
-  const { health, openUpload } = useApp();
+  const { health, openUpload, can } = useApp();
   const meta = META[pathname] ?? META["/chat"];
   const online = Boolean(health?.llm.configured);
+
+  useEffect(() => {
+    document.title = `${meta.title} · 研信智评`;
+  }, [meta.title]);
+
   return (
     <header className="topbar" onDragStart={(event) => event.preventDefault()}>
       <AnimatePresence mode="wait" initial={false}>
@@ -26,7 +33,7 @@ export function Topbar() {
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.18, ease: EASE }}
+          transition={{ duration: 0.23, ease: EASE }}
         >
           <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
           <h1>{meta.title}</h1>
@@ -45,16 +52,18 @@ export function Topbar() {
           <span className="status-dot" />
           {online ? `千问 · ${health?.llm.model}` : "离线演示"}
         </span>
-        <motion.button
-          className="btn btn-primary"
-          onClick={() => openUpload()}
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.15, ease: EASE }}
-        >
-          <Upload size={17} />
-          上传文档
-        </motion.button>
+        {can("upload") && (
+          <motion.button
+            className="btn btn-primary"
+            onClick={() => openUpload()}
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ duration: 0.34, ease: EASE }}
+          >
+            <Upload size={17} />
+            上传文档
+          </motion.button>
+        )}
       </div>
     </header>
   );

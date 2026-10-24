@@ -11,14 +11,14 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from rag import config, db, qa, review, schemas, trends
+from rag import auth, config, db, qa, review, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
 from rag.llm import LLMError, llm
@@ -55,6 +55,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 无需登录即可访问的接口
+PUBLIC_API_PATHS = {
+    "/api/health",
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/ingest/schema",
+}
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and path not in PUBLIC_API_PATHS:
+        token = request.cookies.get(auth.SESSION_COOKIE, "")
+        user = auth.resolve_session(token) if token else None
+        if not user:
+            return JSONResponse(status_code=401, content={"error": "未登录或会话已过期"})
+        request.state.user = user
+    return await call_next(request)
+
+
+def require_role(*roles: str):
+    """写操作按角色限制；登录本身由中间件保证。"""
+
+    def dependency(request: Request) -> dict:
+        user = getattr(request.state, "user", None)
+        if not user or user.get("role") not in roles:
+            raise HTTPException(status_code=403, detail="当前角色无权执行该操作")
+        return user
+
+    return dependency
+
 
 class ChatRequest(BaseModel):
     question: str = ""
@@ -83,6 +115,18 @@ class IngestExpertsRequest(BaseModel):
 
 class IngestPapersRequest(BaseModel):
     papers: list[schemas.ExternalPaper] = Field(default_factory=list, max_length=1000)
+
+
+class LoginRequest(BaseModel):
+    username: str = ""
+    password: str = ""
+
+
+class CreateUserRequest(BaseModel):
+    username: str = ""
+    password: str = ""
+    role: str = "viewer"
+    display_name: str = ""
 
 
 def _require_ingest_token(
@@ -162,7 +206,58 @@ def health():
         "llm": llm.status(),
         "stats": db.stats(),
         "retriever_ready": retriever.ready,
+        "upload_limit_mb": config.MAX_UPLOAD_BYTES // 1024 // 1024,
     }
+
+
+# ---------- 认证与用户 ----------
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginRequest):
+    user = auth.verify_login(payload.username, payload.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    token = auth.create_session(user["username"])
+    resp = JSONResponse({"ok": True, "user": user})
+    resp.set_cookie(
+        auth.SESSION_COOKIE,
+        token,
+        max_age=auth.SESSION_DAYS * 24 * 3600,
+        httponly=True,
+        samesite="lax",
+    )
+    return resp
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request):
+    auth.delete_session(request.cookies.get(auth.SESSION_COOKIE, ""))
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(auth.SESSION_COOKIE)
+    return resp
+
+
+@app.get("/api/auth/me")
+def me(request: Request):
+    return request.state.user
+
+
+@app.get("/api/auth/users", dependencies=[Depends(require_role("admin"))])
+def users():
+    return {"users": auth.list_users(), "roles": auth.ROLE_LABELS}
+
+
+@app.post("/api/auth/users", dependencies=[Depends(require_role("admin"))])
+def create_user(payload: CreateUserRequest):
+    if not auth.create_user(
+        payload.username, payload.password, payload.role, payload.display_name
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法创建用户（用户名已存在，或角色非法，或密码少于 {auth.MIN_PASSWORD_LEN} 位）",
+        )
+    return {"ok": True, "user": {"username": payload.username, "role": payload.role}}
 
 
 @app.get("/api/documents")
@@ -176,6 +271,7 @@ async def upload_document(
     kind: str = Form("auto"),
     year: str = Form(""),
     title: str = Form(""),
+    _user: dict = Depends(require_role("manager", "admin")),
 ):
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="请选择文件")
@@ -206,7 +302,12 @@ async def upload_document(
         target.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"解析失败：{exc}") from exc
     title_value = (title or "").strip() or guess_title(filename, text)
-    year_value = int(year) if str(year).isdigit() else extract_year(filename, text)
+    year_raw = str(year or "").strip()
+    if year_raw.isdigit() and 1990 <= int(year_raw) <= 2035:
+        year_value: int | None = int(year_raw)
+    else:
+        # 非法/越界年份忽略，回退到自动抽取
+        year_value = extract_year(filename, text)
     warning = parsed.get("warning") or ""
     if not chunks:
         warning = warning or "未生成可用文本块，请确认文件内容。"
@@ -247,7 +348,7 @@ async def upload_document(
 
 
 @app.delete("/api/documents/{doc_id}")
-def remove_document(doc_id: str):
+def remove_document(doc_id: str, _user: dict = Depends(require_role("manager", "admin"))):
     doc = db.delete_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -318,7 +419,7 @@ def chat_stream(payload: ChatRequest):
 
 
 @app.post("/api/review")
-def review_doc(payload: ReviewRequest):
+def review_doc(payload: ReviewRequest, _user: dict = Depends(require_role("reviewer", "manager", "admin"))):
     doc_id = payload.doc_id.strip()
     if not doc_id:
         raise HTTPException(status_code=400, detail="请选择文档")
@@ -341,7 +442,7 @@ def papers():
 
 
 @app.post("/api/papers/import")
-async def import_papers(file: UploadFile = File(...)):
+async def import_papers(file: UploadFile = File(...), _user: dict = Depends(require_role("manager", "admin"))):
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="请选择 CSV 文件")
     suffix = Path(file.filename).suffix.lower()
@@ -371,7 +472,7 @@ def experts():
 
 
 @app.post("/api/experts/import")
-async def import_experts(file: UploadFile = File(...)):
+async def import_experts(file: UploadFile = File(...), _user: dict = Depends(require_role("manager", "admin"))):
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="请选择 CSV 文件")
     suffix = Path(file.filename).suffix.lower()
@@ -393,13 +494,13 @@ async def import_experts(file: UploadFile = File(...)):
 
 
 @app.delete("/api/experts/sample")
-def remove_sample_experts():
+def remove_sample_experts(_user: dict = Depends(require_role("manager", "admin"))):
     count = db.delete_sample_experts()
     return {"ok": True, "removed": count}
 
 
 @app.post("/api/tool/check")
-def tool_check(payload: ToolCheckRequest):
+def tool_check(payload: ToolCheckRequest, _user: dict = Depends(require_role("reviewer", "manager", "admin"))):
     doc_id = payload.doc_id.strip()
     if not doc_id:
         raise HTTPException(status_code=400, detail="请选择文档")
@@ -412,14 +513,14 @@ def tool_check(payload: ToolCheckRequest):
 # ---------- 外部数据接入（预留接口） ----------
 
 
-@app.post("/api/ingest/experts", dependencies=[Depends(_require_ingest_token)])
+@app.post("/api/ingest/experts", dependencies=[Depends(_require_ingest_token), Depends(require_role("manager", "admin"))])
 def ingest_experts(payload: IngestExpertsRequest):
     """外部系统推送专家数据；同名同单位自动跳过，幂等可重放。"""
     inserted, skipped = ingest_service.ingest_experts(payload.experts)
     return {"ok": True, "count": inserted, "skipped": skipped}
 
 
-@app.post("/api/ingest/papers", dependencies=[Depends(_require_ingest_token)])
+@app.post("/api/ingest/papers", dependencies=[Depends(_require_ingest_token), Depends(require_role("manager", "admin"))])
 def ingest_papers(payload: IngestPapersRequest):
     """外部系统推送文献数据；同标题同年份自动跳过，幂等可重放。"""
     inserted, skipped = ingest_service.ingest_papers(payload.papers)
@@ -463,7 +564,7 @@ def ingest_schema():
 
 
 @app.delete("/api/papers/sample")
-def remove_sample_papers():
+def remove_sample_papers(_user: dict = Depends(require_role("manager", "admin"))):
     count = db.delete_sample_papers()
     return {"ok": True, "removed": count}
 

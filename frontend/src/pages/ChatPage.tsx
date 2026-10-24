@@ -77,6 +77,7 @@ export function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scopeRef = useRef<HTMLDivElement>(null);
+  const focusTimer = useRef<number | null>(null);
 
   const scopeLabel =
     selectedDocs.length === 0
@@ -94,8 +95,15 @@ export function ChatPage() {
     const close = (event: MouseEvent) => {
       if (!scopeRef.current?.contains(event.target as Node)) setScopeOpen(false);
     };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setScopeOpen(false);
+    };
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   useEffect(() => {
@@ -109,8 +117,15 @@ export function ChatPage() {
     const el = document.getElementById(`source-${index}`);
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     setFocusedSource(index);
-    window.setTimeout(() => setFocusedSource(null), 1300);
+    if (focusTimer.current) window.clearTimeout(focusTimer.current);
+    focusTimer.current = window.setTimeout(() => setFocusedSource(null), 1300);
   };
+
+  useEffect(() => {
+    return () => {
+      if (focusTimer.current) window.clearTimeout(focusTimer.current);
+    };
+  }, []);
 
   const send = async (preset?: string) => {
     if (busy) return;
@@ -126,10 +141,11 @@ export function ChatPage() {
       .slice(-6)
       .map((m) => ({ role: m.role, content: m.content }));
     const assistantId = uid();
+    const ts = now();
     setMessages((prev) => [
       ...prev,
-      { id: uid(), role: "user", content: question },
-      { id: assistantId, role: "assistant", content: "", streaming: true, citations: [] },
+      { id: uid(), role: "user", content: question, time: ts },
+      { id: assistantId, role: "assistant", content: "", streaming: true, citations: [], time: ts },
     ]);
     setCitations([]);
     setInput("");
@@ -278,7 +294,7 @@ export function ChatPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.24, ease: EASE }}
+                transition={{ duration: 0.31, ease: EASE }}
               >
                 <motion.div
                   className="welcome-mark"
@@ -290,7 +306,7 @@ export function ChatPage() {
                 </motion.div>
                 <h2>把本子放进来，先让 AI 做一遍体检</h2>
                 <p>
-                  支持 DOCX / PDF / TXT。回答只依据你上传的资料，并给出页码或章节依据；资料不足时会直接说明。
+                  支持 DOCX / PDF / TXT / MD。回答只依据你上传的资料，并给出页码或章节依据；资料不足时会直接说明。
                 </p>
                 <motion.div
                   className="quick-grid"
@@ -323,7 +339,7 @@ export function ChatPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.16, ease: EASE }}
+                transition={{ duration: 0.21, ease: EASE }}
               >
                 <AnimatePresence initial={false}>
                   {messages.map((message) => (
@@ -350,7 +366,7 @@ export function ChatPage() {
             disabled={busy}
             whileHover={busy ? undefined : { y: -1 }}
             whileTap={busy ? undefined : { scale: 0.97 }}
-            transition={{ duration: 0.15, ease: EASE }}
+            transition={{ duration: 0.34, ease: EASE }}
           >
             {busy ? <><Loader2 size={16} className="spin" />生成中</> : <><Send size={17} />发送</>}
           </motion.button>
@@ -370,13 +386,13 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (ind
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.22, ease: EASE }}
+      transition={{ duration: 0.29, ease: EASE }}
     >
       <div className="msg-avatar">{message.role === "user" ? "我" : "AI"}</div>
       <div className="msg-body">
         <div className="msg-meta">
           <span>{message.role === "user" ? "你" : "研信智评"}</span>
-          <span>{now()}</span>
+          <span>{message.time ?? now()}</span>
         </div>
         {message.role === "user" ? (
           <div className="msg-content" style={{ whiteSpace: "pre-wrap" }}>
@@ -424,7 +440,7 @@ function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: 
                 key={c.index}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, ease: EASE, delay: Math.min(index * 0.045, 0.18) }}
+                transition={{ duration: 0.29, ease: EASE, delay: Math.min(index * 0.045, 0.18) }}
               >
                 <div className="source-top">
                   <div className="source-index">{c.index}</div>
