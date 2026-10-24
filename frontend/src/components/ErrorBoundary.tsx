@@ -33,8 +33,9 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="error-boundary">
         <AlertTriangle />
-        <h3>页面出现异常</h3>
-        <p>{error.message || "渲染时发生未知错误"}</p>
+        <h3>页面出了点意外</h3>
+        <p>{error.message || "渲染时遇到未知错误"}</p>
+        <p className="muted">重试或返回问答，皆可继续。</p>
         <div className="error-boundary-actions">
           <button className="btn btn-primary" onClick={() => this.setState({ error: null })}>
             重试

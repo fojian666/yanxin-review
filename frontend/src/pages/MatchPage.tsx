@@ -191,7 +191,7 @@ export function MatchPage() {
           <div className="eyebrow">INTEGRATED TOOL · DUPLICATE + EXPERT MATCHING</div>
           <h2>智能查重 · 专家匹配</h2>
           <p>
-            一份本子，一次运行：段落级语义查重与专家画像匹配同步完成，回避与负载约束前置过滤，每一条推荐都有证据与理由，可解释、可复核——对应课题考核指标的一体化工具。
+            一份本子，一次运行：段落级语义查重与专家画像匹配同步完成；回避与负载约束前置过滤，每条推荐皆有证据与理由——可解释，可复核。
           </p>
         </div>
         <div className="match-controls">
@@ -221,7 +221,7 @@ export function MatchPage() {
             </button>
           </div>
           <div className="match-summary-line">
-            {match ? match.summary : "选择一份本子，开始查重与专家匹配。"}
+            {match ? match.summary : "选定一份本子，查重与匹配随即展开。"}
           </div>
         </div>
       </div>
@@ -273,7 +273,7 @@ export function MatchPage() {
           <div className="panel-head">
             <div>
               <h2>语义查重</h2>
-              <p>段落级相似度 + 原文证据；相似不等于抄袭，需人工复核</p>
+              <p>段落级相似度，附原文证据；相似不等于抄袭，须人工复核</p>
             </div>
             <span className={`status-pill ${duplicate && duplicate.high_count ? "status-fail" : duplicate && duplicate.watch_count ? "status-warn" : "status-pass"}`}>
               {duplicate ? (duplicate.high_count ? "高风险" : duplicate.watch_count ? "需关注" : "未发现高相似") : "待检查"}
@@ -290,7 +290,7 @@ export function MatchPage() {
               >
                 <EmptyState
                   icon={<FileSearch size={38} />}
-                  description="运行检查后，这里会显示与已入库文档的相似段落和证据。"
+                  description="运行检查后，与已入库文档的相似段落与证据将列于此。"
                 />
               </motion.div>
             ) : (
@@ -333,7 +333,7 @@ export function MatchPage() {
           <div className="panel-head">
             <div>
               <h2>专家匹配</h2>
-              <p>方向相似度 + 关键词 + 回避/负载约束，可解释排序</p>
+              <p>方向语义、关键词与学科三路加权，约束前置，排序可解释</p>
             </div>
             <span className="count-badge">{match?.candidates.length ?? 0}</span>
           </div>
@@ -348,7 +348,7 @@ export function MatchPage() {
               >
                 <EmptyState
                   icon={<Users size={38} />}
-                  description="运行检查后，这里会显示候选专家、匹配理由和排除原因。"
+                  description="运行检查后，候选专家、匹配理由与排除原因将列于此。"
                 />
               </motion.div>
             ) : (
@@ -375,7 +375,7 @@ export function MatchPage() {
                   ))}
                 </motion.div>
               ) : (
-                <EmptyState icon={<UserX size={34} />} description="没有满足约束的候选专家，请检查专家库或回避/负载设置。" />
+                <EmptyState icon={<UserX size={34} />} description="暂无满足约束的候选专家，请检查专家库或回避 / 负载设置。" />
               )}
               {match?.excluded.length ? (
                 <details className="excluded-box">
@@ -399,7 +399,7 @@ export function MatchPage() {
         <div className="panel-head">
           <div>
             <h2>专家库</h2>
-            <p>用于专家画像匹配；不包含性别、年龄等敏感属性。演示专家可一键移除。</p>
+            <p>供专家画像匹配之用；不采集性别、年龄等敏感属性。演示专家可一键移除。</p>
           </div>
           <div className="head-actions">
             <span className="count-badge">{experts.length}</span>
@@ -430,7 +430,7 @@ export function MatchPage() {
         </div>
         <div className="table-wrap scroll-area">
           {experts.length === 0 ? (
-            <EmptyState icon={<Users size={38} />} description="专家库为空，请导入专家 CSV。" />
+            <EmptyState icon={<Users size={38} />} description="专家库尚空，导入一份专家 CSV 即成册。" />
           ) : (
             <table className="data-table">
               <thead>

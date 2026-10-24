@@ -7,11 +7,11 @@ import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING } from "../motion";
 
 const META: Record<string, { title: string; sub: string }> = {
-  "/chat": { title: "智能问答", sub: "基于上传资料回答，逐条给出原文依据" },
-  "/trend": { title: "文献趋势", sub: "从多年论文中识别主题热度、阶段变化与研究空白" },
-  "/match": { title: "查重匹配", sub: "智能查重 + 专家画像匹配一体化工具" },
-  "/review": { title: "本子预审", sub: "形式、诚信、查重与政策合规的辅助检查" },
-  "/library": { title: "文档库", sub: "上传资料、管理索引、导入文献数据" },
+  "/chat": { title: "智能问答", sub: "只以你上传的资料作答，逐条附原文与页码" },
+  "/trend": { title: "文献趋势", sub: "在多年文献的起伏里，读热度、读阶段、读空白" },
+  "/match": { title: "查重匹配", sub: "一次运行：段落查重与专家匹配并行，约束前置" },
+  "/review": { title: "本子预审", sub: "形式、诚信、查重、政策四道关，AI 只勘不断" },
+  "/library": { title: "文档库", sub: "资料入库、索引在册、文献成集" },
   "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
 };
 

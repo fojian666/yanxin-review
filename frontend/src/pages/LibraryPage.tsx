@@ -116,7 +116,7 @@ export function LibraryPage() {
           onDrop={onDrop}
         >
           <div className="drop-icon"><UploadCloud size={23} /></div>
-          <h3>拖拽文件到这里，或点击选择</h3>
+          <h3>拖拽至此，或点击选择</h3>
           <p>支持 DOCX、PDF、TXT、MD；单个文件不超过 {limitMb}MB。扫描件暂未启用 OCR。</p>
           <button className="btn btn-primary" onClick={(event) => { event.stopPropagation(); openUpload(); }}>
             选择文件
@@ -132,7 +132,7 @@ export function LibraryPage() {
               <h2>文档库</h2>
               <span className="count-badge">{docs.length} 份</span>
             </div>
-            <p>资料仅保存在本机 data/uploads；删除文档会同时删除索引。</p>
+            <p>资料仅存于本机 data/uploads；删除文档，索引随之清除。</p>
           </div>
           {can("delete-doc") && (
             <button className="btn btn-ghost btn-sm" onClick={() => void removeSampleDocs()}>
@@ -144,7 +144,7 @@ export function LibraryPage() {
           {docs.length === 0 ? (
             <EmptyState
               icon={<FolderOpen size={38} />}
-              description="还没有文档。上传一份本子或政策文件开始。"
+              description="库中尚空。上传一份本子或政策文件，即开始。"
             />
           ) : (
             <table className="data-table">
@@ -217,7 +217,7 @@ export function LibraryPage() {
         <div className="panel-head">
           <div>
             <h2>文献数据</h2>
-            <p>用于“历史沿革”趋势分析。支持 CSV 批量导入；示例数据可随时移除。</p>
+            <p>供“历史沿革”趋势分析之用。CSV 批量导入，示例数据可随时移除。</p>
           </div>
           <div className="head-actions">
             <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
@@ -258,7 +258,7 @@ export function LibraryPage() {
           {papers.length === 0 ? (
             <EmptyState
               icon={<FileText size={38} />}
-              description="还没有文献数据。导入 CSV 后即可做趋势分析。"
+              description="文献尚空。导入 CSV，趋势分析即可成图。"
             />
           ) : (
             <table className="data-table">

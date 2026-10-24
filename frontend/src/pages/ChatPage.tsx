@@ -27,25 +27,25 @@ const QUICK_CARDS = [
   {
     icon: ScrollText,
     title: "梳理核心内容",
-    desc: "研究内容、技术路线与考核指标",
+    desc: "研究内容、技术路线、考核指标，一次理清",
     question: "这份本子的研究内容和技术路线是什么？",
   },
   {
     icon: ShieldCheck,
     title: "检查诚信与规范",
-    desc: "诚信承诺、数据安全、伦理与知识产权",
+    desc: "诚信、数据安全、伦理与知识产权，逐项对照",
     question: "这份本子在科研诚信和数据安全方面有哪些需要补充的内容？",
   },
   {
     icon: Sparkles,
-    title: "找创新与重复",
-    desc: "创新点提炼、相似内容提示",
+    title: "辨创新与重复",
+    desc: "提炼创新点，提示与已有研究的重叠",
     question: "请总结这份本子的创新点，并指出与已有研究可能重复的地方。",
   },
   {
     icon: FileText,
-    title: "生成评审问题",
-    desc: "把材料缺口转成可追问的问题",
+    title: "拟评审追问",
+    desc: "把材料缺口，转成专家会问的问题",
     question: "如果我是评审专家，应该向申报人重点追问哪些问题？",
   },
 ];
@@ -337,9 +337,9 @@ export function ChatPage() {
                 >
                   <ShieldCheck size={27} />
                 </motion.div>
-                <h2>把本子放进来，先让 AI 做一遍体检</h2>
+                <h2>把本子放进来，让 AI 先读、先问、先核</h2>
                 <p>
-                  支持 DOCX / PDF / TXT / MD。回答只依据你上传的资料，并给出页码或章节依据；资料不足时会直接说明。
+                  支持 DOCX / PDF / TXT / MD。回答只以你上传的资料为据，附页码与章节；资料不足，它会直说，不臆造。
                 </p>
                 <motion.div
                   className="quick-grid"
@@ -362,7 +362,7 @@ export function ChatPage() {
                   ))}
                 </motion.div>
                 <div className="welcome-note">
-                  提示：评审材料请在内网使用；当前演示版不会把文件发送到未配置的外部服务。
+                  提示：评审材料请在内网使用；演示版不会把文件发往任何未配置的外部服务。
                 </div>
               </motion.div>
             ) : (
@@ -451,7 +451,7 @@ function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: 
       <div className="panel-head">
         <div>
           <h2>证据与引用</h2>
-          <p>回答中的 [1][2] 对应这里的原文</p>
+          <p>回答里的 [1][2]，都对应此处原文与页码</p>
         </div>
         <span className="count-badge">{citations.length}</span>
       </div>
@@ -459,7 +459,7 @@ function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: 
         {citations.length === 0 ? (
           <EmptyState
             icon={<FileText size={38} />}
-            description="提问后，这里会显示命中的原文片段、页码和相似度。"
+            description="提问后，命中的原文片段、页码与相似度列于此。"
           />
         ) : (
           citations.map((c, index) => {

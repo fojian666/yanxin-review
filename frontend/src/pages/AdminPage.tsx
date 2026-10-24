@@ -71,7 +71,7 @@ export function AdminPage() {
         <div className="panel-head">
           <div>
             <h2>用户与角色</h2>
-            <p>账号密码为原型方案；正式部署替换为厅统一身份（SSO）并沿用同一角色模型</p>
+            <p>账号密码为原型之策；正式部署将替换为厅统一身份（SSO），沿用同一角色模型</p>
           </div>
           <span className="count-badge">{users.length}</span>
         </div>
@@ -79,7 +79,7 @@ export function AdminPage() {
           {loading ? (
             <div className="empty-state"><Loader2 size={30} className="spin" /></div>
           ) : users.filter(Boolean).length === 0 ? (
-            <EmptyState icon={<Users size={38} />} description="还没有用户。" />
+            <EmptyState icon={<Users size={38} />} description="尚无用户，创建第一位吧。" />
           ) : (
             <table className="data-table">
               <thead>
@@ -110,7 +110,7 @@ export function AdminPage() {
         <div className="panel-head">
           <div>
             <h2>新建用户</h2>
-            <p>密码以加盐哈希存储；角色决定可执行的操作（见下方说明）</p>
+            <p>密码以加盐哈希存储；角色即权限边界（见下方说明）</p>
           </div>
         </div>
         <div className="form-grid">

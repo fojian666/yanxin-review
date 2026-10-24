@@ -140,7 +140,7 @@ export function ReviewPage() {
         <div className="eyebrow">AI PRE-REVIEW</div>
         <h2>本子预审</h2>
         <p className="hint">
-          选择一份申报书，系统会做形式完整性、诚信与规范性、语义查重和政策合规检查。AI 只给检查项与证据，不打分、不替专家下结论。
+          选定一份申报书，形式、诚信、查重、政策四关依次勘验。AI 只呈检查项与证据——不打分、不排名、不替专家下结论。
         </p>
         <label className="field-label" htmlFor="reviewDoc">待审文档</label>
         <select
@@ -187,7 +187,7 @@ export function ReviewPage() {
         </div>
         <div className="control-note">
           <strong>边界</strong>
-          <p>不输出立项结论、评分和排名；查重相似度不等于抄袭，需人工复核；政策合规需先上传政策库。</p>
+          <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策合规需先上传政策库。</p>
         </div>
       </div>
 
@@ -204,8 +204,8 @@ export function ReviewPage() {
               <EmptyState
                 tall
                 icon={<FileSearch size={42} />}
-                title={error ? "预审失败" : "预审报告会显示在这里"}
-                description={error || "先上传一份本子，然后在左侧选择文档并开始预审。"}
+                title={error ? "预审失败" : "预审报告将在此呈卷"}
+                description={error || "先上传本子，再于左侧选定文档，即可开始预审。"}
               />
             </motion.div>
           ) : (

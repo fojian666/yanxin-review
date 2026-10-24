@@ -109,7 +109,7 @@ export function TrendPage() {
           <div className="eyebrow">HISTORICAL EVOLUTION</div>
           <h2>历史沿革 · 多年文献趋势</h2>
           <p>
-            不限主题，不限年代。落下一个研究方向，即从多年文献中梳理热度的起伏、阶段的更迭与尚待开垦的空白——每一步研判，都有数据可依。
+            不限主题，不限年代。落下一枚方向词，便从多年文献里读出热度的起伏、阶段的更迭与尚待开垦的空白——每一步研判，皆有数据可依。
           </p>
         </div>
         <div className="trend-controls">
@@ -264,7 +264,7 @@ export function TrendPage() {
               <div className="panel-head">
                 <div>
                   <h2>年度发文量</h2>
-                  <p>{effectiveView === "3d" ? "3D 立体柱 · 自动旋转" : "相关文献的年份分布"}</p>
+                  <p>{effectiveView === "3d" ? "3D 立体柱 · 自动旋转" : "相关文献按年排布，起伏即脉络"}</p>
                 </div>
                 <span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>
                   {effectiveView === "3d" ? "LIVE 3D" : "2D"}
@@ -287,7 +287,7 @@ export function TrendPage() {
               <div className="panel-head">
                 <div>
                   <h2>主题热度矩阵</h2>
-                  <p>{effectiveView === "3d" ? "主题 × 年份 × 文献数 · 可旋转" : "按年度统计主题出现次数"}</p>
+                  <p>{effectiveView === "3d" ? "主题 × 年份 × 文献数 · 可旋转" : "主题 × 年份 × 篇数，一张矩阵看冷暖"}</p>
                 </div>
                 <span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>
                   {effectiveView === "3d" ? "3D MATRIX" : "2D"}
@@ -317,7 +317,7 @@ export function TrendPage() {
             <div className="panel-head">
               <div>
                 <h2>AI 趋势研判</h2>
-                <p>基于当前文献集合统计生成，不替代文献综述</p>
+                <p>基于当前文献集合统计而成，不替代人工文献综述</p>
               </div>
               <span className={`mode-badge ${data.mode === "qwen" ? "online" : ""}`}>
                 {data.mode === "qwen" ? "千问生成" : "规则摘要"}
@@ -359,7 +359,7 @@ export function TrendPage() {
             <div className="panel-head">
               <div>
                 <h2>代表性文献</h2>
-                <p>与当前主题最相关的文献，可回到原文核对</p>
+                <p>与主题最相近的文献，皆可回到原文核对</p>
               </div>
               <span className="muted">{data.papers.length ? `展示前 ${data.papers.length} 篇` : ""}</span>
             </div>
@@ -372,7 +372,7 @@ export function TrendPage() {
             >
               {data.papers.length === 0 ? (
                 <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-                  <p>没有匹配的文献。可以换一个主题词，或在文档库导入真实文献 CSV。</p>
+                  <p>暂无匹配文献。换一枚主题词，或在文档库导入真实文献 CSV 再试。</p>
                 </div>
               ) : (
                 data.papers.map((paper, index) => (

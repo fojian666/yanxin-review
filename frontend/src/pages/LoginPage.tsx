@@ -9,17 +9,17 @@ import type { UserRole } from "../types";
 const DEMO_ACCOUNTS: {
   username: UserRole; label: string; desc: string; icon: typeof ShieldCheck;
 }[] = [
-  { username: "admin", label: "管理员", desc: "全部功能", icon: ShieldCheck },
-  { username: "manager", label: "科研管理", desc: "上传 · 导入", icon: FileSearch },
-  { username: "reviewer", label: "评审专家", desc: "预审 · 查重", icon: ScanSearch },
-  { username: "viewer", label: "访客", desc: "问答 · 趋势", icon: Eye },
+  { username: "admin", label: "管理员", desc: "统揽全局", icon: ShieldCheck },
+  { username: "manager", label: "科研管理", desc: "收文入库", icon: FileSearch },
+  { username: "reviewer", label: "评审专家", desc: "勘验比对", icon: ScanSearch },
+  { username: "viewer", label: "访客", desc: "阅卷观势", icon: Eye },
 ];
 
 const FEATURES = [
-  { icon: FileSearch, label: "引用溯源", desc: "句级标注原文出处" },
-  { icon: ScanSearch, label: "语义查重", desc: "段落级相似与证据" },
-  { icon: Users, label: "专家匹配", desc: "回避负载约束前置" },
-  { icon: TrendingUp, label: "文献趋势", desc: "多年热度与空白" },
+  { icon: FileSearch, label: "引用溯源", desc: "句句有出处，页页可回溯" },
+  { icon: ScanSearch, label: "语义查重", desc: "段落相比，证据并列" },
+  { icon: Users, label: "专家匹配", desc: "回避与负载，先于偏好" },
+  { icon: TrendingUp, label: "文献趋势", desc: "看热度起伏，也看空白处" },
 ];
 
 const DEMO_PASSWORD = "yanxin2026";
@@ -206,7 +206,7 @@ export function LoginPage() {
               <MapPinned size={13} /> 自然资源 · 科研诚信 · 江苏
             </div>
             <h1>研信智评</h1>
-            <p className="login-brand-sub">科研诚信智能评审 · 内网工作台</p>
+            <p className="login-brand-sub">以诚信为尺，勘每一卷申报</p>
             <div className="login-features-head">
               <span>CORE CAPABILITIES</span>
               <span>核心能力</span>
@@ -236,7 +236,7 @@ export function LoginPage() {
             <div className="login-form-head">
               <div className="eyebrow">SIGN IN</div>
               <h2>登录</h2>
-              <p>使用内网账号进入评审工作台</p>
+              <p>内网账号登入 · 评审工作台即启</p>
             </div>
             <label className="field">
               <span>用户名</span>
