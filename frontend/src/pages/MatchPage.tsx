@@ -201,7 +201,11 @@ export function MatchPage() {
             id="matchDoc"
             className="select"
             value={docId}
-            onChange={(event) => setDocId(event.target.value)}
+            onChange={(event) => {
+              setDocId(event.target.value);
+              setResult(null);
+              setError("");
+            }}
           >
             {sortedDocs.length === 0 ? (
               <option value="">暂无文档，请先上传</option>

@@ -65,6 +65,7 @@ export function ChatPage() {
     setSelectedDocs,
     toast,
     openUpload,
+    can,
     chatMessages: messages,
     setChatMessages: setMessages,
     chatCitations: citations,
@@ -78,6 +79,8 @@ export function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scopeRef = useRef<HTMLDivElement>(null);
   const focusTimer = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const runIdRef = useRef(0);
 
   const scopeLabel =
     selectedDocs.length === 0
@@ -124,6 +127,8 @@ export function ChatPage() {
   useEffect(() => {
     return () => {
       if (focusTimer.current) window.clearTimeout(focusTimer.current);
+      runIdRef.current += 1;
+      abortRef.current?.abort();
     };
   }, []);
 
@@ -132,8 +137,12 @@ export function ChatPage() {
     const question = (preset ?? input).trim();
     if (!question) return;
     if (docs.length === 0) {
-      toast("请先上传一份文档，再开始提问", "error");
-      openUpload();
+      if (can("upload")) {
+        toast("请先上传一份文档，再开始提问", "error");
+        openUpload();
+      } else {
+        toast("当前没有可提问的文档，请联系科研管理人员上传", "error");
+      }
       return;
     }
     const history: ChatHistoryItem[] = messages
@@ -150,6 +159,12 @@ export function ChatPage() {
     setCitations([]);
     setInput("");
     setBusy(true);
+
+    const runId = ++runIdRef.current;
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+    const isCurrent = () => runId === runIdRef.current;
     try {
       await streamChat(
         {
@@ -159,6 +174,7 @@ export function ChatPage() {
         },
         {
           onMeta: (meta) => {
+            if (!isCurrent()) return;
             setCitations(meta.citations);
             setMessages((prev) =>
               prev.map((m) =>
@@ -169,6 +185,7 @@ export function ChatPage() {
             );
           },
           onToken: (token) => {
+            if (!isCurrent()) return;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId ? { ...m, content: m.content + token } : m
@@ -176,6 +193,7 @@ export function ChatPage() {
             );
           },
           onWarning: (message) => {
+            if (!isCurrent()) return;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -185,13 +203,21 @@ export function ChatPage() {
             );
           },
           onDone: () => {
+            if (!isCurrent()) return;
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m))
             );
           },
-        }
+        },
+        controller.signal
       );
     } catch (err) {
+      if (controller.signal.aborted || !isCurrent()) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m))
+        );
+        return;
+      }
       const message = (err as Error).message;
       setMessages((prev) =>
         prev.map((m) =>
@@ -200,11 +226,15 @@ export function ChatPage() {
       );
       toast(`回答生成失败：${message}`, "error");
     } finally {
-      setBusy(false);
+      if (isCurrent()) {
+        setBusy(false);
+        abortRef.current = null;
+      }
     }
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void send();

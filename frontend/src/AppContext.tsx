@@ -100,6 +100,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastTimer.current = window.setTimeout(() => setToastState(null), 3400);
   }, []);
 
+  // 会话切换时统一清理，避免上一位用户的问答/引用/上传态残留
+  const resetSession = useCallback(() => {
+    setDocs([]);
+    setPapers([]);
+    setSelectedDocs([]);
+    setChatMessages([]);
+    setChatCitations([]);
+    setHealth(null);
+    setUploadOpen(false);
+    setUploadSeedFile(null);
+    setLoading(true);
+  }, []);
+
   const refreshDocs = useCallback(async () => {
     const data = await api.documents();
     setDocs(data.documents);
@@ -129,12 +142,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 任意请求返回 401 → 会话过期，切回登录页
+  // 任意请求返回 401 → 会话过期，切回登录页并清理残留状态
   useEffect(() => {
-    const onExpired = () => setAuth(null);
+    const onExpired = () => {
+      setAuth(null);
+      resetSession();
+      toast("会话已过期，请重新登录", "error");
+    };
     window.addEventListener("auth:expired", onExpired);
     return () => window.removeEventListener("auth:expired", onExpired);
-  }, []);
+  }, [resetSession, toast]);
 
   const loadInitial = useCallback(async () => {
     try {
@@ -163,21 +180,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const result = await api.login(username, password);
+    resetSession();
     setAuth(result.user);
     return result.user;
-  }, []);
+  }, [resetSession]);
 
   const logout = useCallback(async () => {
     try {
       await api.logout();
-    } catch {
-      // 本地状态照常清理
+    } catch (err) {
+      toast(`退出登录请求失败：${(err as Error).message}`, "error");
     }
     setAuth(null);
-    setChatMessages([]);
-    setChatCitations([]);
-    setSelectedDocs([]);
-  }, []);
+    resetSession();
+  }, [resetSession, toast]);
 
   const can = useCallback(
     (action: string) => Boolean(auth && (PERMISSIONS[action] || []).includes(auth.role)),
@@ -224,7 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openUpload,
       clearUploadSeed,
     }),
-    [auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed]
+    [auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
   );
 
   return (
