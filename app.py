@@ -264,10 +264,19 @@ def _session_response(payload: dict, token: str) -> JSONResponse:
 
 
 @app.post("/api/auth/login")
-def login(payload: LoginRequest):
+def login(payload: LoginRequest, request: Request):
+    client = request.client.host if request.client else ""
+    if not auth.login_allowed(payload.username, client):
+        raise HTTPException(
+            status_code=429,
+            detail=f"登录失败次数过多，请 {auth.LOGIN_WINDOW_SECONDS // 60} 分钟后再试",
+            headers={"Retry-After": str(auth.LOGIN_WINDOW_SECONDS)},
+        )
     user = auth.verify_login(payload.username, payload.password)
     if not user:
+        auth.record_login_failure(payload.username, client)
         raise HTTPException(status_code=401, detail="用户名或密码错误")
+    auth.clear_login_failures(payload.username, client)
     token = auth.create_session(user["username"])
     return _session_response({"ok": True, "user": user}, token)
 

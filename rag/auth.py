@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
+import threading
+import time
 import uuid
+from collections import deque
 from datetime import datetime, timedelta
 
 from . import db
@@ -25,6 +29,43 @@ SESSION_COOKIE = "yanxin_session"
 SESSION_DAYS = 7
 MIN_PASSWORD_LEN = 6
 _DUMMY_SALT = "0" * 32
+
+LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "300"))
+LOGIN_MAX_FAILURES = int(os.getenv("LOGIN_MAX_FAILURES", "5"))
+_login_failures: dict[str, deque[float]] = {}
+_login_lock = threading.Lock()
+
+
+def _login_key(username: str, client: str) -> str:
+    return f"{(username or '').strip().lower()}|{(client or '').strip()}"
+
+
+def login_allowed(username: str, client: str) -> bool:
+    now = time.time()
+    with _login_lock:
+        bucket = _login_failures.get(_login_key(username, client))
+        if not bucket:
+            return True
+        while bucket and now - bucket[0] > LOGIN_WINDOW_SECONDS:
+            bucket.popleft()
+        return len(bucket) < LOGIN_MAX_FAILURES
+
+
+def record_login_failure(username: str, client: str) -> None:
+    now = time.time()
+    with _login_lock:
+        bucket = _login_failures.setdefault(_login_key(username, client), deque())
+        bucket.append(now)
+        while bucket and now - bucket[0] > LOGIN_WINDOW_SECONDS:
+            bucket.popleft()
+        if len(_login_failures) > 5000:
+            for stale in list(_login_failures)[:1000]:
+                _login_failures.pop(stale, None)
+
+
+def clear_login_failures(username: str, client: str) -> None:
+    with _login_lock:
+        _login_failures.pop(_login_key(username, client), None)
 
 
 def _hash_password(password: str, salt: str) -> str:

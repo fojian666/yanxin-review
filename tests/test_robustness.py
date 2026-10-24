@@ -19,6 +19,20 @@ def _tmp_db(tmp_path, monkeypatch):
     db.init_db()
 
 
+def _login_request(client: str = "127.0.0.1"):
+    from starlette.requests import Request as SR
+
+    return SR(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/auth/login",
+            "headers": [],
+            "client": (client, 12345),
+        }
+    )
+
+
 def test_trends_empty_library_returns_empty_result(monkeypatch):
     """A library with no papers must return an empty trend, not crash in TF-IDF."""
     monkeypatch.setattr(trends.db, "list_papers", lambda: [])
@@ -289,14 +303,20 @@ def test_auth_session_lifecycle(tmp_path, monkeypatch):
 def test_auth_login_endpoint_sets_cookie(tmp_path, monkeypatch):
     _tmp_db(tmp_path, monkeypatch)
     from rag import auth
+    monkeypatch.setattr(auth, "_login_failures", {})
     auth.create_user("manager", "yanxin2026", "manager")
-    resp = app_module.login(app_module.LoginRequest(username="manager", password="yanxin2026"))
+    request = _login_request()
+    resp = app_module.login(
+        app_module.LoginRequest(username="manager", password="yanxin2026"), request
+    )
     cookie = resp.headers.get("set-cookie", "")
     assert auth.SESSION_COOKIE in cookie and "httponly" in cookie.lower()
     import json as _json
     assert _json.loads(resp.body)["user"]["role"] == "manager"
     with pytest.raises(HTTPException):
-        app_module.login(app_module.LoginRequest(username="manager", password="bad"))
+        app_module.login(
+            app_module.LoginRequest(username="manager", password="bad"), request
+        )
 
 
 def test_ingest_guard_allows_token_or_privileged_session(tmp_path, monkeypatch):
@@ -550,3 +570,72 @@ def test_review_policy_without_hits_is_not_risky():
         section for section in sections_no_docs if section["key"] == "policy"
     )
     assert policy_no_docs["items"][0]["status"] == "warn"
+
+
+def test_public_llm_blocked_by_default(monkeypatch):
+    """仅配置公网端点与密钥时，默认不得把材料发出去。"""
+    monkeypatch.setattr(config, "QWEN_API_KEY", "k")
+    monkeypatch.setattr(
+        config, "QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", False)
+    info = config.llm_provider()
+    assert info["configured"] is False
+    assert info["blocked_external"] is True
+    assert "阻止" in info["label"]
+
+
+def test_private_llm_allowed_without_opt_in(monkeypatch):
+    monkeypatch.setattr(config, "QWEN_API_KEY", "EMPTY")
+    monkeypatch.setattr(config, "QWEN_BASE_URL", "http://10.0.0.10:8000/v1")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", False)
+    assert config.llm_provider()["configured"] is True
+
+
+def test_public_llm_allowed_with_explicit_opt_in(monkeypatch):
+    monkeypatch.setattr(config, "QWEN_API_KEY", "k")
+    monkeypatch.setattr(
+        config, "QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    assert config.llm_provider()["configured"] is True
+
+
+def test_host_classification():
+    assert config._is_public_host("https://dashscope.aliyuncs.com/compatible-mode/v1")
+    assert not config._is_public_host("http://127.0.0.1:8000/v1")
+    assert not config._is_public_host("http://10.1.2.3:8000/v1")
+    assert not config._is_public_host("http://qwen.internal/v1")
+    assert not config._is_public_host("http://localhost:8000/v1")
+
+
+def test_login_rate_limited_after_repeated_failures(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    monkeypatch.setattr(auth, "_login_failures", {})
+    auth.create_user("admin", "yanxin2026", "admin")
+    request = _login_request("10.0.0.9")
+    for _ in range(auth.LOGIN_MAX_FAILURES):
+        with pytest.raises(HTTPException) as exc:
+            app_module.login(
+                app_module.LoginRequest(username="admin", password="bad"), request
+            )
+        assert exc.value.status_code == 401
+    with pytest.raises(HTTPException) as exc:
+        app_module.login(
+            app_module.LoginRequest(username="admin", password="bad"), request
+        )
+    assert exc.value.status_code == 429
+    assert exc.value.headers["Retry-After"] == str(auth.LOGIN_WINDOW_SECONDS)
+    # 其他来源 IP 不受影响
+    other = _login_request("10.0.0.10")
+    resp = app_module.login(
+        app_module.LoginRequest(username="admin", password="yanxin2026"), other
+    )
+    assert resp.status_code == 200
+    # 清理后可重新登录
+    auth.clear_login_failures("admin", "10.0.0.9")
+    resp = app_module.login(
+        app_module.LoginRequest(username="admin", password="yanxin2026"), request
+    )
+    assert resp.status_code == 200
