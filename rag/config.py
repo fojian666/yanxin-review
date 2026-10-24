@@ -17,6 +17,9 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(30 * 1024 * 1024)))
 MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "60000"))
+MAX_DOCX_UNCOMPRESSED_BYTES = int(
+    os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(120 * 1024 * 1024))
+)
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))

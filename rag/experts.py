@@ -126,7 +126,7 @@ def _doc_text(doc_id: str) -> tuple[dict, str]:
 def extract_applicant(text: str) -> dict[str, list[str]]:
     institutions: list[str] = []
     people: list[str] = []
-    for line in text.splitlines()[:80]:
+    for line in text.splitlines():
         compact = line.strip()
         if not compact:
             continue
@@ -167,12 +167,20 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
     doc, text = _doc_text(doc_id)
     experts = db.list_experts()
     applicant = extract_applicant(text)
+    applicant_detected = bool(applicant["institutions"] or applicant["people"])
+    applicant_warning = (
+        ""
+        if applicant_detected
+        else "未能识别申报单位/负责人，同单位与回避约束未生效，请人工核对。"
+    )
     keywords = extract_keywords(text[:20000], topk=18)
     if not experts:
         return {
             "doc": {"id": doc["id"], "name": doc["name"]},
             "proposal_keywords": keywords,
             "applicant": applicant,
+            "applicant_detected": applicant_detected,
+            "applicant_warning": applicant_warning,
             "candidates": [],
             "excluded": [],
             "total_experts": 0,
@@ -181,23 +189,9 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
             "disclaimer": DISCLAIMER,
         }
 
-    profiles = [
-        f"{e.get('discipline','')} {e.get('research_areas','')} {e.get('achievements','')}"
-        for e in experts
-    ]
-    vectorizer = TfidfVectorizer(
-        analyzer="char",
-        ngram_range=(2, 4),
-        sublinear_tf=True,
-        max_features=80000,
-    )
-    matrix = vectorizer.fit_transform([text[:20000]] + profiles)
-    similarities = cosine_similarity(matrix[0:1], matrix[1:]).ravel()
-
-    candidates: list[dict[str, Any]] = []
+    eligible: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
-    available_count = 0
-    for index, expert in enumerate(experts):
+    for expert in experts:
         reason = _exclusion_reason(expert, applicant)
         if reason:
             excluded.append(
@@ -207,8 +201,28 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
                     "reason": reason,
                 }
             )
-            continue
-        available_count += 1
+        else:
+            eligible.append(expert)
+    available_count = len(eligible)
+
+    # 先过滤再做 TF-IDF，避免被排除专家影响向量空间
+    similarities = np.zeros(len(eligible))
+    if eligible:
+        profiles = [
+            f"{e.get('discipline','')} {e.get('research_areas','')} {e.get('achievements','')}"
+            for e in eligible
+        ]
+        vectorizer = TfidfVectorizer(
+            analyzer="char",
+            ngram_range=(2, 4),
+            sublinear_tf=True,
+            max_features=80000,
+        )
+        matrix = vectorizer.fit_transform([text[:20000]] + profiles)
+        similarities = cosine_similarity(matrix[0:1], matrix[1:]).ravel()
+
+    candidates: list[dict[str, Any]] = []
+    for index, expert in enumerate(eligible):
         area_blob = f"{expert.get('discipline','')} {expert.get('research_areas','')} {expert.get('achievements','')}"
         hits = [keyword for keyword in keywords if keyword and keyword in area_blob]
         keyword_score = min(1.0, len(hits) / 5)
@@ -227,7 +241,10 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
         if expert.get("achievements"):
             reasons.append(f"代表成果：{truncate(expert['achievements'], 50)}")
         reasons.append(f"当前在研 {workload} 项")
-        reasons.append("未发现回避冲突")
+        if applicant_detected:
+            reasons.append("未发现回避冲突")
+        else:
+            reasons.append("申报单位/负责人未识别，回避约束未生效")
         candidates.append(
             {
                 "expert": expert,
@@ -251,10 +268,14 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
         if experts
         else "专家库为空。"
     )
+    if applicant_warning:
+        summary += " " + applicant_warning
     return {
         "doc": {"id": doc["id"], "name": doc["name"]},
         "proposal_keywords": keywords,
         "applicant": applicant,
+        "applicant_detected": applicant_detected,
+        "applicant_warning": applicant_warning,
         "candidates": top,
         "excluded": excluded,
         "total_experts": len(experts),
