@@ -131,6 +131,11 @@ class LoginRequest(BaseModel):
     password: str = ""
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str = ""
+    new_password: str = ""
+
+
 class CreateUserRequest(BaseModel):
     username: str = ""
     password: str = ""
@@ -246,13 +251,8 @@ def health():
 # ---------- 认证与用户 ----------
 
 
-@app.post("/api/auth/login")
-def login(payload: LoginRequest):
-    user = auth.verify_login(payload.username, payload.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="用户名或密码错误")
-    token = auth.create_session(user["username"])
-    resp = JSONResponse({"ok": True, "user": user})
+def _session_response(payload: dict, token: str) -> JSONResponse:
+    resp = JSONResponse(payload)
     resp.set_cookie(
         auth.SESSION_COOKIE,
         token,
@@ -261,6 +261,15 @@ def login(payload: LoginRequest):
         samesite="lax",
     )
     return resp
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginRequest):
+    user = auth.verify_login(payload.username, payload.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    token = auth.create_session(user["username"])
+    return _session_response({"ok": True, "user": user}, token)
 
 
 @app.post("/api/auth/logout")
@@ -274,6 +283,24 @@ def logout(request: Request):
 @app.get("/api/auth/me")
 def me(request: Request):
     return request.state.user
+
+
+@app.post("/api/auth/password")
+def change_password(payload: ChangePasswordRequest, request: Request):
+    user = getattr(request.state, "user", None)
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录或会话已过期")
+    if not auth.change_password(
+        user["username"], payload.old_password, payload.new_password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"原密码不正确，或新密码少于 {auth.MIN_PASSWORD_LEN} 位",
+        )
+    # 改密后让所有旧会话失效，并给当前浏览器换发新会话
+    auth.delete_user_sessions(user["username"])
+    token = auth.create_session(user["username"])
+    return _session_response({"ok": True}, token)
 
 
 @app.get("/api/auth/users", dependencies=[Depends(require_role("admin"))])

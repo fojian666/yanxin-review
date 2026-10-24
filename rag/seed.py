@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import secrets
 import shutil
 from pathlib import Path
 
@@ -7,10 +9,36 @@ from . import auth, config, db
 from .parsers import parse_upload
 from .text import chunk_document, extract_keywords, extract_year, guess_title
 
+logger = logging.getLogger("uvicorn.error")
+
+
+def _demo_password() -> tuple[str, bool]:
+    if config.DEMO_USER_PASSWORD:
+        return config.DEMO_USER_PASSWORD, False
+    if config.is_loopback():
+        return "yanxin2026", False
+    return secrets.token_urlsafe(12), True
+
 
 def seed_demo_users() -> int:
-    """演示账号（密码均为 yanxin2026，仅限内网演示；正式启用前必须改密或接 SSO）。"""
+    """演示账号；非本机监听时默认不创建，避免默认口令暴露。"""
+    if not config.SEED_DEMO_USERS:
+        logger.warning(
+            "已跳过演示账号种子：监听地址 %s 非本机，且未显式设置 SEED_DEMO_USERS=1。",
+            config.BIND_HOST,
+        )
+        return 0
     if _seeded("users"):
+        return 0
+    if auth.list_users():
+        _mark_seeded("users")
+        return 0
+    password, generated = _demo_password()
+    if len(password) < auth.MIN_PASSWORD_LEN:
+        logger.error(
+            "DEMO_USER_PASSWORD 少于 %d 位，已跳过演示账号种子。",
+            auth.MIN_PASSWORD_LEN,
+        )
         return 0
     inserted = 0
     for username, role in (
@@ -20,10 +48,16 @@ def seed_demo_users() -> int:
         ("viewer", "viewer"),
     ):
         if auth.create_user(
-            username, "yanxin2026", role, auth.ROLE_LABELS[role]
+            username, password, role, auth.ROLE_LABELS[role]
         ):
             inserted += 1
     _mark_seeded("users")
+    if generated:
+        logger.warning(
+            "非本机监听且未设置 DEMO_USER_PASSWORD，已生成随机演示密码：%s"
+            "（仅显示一次，请立即记录并改密）",
+            password,
+        )
     return inserted
 
 _PAPER_ROWS = [
@@ -152,6 +186,11 @@ def seed_sample_document() -> bool:
     if db.list_documents():
         _mark_seeded("doc")
         return False
+    logger.warning(
+        "SEED_SAMPLE_DOC=1：将把本地真实申请书 %s 复制入库（含个人信息），"
+        "仅限本机演示；请勿在对外环境开启。",
+        config.SAMPLE_DOCX.name,
+    )
     target = config.UPLOAD_DIR / "sample_proposal.docx"
     shutil.copyfile(config.SAMPLE_DOCX, target)
     try:

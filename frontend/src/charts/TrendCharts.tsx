@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
 import { useMemo } from "react";
 import { EChart } from "../components/EChart";
+import { escapeHtml } from "../components/Markdown";
 import { prefersReducedMotion } from "../motion";
 import type { TrendData } from "../types";
 
@@ -135,7 +136,8 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
         textStyle: { color: "#e9f2ef", fontSize: 12 },
         formatter: (params: { value: [number, number, number] }) => {
           const [xi, yi, value] = params.value;
-          return `${keywords[yi] ?? ""} · ${years[xi]} 年：<b>${value}</b> 篇`;
+          // 关键词来自用户导入的 CSV，ECharts tooltip 按 HTML 渲染，必须转义
+          return `${escapeHtml(keywords[yi] ?? "")} · ${years[xi]} 年：<b>${value}</b> 篇`;
         },
       },
       visualMap: {

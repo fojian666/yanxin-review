@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -20,8 +21,40 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))
 SEED_DEMO_PAPERS = os.getenv("SEED_DEMO_PAPERS", "1") not in {"0", "false", "False"}
-SEED_SAMPLE_DOC = os.getenv("SEED_SAMPLE_DOC", "1") not in {"0", "false", "False"}
+# 真实申请书含个人信息，默认不复制入库；仅本机演示时显式开启
+SEED_SAMPLE_DOC = os.getenv("SEED_SAMPLE_DOC", "0") not in {"0", "false", "False"}
 SAMPLE_DOCX = BASE_DIR / "3.科研课题申请书（终稿）.docx"
+
+
+def _bind_host() -> str:
+    host = (os.getenv("HOST") or "").strip()
+    if host:
+        return host
+    argv = sys.argv[1:]
+    for i, arg in enumerate(argv):
+        if arg == "--host" and i + 1 < len(argv):
+            return argv[i + 1].strip()
+        if arg.startswith("--host="):
+            return arg.split("=", 1)[1].strip()
+    return "127.0.0.1"
+
+
+BIND_HOST = _bind_host()
+
+
+def is_loopback(host: str | None = None) -> bool:
+    value = (host or BIND_HOST).strip().lower()
+    return value in {"localhost", "::1"} or value.startswith("127.")
+
+
+_demo_users_opt = (os.getenv("SEED_DEMO_USERS") or "").strip().lower()
+# 默认只在本机监听时写入演示账号；对外监听必须显式开启并改密
+SEED_DEMO_USERS = (
+    is_loopback()
+    if not _demo_users_opt
+    else _demo_users_opt not in {"0", "false", "no"}
+)
+DEMO_USER_PASSWORD = (os.getenv("DEMO_USER_PASSWORD") or "").strip()
 
 QWEN_API_KEY = (os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY") or "").strip()
 QWEN_BASE_URL = (os.getenv("QWEN_BASE_URL") or "https://dashscope.aliyuncs.com/compatible-mode/v1").rstrip("/")
