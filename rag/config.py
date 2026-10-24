@@ -22,6 +22,7 @@ MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "60000"))
 MAX_DOCX_UNCOMPRESSED_BYTES = int(
     os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(120 * 1024 * 1024))
 )
+MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))

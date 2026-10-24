@@ -155,9 +155,13 @@ def parse_docx(path: Path) -> dict:
 
 
 def parse_pdf(path: Path) -> dict:
+    cmd = ["pdftotext", "-layout", "-enc", "UTF-8", "-q"]
+    if config.MAX_PDF_PAGES > 0:
+        cmd += ["-l", str(config.MAX_PDF_PAGES)]
+    cmd += [str(path), "-"]
     try:
         proc = subprocess.run(
-            ["pdftotext", "-layout", "-enc", "UTF-8", "-q", str(path), "-"],
+            cmd,
             capture_output=True,
             timeout=90,
             check=False,
@@ -186,6 +190,9 @@ def parse_pdf(path: Path) -> dict:
     elif empty and empty >= max(2, len(pages_raw) // 3):
         warning = f"有 {empty} 页未提取到文本，可能是扫描页；建议人工核对。"
     page_count = max((p["page"] for p in pages), default=0)
+    if config.MAX_PDF_PAGES > 0 and page_count >= config.MAX_PDF_PAGES:
+        limit_note = f"仅解析前 {config.MAX_PDF_PAGES} 页；如需完整内容请拆分文件。"
+        warning = f"{warning} {limit_note}".strip() if warning else limit_note
     return {
         "pages": pages,
         "page_count": page_count,

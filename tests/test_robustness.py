@@ -498,6 +498,23 @@ def test_llm_payload_thinking_toggle(monkeypatch):
     assert "enable_thinking" not in payload
 
 
+def test_pdf_parser_caps_pages(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "MAX_PDF_PAGES", 10)
+    calls: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout=("x\f" * 10).encode(), stderr=b""
+        )
+
+    monkeypatch.setattr(parsers.subprocess, "run", fake_run)
+    result = parsers.parse_pdf(tmp_path / "big.pdf")
+    assert "-l" in calls["cmd"]
+    assert "10" in calls["cmd"]
+    assert "仅解析前" in result["warning"]
+
+
 def test_clean_history_ignores_non_string_content():
     """history.content 为对象时不能 500。"""
     cleaned = qa._clean_history(
