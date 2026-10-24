@@ -137,7 +137,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   padding: 26px 34px 40px;
   max-width: 1680px;
 }
-.topbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(16,36,46,.12); margin-bottom: 22px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(16,36,46,.12); margin-bottom: 22px; }
 .eyebrow { font-size: 9.5px; letter-spacing: 2.4px; color: var(--teal); font-weight: 600; margin-bottom: 5px; }
 .topbar h1 { font-family: "Songti SC", "STSong", serif; font-size: 30px; line-height: 1.15; margin: 0; letter-spacing: 1px; font-weight: 600; }
 .topbar p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
