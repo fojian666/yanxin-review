@@ -64,6 +64,10 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthUser | null>(null);
+  const authRef = useRef<AuthUser | null>(null);
+  useEffect(() => {
+    authRef.current = auth;
+  }, [auth]);
   const [authReady, setAuthReady] = useState(false);
   // 侧边栏折叠状态：localStorage 持久化；无记录时按屏幕宽度给默认值
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -145,6 +149,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 任意请求返回 401 → 会话过期，切回登录页并清理残留状态
   useEffect(() => {
     const onExpired = () => {
+      // 未登录时的 /auth/me 401 属于正常访客，不提示“已过期”
+      if (!authRef.current) return;
+      authRef.current = null;
       setAuth(null);
       resetSession();
       toast("会话已过期，请重新登录", "error");
@@ -181,18 +188,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (username: string, password: string) => {
     const result = await api.login(username, password);
     resetSession();
+    authRef.current = result.user;
     setAuth(result.user);
     return result.user;
   }, [resetSession]);
 
   const logout = useCallback(async () => {
+    let message = "已退出登录";
+    let type: "info" | "error" = "info";
     try {
       await api.logout();
     } catch (err) {
-      toast(`退出登录请求失败：${(err as Error).message}`, "error");
+      message = `退出登录请求失败：${(err as Error).message}`;
+      type = "error";
     }
+    authRef.current = null;
     setAuth(null);
     resetSession();
+    toast(message, type);
   }, [resetSession, toast]);
 
   const can = useCallback(
