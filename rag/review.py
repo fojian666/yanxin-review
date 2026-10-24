@@ -54,7 +54,7 @@ def _overall_status(items: list[dict]) -> str:
     return "pass"
 
 
-def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], policy_cites: list[dict]) -> tuple[list[dict], list[str]]:
+def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], policy_cites: list[dict], has_policy_docs: bool) -> tuple[list[dict], list[str]]:
     completeness_items = []
     questions: list[str] = []
     for sec in REQUIRED_SECTIONS:
@@ -146,6 +146,15 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
                     "evidence": truncate(c.get("text", ""), 180),
                 }
             )
+    elif has_policy_docs:
+        policy_items.append(
+            {
+                "label": "未检索到明显相关政策条款",
+                "status": "pass",
+                "detail": "已接入政策库，但未检索到与本文明显相关的条款；适用性仍需人工核对。",
+                "evidence": "",
+            }
+        )
     else:
         policy_items.append(
             {
@@ -307,7 +316,9 @@ def review_document(doc_id: str) -> dict:
             top_k=4,
         )
 
-    sections, questions = _heuristic_sections(text, doc, duplicate_matches, policy_cites)
+    sections, questions = _heuristic_sections(
+        text, doc, duplicate_matches, policy_cites, bool(policy_docs)
+    )
     summary = _summary(doc, text, sections, questions)
     if not policy_docs:
         summary += " 政策库尚未接入，政策合规项仅作提示，未计入风险等级。"

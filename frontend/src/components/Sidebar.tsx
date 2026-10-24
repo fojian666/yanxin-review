@@ -1,20 +1,30 @@
 import { motion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { SPRING } from "../motion";
 
-const NAV = [
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  permission?: string;
+}
+
+const NAV: NavItem[] = [
   { to: "/chat", label: "智能问答", icon: MessageSquareText },
   { to: "/trend", label: "文献趋势", icon: TrendingUp },
-  { to: "/match", label: "查重匹配", icon: Users },
-  { to: "/review", label: "本子预审", icon: ShieldCheck },
+  { to: "/match", label: "查重匹配", icon: Users, permission: "tool" },
+  { to: "/review", label: "本子预审", icon: ShieldCheck, permission: "review" },
   { to: "/library", label: "文档库", icon: FolderOpen },
 ];
 
 export function Sidebar() {
   const { can, sidebarCollapsed, toggleSidebar } = useApp();
-  const nav = can("admin") ? [...NAV, { to: "/admin", label: "用户管理", icon: UserCog }] : NAV;
+  const visible = NAV.filter((item) => !item.permission || can(item.permission));
+  const nav: NavItem[] = can("admin")
+    ? [...visible, { to: "/admin", label: "用户管理", icon: UserCog }]
+    : visible;
 
   // 部分 webview 的 CSS 宽度过渡会冻结布局，改用 rAF 逐帧内联样式补间（每帧强制重排，可靠）
   // 滑动只动 transform（合成器路径）；主区瞬时切换——逐帧改 margin 会让

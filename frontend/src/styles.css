@@ -117,12 +117,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .nav-item.active svg { opacity: 1; color: #8be4d2; }
 .sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 6px; }
-  display: flex; gap: 10px; align-items: flex-start;
-  padding: 11px 12px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.045);
-  border-radius: var(--radius);
-}
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 4px rgba(178,106,31,.14); flex: 0 0 auto; margin-top: 6px; }
 .status-title { font-size: 12px; color: #f2f7f4; }
 .status-sub { font-size: 10.5px; color: rgba(233,242,239,.5); margin-top: 2px; }

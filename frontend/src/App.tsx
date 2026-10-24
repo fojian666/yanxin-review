@@ -68,8 +68,14 @@ function Shell() {
                   <Routes location={location}>
                     <Route path="/chat" element={<ChatPage />} />
                     <Route path="/trend" element={<TrendPage />} />
-                    <Route path="/match" element={<MatchPage />} />
-                    <Route path="/review" element={<ReviewPage />} />
+                    <Route
+                      path="/match"
+                      element={can("tool") ? <MatchPage /> : <Navigate to="/chat" replace />}
+                    />
+                    <Route
+                      path="/review"
+                      element={can("review") ? <ReviewPage /> : <Navigate to="/chat" replace />}
+                    />
                     <Route path="/library" element={<LibraryPage />} />
                     <Route
                       path="/admin"

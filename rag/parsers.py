@@ -18,6 +18,17 @@ class ParseError(RuntimeError):
     pass
 
 
+def _check_zip_size(z: zipfile.ZipFile) -> None:
+    """拒绝解压后体积异常的 DOCX，避免压缩炸弹耗尽内存。"""
+    total = sum(info.file_size for info in z.infolist())
+    limit = config.MAX_DOCX_UNCOMPRESSED_BYTES
+    if total > limit:
+        raise ParseError(
+            f"DOCX 解压后体积过大（{total // 1024 // 1024} MB，"
+            f"上限 {limit // 1024 // 1024} MB），已拒绝解析"
+        )
+
+
 def apply_content_limit(parsed: dict, max_chars: int | None = None) -> dict:
     """Cap total parsed text so oversized uploads cannot explode chunking/index.
 
@@ -98,8 +109,11 @@ def _docx_notes_text(z: zipfile.ZipFile) -> list[str]:
 def parse_docx(path: Path) -> dict:
     try:
         with zipfile.ZipFile(path) as z:
+            _check_zip_size(z)
             xml = z.read("word/document.xml")
             notes = _docx_notes_text(z)
+    except ParseError:
+        raise
     except Exception as exc:
         raise ParseError(f"无法读取 DOCX：{exc}") from exc
     try:

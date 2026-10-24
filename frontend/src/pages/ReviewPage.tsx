@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<CheckStatus, string> = {
 
 export function ReviewPage() {
   const { docs, toast } = useApp();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [docId, setDocId] = useState("");
   const [report, setReport] = useState<ReviewReport | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,12 +47,16 @@ export function ReviewPage() {
     const fromQuery = params.get("doc");
     if (fromQuery && sortedDocs.some((d) => d.id === fromQuery)) {
       setDocId(fromQuery);
+      // 消费后移除参数，避免用户改选文档时又被 URL 拉回
+      const next = new URLSearchParams(params);
+      next.delete("doc");
+      setParams(next, { replace: true });
       return;
     }
     if (!docId || !sortedDocs.some((d) => d.id === docId)) {
       setDocId(sortedDocs[0].id);
     }
-  }, [sortedDocs, params, docId]);
+  }, [sortedDocs, params, docId, setParams]);
 
   useEffect(() => {
     if (!busy) return;
@@ -143,7 +147,11 @@ export function ReviewPage() {
           id="reviewDoc"
           className="select"
           value={docId}
-          onChange={(event) => setDocId(event.target.value)}
+          onChange={(event) => {
+            setDocId(event.target.value);
+            setReport(null);
+            setError("");
+          }}
           disabled={busy}
         >
           {sortedDocs.length === 0 ? (
@@ -326,12 +334,14 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
 }
 
 function RiskRing({ level }: { level: string }) {
-  const value = level === "高" ? 88 : level === "中" ? 62 : 32;
   const color = level === "高" ? "#b3453f" : level === "低" ? "#0e7c6b" : "#b5853c";
   return (
     <div
       className="risk-ring"
-      style={{ background: `conic-gradient(${color} ${value * 3.6}deg, #ece5d8 ${value * 3.6}deg 360deg)` }}
+      role="img"
+      aria-label={`风险等级：${level}（分类，非评分）`}
+      title={`风险等级：${level}（分类，非评分）`}
+      style={{ background: color }}
     >
       <div>{level}</div>
     </div>

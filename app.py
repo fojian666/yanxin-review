@@ -384,7 +384,11 @@ async def upload_document(
         "status": "ready" if chunks else "needs_review",
         "meta": {"original_name": file.filename, "suffix": suffix},
     }
-    db.insert_document(doc, chunks)
+    try:
+        db.insert_document(doc, chunks)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
     if kind == "paper":
         # 文献类型的文档重复上传时允许（用于查重演示），但文献表去重
         db.insert_paper_if_new(
@@ -401,10 +405,9 @@ async def upload_document(
             }
         )
     await run_in_threadpool(retriever.rebuild)
-    return {
-        "document": {**doc, "chunk_count": len(chunks), "meta": None},
-        "warning": warning,
-    }
+    document = {k: v for k, v in doc.items() if k != "path"}
+    document.update({"chunk_count": len(chunks), "meta": None})
+    return {"document": document, "warning": warning}
 
 
 @app.delete("/api/documents/{doc_id}")

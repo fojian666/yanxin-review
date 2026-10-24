@@ -11,7 +11,7 @@ from fastapi import HTTPException, UploadFile
 from pydantic import ValidationError
 
 import app as app_module
-from rag import config, db, ingest, parsers, schemas, seed, trends
+from rag import config, db, experts as expert_service, ingest, parsers, qa, review as review_service, schemas, seed, trends
 
 
 def _tmp_db(tmp_path, monkeypatch):
@@ -436,3 +436,117 @@ def test_change_password_endpoint_reissues_session(tmp_path, monkeypatch):
     assert auth.SESSION_COOKIE in response.headers.get("set-cookie", "")
     assert auth.resolve_session(old_token) is None
     assert auth.verify_login("admin", "newpass1") is not None
+
+
+def test_docx_rejects_oversized_uncompressed_content(tmp_path, monkeypatch):
+    """压缩包很小但解压后超限时，必须拒绝而不是读入内存。"""
+    monkeypatch.setattr(config, "MAX_DOCX_UNCOMPRESSED_BYTES", 1024)
+    path = tmp_path / "bomb.docx"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("word/document.xml", "<w/>" + "A" * 4096)
+    with pytest.raises(parsers.ParseError) as exc:
+        parsers.parse_docx(path)
+    assert "体积过大" in str(exc.value)
+
+
+def test_clean_history_ignores_non_string_content():
+    """history.content 为对象时不能 500。"""
+    cleaned = qa._clean_history(
+        [
+            {"role": "user", "content": {"bad": 1}},
+            {"role": "assistant", "content": "ok"},
+        ]
+    )
+    assert cleaned == [{"role": "assistant", "content": "ok"}]
+
+
+def test_extract_applicant_scans_beyond_first_80_lines():
+    text = "\n".join(["说明"] * 120 + ["申报单位：示例大学", "项目负责人：张三"])
+    applicant = expert_service.extract_applicant(text)
+    assert applicant["institutions"] == ["示例大学"]
+    assert applicant["people"] == ["张三"]
+
+
+def _fake_expert(**overrides):
+    base = {
+        "id": "e1",
+        "name": "专家",
+        "institution": "单位A",
+        "title": "教授",
+        "discipline": "科研诚信",
+        "research_areas": "科研诚信;数据治理",
+        "achievements": "科研诚信治理研究",
+        "avoid_institutions": "",
+        "avoid_people": "",
+        "workload": 0,
+        "available": True,
+        "is_sample": 1,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_match_experts_warns_when_applicant_not_detected(monkeypatch):
+    monkeypatch.setattr(
+        expert_service,
+        "_doc_text",
+        lambda _: ({"id": "d", "name": "x"}, "这是一段普通正文，讨论科研诚信与数据治理。"),
+    )
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [_fake_expert()])
+    result = expert_service.match_experts("d")
+    assert result["applicant_detected"] is False
+    assert result["applicant_warning"]
+    reasons = result["candidates"][0]["reasons"]
+    assert "未发现回避冲突" not in reasons
+    assert any("回避约束未生效" in reason for reason in reasons)
+
+
+def test_match_experts_warns_when_only_institution_detected(monkeypatch):
+    text = "申报单位：示例大学\n" + "科研诚信 数据治理 评审 " * 20
+    monkeypatch.setattr(
+        expert_service, "_doc_text", lambda _: ({"id": "d", "name": "x"}, text)
+    )
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [_fake_expert()])
+    result = expert_service.match_experts("d")
+    assert result["applicant_detected"] is False
+    assert "负责人" in result["applicant_warning"]
+    assert "申报单位" not in result["applicant_warning"]
+    assert "未发现回避冲突" not in result["candidates"][0]["reasons"]
+
+
+def test_excluded_expert_does_not_affect_scores(monkeypatch):
+    """被排除专家不得参与 TF-IDF 拟合，否则会影响其他候选的分数。"""
+    eligible = _fake_expert(id="e1", name="甲")
+    excluded = _fake_expert(
+        id="e2",
+        name="乙",
+        available=False,
+        research_areas="量子计算;密码学",
+        achievements="量子密码研究",
+    )
+    text = "申报单位：示例大学\n负责人：张三\n" + "科研诚信 数据治理 评审 " * 20
+    monkeypatch.setattr(expert_service, "_doc_text", lambda _: ({"id": "d", "name": "x"}, text))
+    monkeypatch.setattr(
+        expert_service.db, "list_experts", lambda: [eligible, excluded]
+    )
+    with_excluded = expert_service.match_experts("d")
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [eligible])
+    without_excluded = expert_service.match_experts("d")
+    assert (
+        with_excluded["candidates"][0]["score"]
+        == without_excluded["candidates"][0]["score"]
+    )
+    assert with_excluded["excluded"][0]["reason"] == "当前不可评审"
+
+
+def test_review_policy_without_hits_is_not_risky():
+    """有政策库但未命中时不应给出 warn（否则风险等级恒为中）。"""
+    sections, _ = review_service._heuristic_sections("普通正文", {"name": "x"}, [], [], True)
+    policy = next(section for section in sections if section["key"] == "policy")
+    assert policy["items"][0]["status"] == "pass"
+    assert "未检索到" in policy["items"][0]["label"]
+    sections_no_docs, _ = review_service._heuristic_sections("普通正文", {"name": "x"}, [], [], False)
+    policy_no_docs = next(
+        section for section in sections_no_docs if section["key"] == "policy"
+    )
+    assert policy_no_docs["items"][0]["status"] == "warn"

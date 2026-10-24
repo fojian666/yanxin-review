@@ -176,12 +176,14 @@ export const api = {
 
 export async function streamChat(
   payload: { question: string; history: ChatHistoryItem[]; scope: string[] },
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  signal?: AbortSignal
 ): Promise<void> {
   let res: Response;
   try {
-    res = await fetch(`${API}/chat/stream`, jsonOptions(payload));
-  } catch {
+    res = await fetch(`${API}/chat/stream`, { ...jsonOptions(payload), signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new Error("网络错误，无法连接到服务器");
   }
   if (!res.ok) {
@@ -201,42 +203,55 @@ export async function streamChat(
   const decoder = new TextDecoder();
   let buffer = "";
   let done = false;
-  while (true) {
-    const { done: streamDone, value } = await reader.read();
-    if (streamDone) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-    for (const part of parts) {
-      const line = part.split("\n").find((l) => l.startsWith("data:"));
-      if (!line) continue;
-      let event: Record<string, unknown>;
-      try {
-        event = JSON.parse(line.slice(5).trim());
-      } catch {
-        continue;
-      }
-      if (event.type === "meta") {
-        handlers.onMeta({
-          citations: (event.citations as Citation[]) ?? [],
-          mode: String(event.mode ?? "offline"),
-          warning: String(event.warning ?? ""),
-        });
-      } else if (event.type === "token") {
-        handlers.onToken(String(event.text ?? ""));
-      } else if (event.type === "warning") {
-        handlers.onWarning(String(event.message ?? ""));
-      } else if (event.type === "error") {
-        throw new Error(String(event.message ?? "生成失败"));
-      } else if (event.type === "done") {
-        if (!done) {
-          done = true;
-          handlers.onDone();
-        }
+
+  const dispatch = (frame: string) => {
+    const dataLines = frame
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"));
+    if (!dataLines.length) return;
+    const raw = dataLines.map((line) => line.slice(5).trimStart()).join("\n").trim();
+    if (!raw) return;
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (event.type === "meta") {
+      handlers.onMeta({
+        citations: (event.citations as Citation[]) ?? [],
+        mode: String(event.mode ?? "offline"),
+        warning: String(event.warning ?? ""),
+      });
+    } else if (event.type === "token") {
+      handlers.onToken(String(event.text ?? ""));
+    } else if (event.type === "warning") {
+      handlers.onWarning(String(event.message ?? ""));
+    } else if (event.type === "error") {
+      throw new Error(String(event.message ?? "生成失败"));
+    } else if (event.type === "done") {
+      if (!done) {
+        done = true;
+        handlers.onDone();
       }
     }
+  };
+
+  try {
+    while (!done) {
+      const { done: streamDone, value } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split(/\r?\n\r?\n/);
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) dispatch(frame);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) dispatch(buffer);
+  } finally {
+    void reader.cancel().catch(() => undefined);
   }
-  if (!done) handlers.onDone();
+  if (!done && !signal?.aborted) handlers.onDone();
 }
 
 export function locationText(c: Citation): string {

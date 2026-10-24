@@ -43,7 +43,10 @@ def _clean_history(history: list[dict] | None) -> list[dict]:
     out = []
     for msg in (history or [])[-6:]:
         role = msg.get("role")
-        content = (msg.get("content") or "").strip()
+        content = msg.get("content")
+        if not isinstance(content, str):
+            continue
+        content = content.strip()
         if role in {"user", "assistant"} and content:
             out.append({"role": role, "content": truncate(content, 1200)})
     return out

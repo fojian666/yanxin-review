@@ -122,6 +122,7 @@ export function TrendPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                 if (event.key === "Enter") void run(query, start, end);
               }}
               placeholder="任意方面，如：大模型在科研诚信中的应用"

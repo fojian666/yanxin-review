@@ -125,11 +125,11 @@ class Retriever:
             best: dict[str, dict] = {}
             for row_i, local_idx in enumerate(idxs):
                 target_chunk = self.chunks[local_idx]
-                row = sims[row_i]
+                # 先遮蔽同文档 chunk，避免长文档占满 top-N 导致跨文档漏报
+                row = sims[row_i].copy()
+                row[idxs] = -1.0
                 for j in np.argsort(-row)[:80]:
                     other = self.chunks[int(j)]
-                    if other["doc_id"] == doc_id:
-                        continue
                     score = float(row[int(j)])
                     if score <= 0.05:
                         continue
