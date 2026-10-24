@@ -224,7 +224,7 @@ export function ChatPage() {
       <div className="panel chat-panel">
         <div className="chat-toolbar">
           <div className="scope-wrap" ref={scopeRef}>
-            <button className="scope-btn" onClick={() => setScopeOpen((v) => !v)}>
+            <button className="scope-btn" onClick={() => setScopeOpen((v) => !v)} aria-haspopup="menu" aria-expanded={scopeOpen}>
               <FolderOpen size={15} />
               <span>{scopeLabel}</span>
               <ChevronDown size={14} />
@@ -320,7 +320,6 @@ export function ChatPage() {
                       key={title}
                       onClick={() => void send(question)}
                       variants={staggerItem}
-                      whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.985 }}
                     >
                       <Icon size={17} />
@@ -364,7 +363,6 @@ export function ChatPage() {
             className="btn btn-primary send-btn"
             onClick={() => void send()}
             disabled={busy}
-            whileHover={busy ? undefined : { y: -1 }}
             whileTap={busy ? undefined : { scale: 0.97 }}
             transition={{ duration: 0.34, ease: EASE }}
           >

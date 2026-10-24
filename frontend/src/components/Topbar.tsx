@@ -76,7 +76,6 @@ export function Topbar() {
           <motion.button
             className="btn btn-primary"
             onClick={() => openUpload()}
-            whileHover={{ y: -1 }}
             whileTap={{ scale: 0.97 }}
             transition={{ duration: 0.34, ease: EASE }}
           >

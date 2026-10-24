@@ -139,7 +139,6 @@ export function TrendPage() {
               className="btn btn-primary"
               onClick={() => void run(query, start, end)}
               disabled={showLoading}
-              whileHover={showLoading ? undefined : { y: -1 }}
               whileTap={showLoading ? undefined : { scale: 0.97 }}
               transition={{ duration: 0.34, ease: EASE }}
             >
