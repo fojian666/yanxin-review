@@ -500,7 +500,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- toast ---------- */
-.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 200; padding: 10px 16px; background: #102a35; color: #f5faf7; border-radius: 4px; box-shadow: 0 12px 30px rgba(8,20,26,.25); font-size: 12px; max-width: 80vw; }
+/* 顶部居中：left/right+margin 实现水平居中（framer 会覆盖 transform，不能用 translateX） */
+.toast { position: fixed; left: 0; right: 0; top: 18px; margin: 0 auto; width: max-content; z-index: 300; padding: 10px 16px; background: #102a35; color: #f5faf7; border-radius: 4px; box-shadow: 0 12px 30px rgba(8,20,26,.25); font-size: 12px; max-width: 80vw; }
 .toast.error { background: #6e2b27; }
 
 /* ---------- scrollbars ---------- */

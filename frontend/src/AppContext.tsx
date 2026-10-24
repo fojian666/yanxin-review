@@ -237,9 +237,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             className={`toast ${toastState.type === "error" ? "error" : ""}`}
             role={toastState.type === "error" ? "alert" : "status"}
             aria-live="polite"
-            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            initial={{ opacity: 0, y: -14, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ duration: 0.29, ease: EASE }}
           >
             {toastState.message}
