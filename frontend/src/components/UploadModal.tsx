@@ -15,6 +15,8 @@ export function UploadModal() {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   const limitMb = health?.upload_limit_mb ?? 30;
 
   useEffect(() => {
@@ -31,20 +33,54 @@ export function UploadModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadOpen]);
 
-  // 对话框无障碍：打开后聚焦卡片、ESC 关闭、锁定背景滚动
+  // 对话框无障碍：焦点陷阱、ESC 关闭、锁定背景滚动、关闭后归还焦点
   useEffect(() => {
     if (!uploadOpen) return;
-    cardRef.current?.focus();
+    const previous = document.activeElement as HTMLElement | null;
+    const card = cardRef.current;
+    card?.focus();
+    const focusables = () =>
+      Array.from(
+        card?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]):not([hidden]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((el) => el.offsetParent !== null);
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) setUploadOpen(false);
+      if (event.key === "Escape" && !busyRef.current) {
+        setUploadOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!card?.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && (active === first || active === card)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    const root = document.documentElement;
+    const body = document.body;
+    const prevRoot = root.style.overflow;
+    const prevBody = body.style.overflow;
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      root.style.overflow = prevRoot;
+      body.style.overflow = prevBody;
+      previous?.focus();
     };
-  }, [uploadOpen, busy, setUploadOpen]);
+  }, [uploadOpen, setUploadOpen]);
 
   const pickFile = (picked: File | null | undefined) => {
     if (!picked) return;
@@ -124,14 +160,23 @@ export function UploadModal() {
                 <div className="eyebrow">UPLOAD</div>
                 <h2>上传文档</h2>
               </div>
-              <button className="icon-btn" onClick={() => setUploadOpen(false)} aria-label="关闭">
+              <button className="icon-btn" onClick={() => setUploadOpen(false)} aria-label="关闭" disabled={busy}>
                 <X size={18} />
               </button>
             </div>
 
             <div
               className={`modal-drop ${dragging ? "dragover" : ""}`}
+              role="button"
+              tabIndex={0}
+              aria-label="选择要上传的文件"
               onClick={() => inputRef.current?.click()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  inputRef.current?.click();
+                }
+              }}
               onDragOver={(event) => {
                 event.preventDefault();
                 setDragging(true);

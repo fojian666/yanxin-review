@@ -66,7 +66,7 @@ export function Topbar() {
           title={
             online
               ? `模型：${health?.llm.model}；接口：${health?.llm.base_url}`
-              : "未配置千问 API，当前使用检索式回答。设置 QWEN_API_KEY / QWEN_BASE_URL / QWEN_MODEL 后自动启用。"
+              : `${health?.llm.label || "离线演示"}：设置内网 QWEN_BASE_URL 后启用；公网端点需显式 ALLOW_EXTERNAL_LLM=1。`
           }
         >
           <span className="status-dot" />
