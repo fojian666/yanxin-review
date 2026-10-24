@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ipaddress
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -59,13 +61,17 @@ SEED_DEMO_USERS = (
 )
 DEMO_USER_PASSWORD = (os.getenv("DEMO_USER_PASSWORD") or "").strip()
 
+DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 QWEN_API_KEY = (os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY") or "").strip()
-QWEN_BASE_URL = (os.getenv("QWEN_BASE_URL") or "https://dashscope.aliyuncs.com/compatible-mode/v1").rstrip("/")
+QWEN_BASE_URL = (os.getenv("QWEN_BASE_URL") or DASHSCOPE_BASE_URL).rstrip("/")
 QWEN_MODEL = (os.getenv("QWEN_MODEL") or "qwen-plus").strip()
 
 OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY") or "").strip()
 OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
 OPENAI_MODEL = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
+
+# 数据不出内网：公网模型端点默认阻止，需显式授权
+ALLOW_EXTERNAL_LLM = os.getenv("ALLOW_EXTERNAL_LLM", "0") not in {"0", "false", "False"}
 
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
@@ -78,12 +84,44 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
 DOC_KINDS = {"auto", "proposal", "policy", "paper", "other"}
 
 
+def _is_public_host(url: str) -> bool:
+    """判断 LLM 端点是否在公网；无法确认时按公网处理（保守）。"""
+    host = (urlparse(url).hostname or "").strip().lower()
+    if not host:
+        return True
+    if host in {"localhost", "::1"}:
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_global
+    except ValueError:
+        pass
+    if host.endswith((".local", ".internal", ".intra", ".lan", ".corp")):
+        return False
+    # 无点号的裸主机名按内网 DNS 处理；其余域名按公网处理
+    return "." in host
+
+
+def _blocked_external(label: str) -> dict:
+    return {
+        "configured": False,
+        "provider": "offline",
+        "label": f"{label}（公网出口已阻止）",
+        "base_url": "",
+        "model": "检索式回答（未配置千问）",
+        "api_key": "",
+        "blocked_external": True,
+    }
+
+
 def llm_provider() -> dict:
     explicit_qwen_base = (os.getenv("QWEN_BASE_URL") or "").rstrip("/")
     # An explicitly configured non-DashScope endpoint (vLLM/Ollama) may not
     # require a key; the default DashScope URL without a key is not configured.
-    custom_qwen_base = bool(explicit_qwen_base and explicit_qwen_base != "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    custom_qwen_base = bool(explicit_qwen_base and explicit_qwen_base != DASHSCOPE_BASE_URL)
     if QWEN_API_KEY or custom_qwen_base:
+        if _is_public_host(QWEN_BASE_URL) and not ALLOW_EXTERNAL_LLM:
+            return _blocked_external("千问公网地址")
         return {
             "configured": True,
             "provider": "qwen",
@@ -91,8 +129,11 @@ def llm_provider() -> dict:
             "base_url": QWEN_BASE_URL,
             "model": QWEN_MODEL,
             "api_key": QWEN_API_KEY,
+            "blocked_external": False,
         }
     if OPENAI_API_KEY:
+        if _is_public_host(OPENAI_BASE_URL) and not ALLOW_EXTERNAL_LLM:
+            return _blocked_external("OpenAI 兼容公网地址")
         return {
             "configured": True,
             "provider": "openai",
@@ -100,6 +141,7 @@ def llm_provider() -> dict:
             "base_url": OPENAI_BASE_URL,
             "model": OPENAI_MODEL,
             "api_key": OPENAI_API_KEY,
+            "blocked_external": False,
         }
     return {
         "configured": False,
@@ -108,4 +150,5 @@ def llm_provider() -> dict:
         "base_url": "",
         "model": "检索式回答（未配置千问）",
         "api_key": "",
+        "blocked_external": False,
     }

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Generator, Iterable
 
 import requests
 
 from . import config
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class LLMError(RuntimeError):
@@ -22,6 +25,11 @@ class LLMClient:
         self.base_url = (self.info.get("base_url") or "").rstrip("/")
         self.model = self.info.get("model") or ""
         self.api_key = self.info.get("api_key") or ""
+        if self.info.get("blocked_external"):
+            logger.warning(
+                "检测到公网 LLM 端点，已按“数据不出内网”策略阻止；"
+                "确需启用请显式设置 ALLOW_EXTERNAL_LLM=1。"
+            )
 
     def status(self) -> dict:
         return {
@@ -30,6 +38,7 @@ class LLMClient:
             "label": self.info.get("label", "离线演示模式"),
             "model": self.model if self.configured else "检索式回答（未配置千问）",
             "base_url": self.base_url if self.configured else "",
+            "blocked_external": bool(self.info.get("blocked_external")),
         }
 
     def _headers(self) -> dict:

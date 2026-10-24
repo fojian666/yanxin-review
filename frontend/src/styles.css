@@ -478,6 +478,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .modal-head h2 { font-family: "Songti SC", "STSong", serif; font-size: 24px; margin: 0; font-weight: 600; }
 .modal-drop { border: 1px dashed #cfc3ae; background: #fdfbf6; border-radius: 5px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 14px; }
 .modal-drop:hover, .modal-drop.dragover { border-color: var(--teal); background: #f2faf6; }
+.modal-drop:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .modal-drop p { margin: 6px 0 0; color: var(--muted); font-size: 11.5px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .field { display: flex; flex-direction: column; gap: 4px; }
