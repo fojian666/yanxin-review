@@ -199,6 +199,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   box-shadow: var(--shadow);
 }
 .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.panel-title-row { display: flex; align-items: center; gap: 10px; }
+.panel-title-row .count-badge { height: 24px; min-width: 0; padding: 0 9px; font-size: 11.5px; }
 .panel-head h2 { font-family: "Songti SC", "STSong", serif; font-size: 20px; margin: 0; letter-spacing: .4px; font-weight: 600; }
 .panel-head p { margin: 5px 0 0; color: var(--muted); font-size: 13.5px; }
 .count-badge {

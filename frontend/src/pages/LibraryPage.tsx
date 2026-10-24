@@ -128,10 +128,12 @@ export function LibraryPage() {
       <div className="panel">
         <div className="panel-head">
           <div>
-            <h2>文档库</h2>
+            <div className="panel-title-row">
+              <h2>文档库</h2>
+              <span className="count-badge">{docs.length} 份</span>
+            </div>
             <p>资料仅保存在本机 data/uploads；删除文档会同时删除索引。</p>
           </div>
-          <span className="count-badge">{docs.length}</span>
           {can("delete-doc") && (
             <button className="btn btn-ghost btn-sm" onClick={() => void removeSampleDocs()}>
               <Trash2 size={14} />移除演示本子

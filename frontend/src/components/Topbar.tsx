@@ -103,7 +103,7 @@ export function Topbar() {
               title={auth.display_name || auth.username}
             >
               <span className="user-avatar small">
-                {(auth.display_name || auth.username).slice(0, 1)}
+                <UserRound size={16} />
               </span>
               <span className="user-trigger-text">
                 <strong>{auth.display_name || auth.username}</strong>
