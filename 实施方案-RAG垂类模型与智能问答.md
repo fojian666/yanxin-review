@@ -587,6 +587,7 @@ flowchart LR
 - 外部数据接入预留：`/api/ingest/experts|papers` JSON 推送（幂等去重）+ `/api/ingest/schema` 自描述契约；项目/诚信记录/政策版本结构已冻结（`rag/schemas.py`），接收端点待真实数据源就绪后启用；`INGEST_TOKEN` 可选鉴权。
 - 登录与角色（原型）：账号密码（PBKDF2 加盐哈希）+ SQLite 会话 + HttpOnly Cookie；admin/manager/reviewer/viewer 四角色，后端中间件统一拦截、写操作按角色 403，前端按角色隐藏操作；`/admin` 用户管理；生产替换 SSO 时沿用角色模型。
 - 安全加固（P0/P1 审查）：真实申请书默认不入库；演示账号仅本机监听创建 + 自助改密；3D tooltip XSS 转义；DOCX 解压总量上限；回避约束未识别申报人时明确告警；SSE 流式生命周期与结果串档治理；中文输入法回车防误发。
+- 安全加固（P2 审查）：**公网 LLM 端点默认阻止**（`ALLOW_EXTERNAL_LLM` 显式授权，内网判定覆盖 CGNAT/保留网段）；登录失败限速（5 次/300 秒，429+Retry-After）；上传弹窗焦点陷阱与键盘可达。
 
 **下一轮 4 周（建议）**
 
