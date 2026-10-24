@@ -585,6 +585,7 @@ flowchart LR
 - React 19 + Vite 前端；ECharts GL 3D 年度柱状图/主题矩阵，支持 2D 切换与 WebGL 降级；Playwright 桌面视口验证通过；
 - 查重+专家匹配一体化工具：`/match` 页面、专家 CSV 导入、回避/负载约束、可解释推荐、合并导出。
 - 外部数据接入预留：`/api/ingest/experts|papers` JSON 推送（幂等去重）+ `/api/ingest/schema` 自描述契约；项目/诚信记录/政策版本结构已冻结（`rag/schemas.py`），接收端点待真实数据源就绪后启用；`INGEST_TOKEN` 可选鉴权。
+- 登录与角色（原型）：账号密码（PBKDF2 加盐哈希）+ SQLite 会话 + HttpOnly Cookie；admin/manager/reviewer/viewer 四角色，后端中间件统一拦截、写操作按角色 403，前端按角色隐藏操作；`/admin` 用户管理；生产替换 SSO 时沿用角色模型。
 
 **下一轮 4 周（建议）**
 

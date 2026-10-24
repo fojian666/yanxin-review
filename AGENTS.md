@@ -18,6 +18,8 @@ python3 -m pytest tests/ -q                                 # 回归测试（18 
 
 PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行不需要 Node。
 
+登录演示账号：`admin` / `manager` / `reviewer` / `viewer`，密码统一 `yanxin2026`。
+
 ## 模块地图
 
 ```
@@ -36,6 +38,7 @@ rag/
   trends.py            文献趋势：相关性筛选 + 年度统计 + 规则/千问摘要
   llm.py               OpenAI 兼容客户端（DashScope/内网 vLLM/SGLang/Ollama）；已兼容 Qwen3 思考模式
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）
+  auth.py               账号密码认证（PBKDF2）+ 会话（SQLite）+ 四角色
   seed.py              演示数据种子（标记存 meta 表，与库同生命周期；旧 .seeded_* 文件自动迁移）
 frontend/src/
   pages/               Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library
@@ -53,7 +56,7 @@ frontend/src/
 
 1. **AI 不打分、不排名、不给立项/处罚结论**；预审/查重/匹配输出必须带免责声明，查重必须提示"相似≠抄袭、需人工复核"。
 2. **专家匹配不使用性别、年龄等敏感属性**；回避/负载约束过滤必须在语义排序之前。
-3. **数据不出内网**：默认只监听 `127.0.0.1`；设 `HOST=0.0.0.0` 前必须先加登录/鉴权（当前无 SSO/RBAC）。
+3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（admin/manager/reviewer/viewer，`rag/auth.py`，演示密码 `yanxin2026`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。
 4. **隐私**：`3.科研课题申请书（终稿）.docx` 与 `交付材料/01-软件著作权/screenshots/` 含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
 
@@ -62,7 +65,7 @@ frontend/src/
 - 检索是 TF-IDF，不是向量检索（升级路线已定，见实施方案 §5.2）。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。
-- 前端 30MB 上传校验为硬编码，与后端 `MAX_UPLOAD_BYTES` 独立。
+- 上传大小限制由 `/api/health` 的 `upload_limit_mb` 下发，前端同步展示；上传走 XHR 以显示真实进度。
 
 ## 改动与提交约定
 

@@ -6,7 +6,7 @@ import {
   Printer,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
@@ -31,6 +31,7 @@ export function ReviewPage() {
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState("");
+  const runningRef = useRef(false);
   const progress = report ? 100 : busy ? Math.min(96, ((step + 1) / STEPS.length) * 100) : 0;
 
   const sortedDocs = useMemo(() => {
@@ -67,6 +68,8 @@ export function ReviewPage() {
       toast("请先选择一份文档", "error");
       return;
     }
+    if (runningRef.current) return;
+    runningRef.current = true;
     setBusy(true);
     setError("");
     setReport(null);
@@ -78,6 +81,7 @@ export function ReviewPage() {
       setError((err as Error).message);
       toast(`预审失败：${(err as Error).message}`, "error");
     } finally {
+      runningRef.current = false;
       setBusy(false);
     }
   };
@@ -158,7 +162,7 @@ export function ReviewPage() {
             <motion.div
               className="steps-fill"
               animate={{ height: `${progress}%` }}
-              transition={{ duration: 0.4, ease: EASE }}
+              transition={{ duration: 0.52, ease: EASE }}
             />
           </div>
           {STEPS.map((label, index) => (
@@ -187,7 +191,7 @@ export function ReviewPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: EASE }}
+              transition={{ duration: 0.34, ease: EASE }}
             >
               <EmptyState
                 tall
@@ -202,7 +206,7 @@ export function ReviewPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.24, ease: EASE }}
+              transition={{ duration: 0.31, ease: EASE }}
             >
             <ReportHeader report={report} onExport={exportReport} />
             <ReportSummary report={report} />
@@ -213,7 +217,7 @@ export function ReviewPage() {
                 key={section.key}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.24, ease: EASE, delay: Math.min(sectionIndex * 0.045, 0.2) }}
+                transition={{ duration: 0.31, ease: EASE, delay: Math.min(sectionIndex * 0.045, 0.2) }}
               >
                 <div className="section-head">
                   <h3>{section.title}</h3>
