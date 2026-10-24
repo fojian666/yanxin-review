@@ -110,6 +110,10 @@ def _seeded(key: str) -> bool:
     legacy = config.DATA_DIR / f".seeded_{key}"
     if legacy.exists():
         db.set_meta(f"seeded_{key}", "seeded")
+        try:
+            legacy.unlink()  # 消费掉旧文件，否则清 meta 键后仍会被它重新标记
+        except OSError:
+            pass
         return True
     return False
 
