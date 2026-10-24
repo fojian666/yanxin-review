@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（18 项）
+python3 -m pytest tests/ -q                                 # 回归测试（22 项）
 ```
 
 PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行不需要 Node。
@@ -23,7 +23,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：18 条路由、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：24 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、Qwen/INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new

@@ -318,7 +318,7 @@ QWEN_MODEL=qwen2.5:7b
 │   ├── package.json
 │   └── vite.config.ts
 ├── data/                   # 运行时生成：SQLite + 上传文件
-├── tests/                  # pytest 健壮性回归（18 项）
+├── tests/                  # pytest 健壮性回归（22 项）
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── .env.example
@@ -407,7 +407,7 @@ python3 -m pytest tests/ -q          # 18 passed
 - 无 OCR；扫描件需先转文本。
 - 当前检索为 TF-IDF，不是向量检索；语义召回能力有限。
 - 3D 图表依赖 WebGL；无 WebGL 自动降级 2D。
-- 已做路由级 code splitting：首屏 JS 约 411KB；3D 趋势页按需加载约 1.66MB（ECharts GL 占比较大）。
+- 已做路由级 code splitting：首屏 JS 约 423KB；3D 趋势页按需加载约 1.66MB（ECharts GL 占比较大）。
 - 预审为规则 + 可选千问，不替代专家评审；查重结果需人工复核。
 - 专家匹配目前是原型：示例专家为合成数据；真实专家库、回避关系和负载数据需接入现有系统或 CSV 授权导入。
 - 正式研究报告、省厅试点验证报告、论文、软著尚未提交；`交付材料/` 中是初稿/模板，不能当作已验收成果。

@@ -499,7 +499,7 @@ flowchart LR
 - 3D 图表关闭滚轮缩放，滚轮用于页面滚动；保留拖拽旋转；
 - 页面固定滚动条槽，避免顶栏操作按钮因滚动条出现/消失而左右偏移；
 - 动效遵循 `prefers-reduced-motion`；3D 自动旋转可交互暂停（停止操作 4s 后恢复）；
-- 前端按路由做 code splitting：问答首屏约 405KB，3D 趋势页（ECharts GL）按需加载约 1.66MB；
+- 前端按路由做 code splitting：问答首屏约 423KB，3D 趋势页（ECharts GL）按需加载约 1.66MB；
 - 1×48GB 显存可跑 32B 4-bit 量化，适合试点；并发高时用 30B-A3B MoE 或加卡；
 - 只有 24GB 显存时选 14B/8B 量化，或先把 Embedding/Reranker 放 CPU/小卡；
 - 无 GPU 且允许上政务云 MaaS 时，选支持数据不出域的专属实例；否则不建议用公网 API 处理评审材料；
