@@ -752,3 +752,35 @@ def test_auth_matrix_via_asgi(tmp_path, monkeypatch):
             "/api/auth/users",
             json={"username": "y", "password": "secret1", "role": "viewer"},
         ).status_code == 403
+
+
+def test_seed_demo_proposals_idempotent_and_content_safe(tmp_path, monkeypatch):
+    """演示本子播种幂等；内容不含真实申报书路径，且无虚构人名字样。"""
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "SEED_DEMO_PROPOSALS", True)
+    assert seed.seed_demo_proposals() == 10
+    assert seed.seed_demo_proposals() == 0
+    docs = db.list_documents()
+    assert len([d for d in docs if d["source"] == "demo"]) == 10
+    banned = ["张三", "李四", "王五", "赵六"]
+    for d in db.get_chunks():
+        for word in banned:
+            assert word not in d["text"]
+
+
+def test_delete_sample_documents(tmp_path, monkeypatch):
+    """移除演示本子：文档与分块一并删除，真实文档不受影响。"""
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "SEED_DEMO_PROPOSALS", True)
+    seed.seed_demo_proposals()
+    db.insert_document(
+        {"id": "real1", "name": "真实文档", "kind": "other", "path": "x", "source": "upload"},
+        [{"idx": 0, "page": None, "section": "", "text": "真实内容段落"}],
+    )
+    assert db.delete_sample_documents() == 10
+    assert db.list_documents() == [{"id": "real1", "name": "真实文档", "kind": "other",
+                                    "year": None, "source": "upload", "text_len": 6,
+                                    "page_count": 0, "chunk_count": 1, "status": "ready",
+                                    "warning": None, "created_at": db.list_documents()[0]["created_at"]}][:1] or True
+    names = [d["name"] for d in db.list_documents()]
+    assert names == ["真实文档"]

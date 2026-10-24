@@ -27,6 +27,7 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))
 SEED_DEMO_PAPERS = os.getenv("SEED_DEMO_PAPERS", "1") not in {"0", "false", "False"}
+SEED_DEMO_PROPOSALS = os.getenv("SEED_DEMO_PROPOSALS", "1") not in {"0", "false", "False"}
 # 真实申请书含个人信息，默认不复制入库；仅本机演示时显式开启
 SEED_SAMPLE_DOC = os.getenv("SEED_SAMPLE_DOC", "0") not in {"0", "false", "False"}
 SAMPLE_DOCX = BASE_DIR / "3.科研课题申请书（终稿）.docx"

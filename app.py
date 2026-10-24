@@ -638,6 +638,13 @@ def ingest_schema():
     }
 
 
+@app.delete("/api/documents/sample")
+def remove_sample_documents(_user: dict = Depends(require_role("manager", "admin"))):
+    removed = db.delete_sample_documents()
+    retriever.rebuild()
+    return {"ok": True, "removed": removed}
+
+
 @app.delete("/api/papers/sample")
 def remove_sample_papers(_user: dict = Depends(require_role("manager", "admin"))):
     count = db.delete_sample_papers()

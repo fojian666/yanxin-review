@@ -157,6 +157,8 @@ export const api = {
   },
   deleteDocument: (docId: string) =>
     request<{ ok: boolean }>(`/documents/${docId}`, { method: "DELETE" }),
+  removeSampleDocuments: () =>
+    request<{ ok: boolean; removed: number }>("/documents/sample", { method: "DELETE" }),
   removeSamplePapers: () =>
     request<{ ok: boolean; removed: number }>("/papers/sample", { method: "DELETE" }),
   experts: () => request<{ experts: Expert[]; count: number }>("/experts"),

@@ -47,6 +47,17 @@ export function LibraryPage() {
     openUpload(event.dataTransfer.files?.[0]);
   };
 
+  const removeSampleDocs = async () => {
+    if (!confirm("确定移除全部演示本子？上传的真实文档不受影响。")) return;
+    try {
+      const result = await api.removeSampleDocuments();
+      await refreshDocs();
+      toast(`已移除 ${result.removed || 0} 份演示本子`);
+    } catch (err) {
+      toast(`移除失败：${(err as Error).message}`, "error");
+    }
+  };
+
   const importCsv = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -116,6 +127,11 @@ export function LibraryPage() {
             <p>资料仅保存在本机 data/uploads；删除文档会同时删除索引。</p>
           </div>
           <span className="count-badge">{docs.length}</span>
+          {can("delete-doc") && (
+            <button className="btn btn-ghost btn-sm" onClick={() => void removeSampleDocs()}>
+              <Trash2 size={14} />移除演示本子
+            </button>
+          )}
         </div>
         <div className="table-wrap">
           {docs.length === 0 ? (
@@ -141,7 +157,10 @@ export function LibraryPage() {
                       <div className="doc-title" title={doc.name}>{doc.name}</div>
                       {doc.warning && <div className="muted doc-warning">{doc.warning}</div>}
                     </td>
-                    <td><span className="kind-badge">{KIND_LABELS[doc.kind] ?? "资料"}</span></td>
+                    <td>
+                      <span className="kind-badge">{KIND_LABELS[doc.kind] ?? "资料"}</span>
+                      {doc.source === "demo" && <span className="badge-sample">演示</span>}
+                    </td>
                     <td>{doc.year ?? "—"}</td>
                     <td>{doc.chunk_count}</td>
                     <td>

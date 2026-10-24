@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 from . import auth, config, db
+from .demo_proposals import PROPOSALS as DEMO_PROPOSALS
 from .parsers import parse_upload
 from .text import chunk_document, extract_keywords, extract_year, guess_title
 
@@ -121,6 +122,16 @@ _FINDINGS = [
     "风险预警指标需要与科研流程节点建立对应关系",
     "智能体协同可以提升全周期监管的自动化水平",
 ]
+_DATA_SOURCES = [
+    "多期卫星遥感影像与年度变更调查数据", "公开数据集与本地业务台账",
+    "三年期时序观测数据与实地调查样本", "多源异构业务系统汇聚数据",
+]
+_METRICS = [
+    "在公开测试集上取得了优于基线方法的精度表现",
+    "通过消融实验验证了各模块的必要性",
+    "与人工判读结果的一致率达到业务可用水平",
+    "典型场景试点表明运行稳定且效率提升明显",
+]
 
 
 def _abstract(year: int, title: str, keywords: str, idx: int) -> str:
@@ -129,31 +140,14 @@ def _abstract(year: int, title: str, keywords: str, idx: int) -> str:
     b = kws[1] if len(kws) > 1 else "自然资源"
     method = _METHODS[idx % len(_METHODS)]
     finding = _FINDINGS[idx % len(_FINDINGS)]
+    data = _DATA_SOURCES[idx % len(_DATA_SOURCES)]
+    metric = _METRICS[idx % len(_METRICS)]
+    focus = title.split("的")[-1] if "的" in title else title
     return (
-        f"围绕{title}，本文采用{method}，梳理{year}年前后的研究与实践进展，"
-        f"分析{a}与{b}之间的关系。研究发现，{finding}。"
-        f"研究可为自然资源科研全周期治理、诚信风险防控与评审管理提供参考。"
+        f"针对{a}领域{b}问题的研究。基于{data}，采用{method}构建分析框架，"
+        f"围绕{focus}开展实证。结果表明，{finding}；{metric}。"
+        f"研究结论可为自然资源科研全周期治理、诚信风险防控与评审管理提供参考。"
     )
-
-
-def _seeded(key: str) -> bool:
-    """种子标记存放在数据库 meta 表中，与库同生命周期；
-    旧的文件标记（.seeded_*）只读取迁移，避免删库后标记残留导致不再播种。"""
-    if db.get_meta(f"seeded_{key}"):
-        return True
-    legacy = config.DATA_DIR / f".seeded_{key}"
-    if legacy.exists():
-        db.set_meta(f"seeded_{key}", "seeded")
-        try:
-            legacy.unlink()  # 消费掉旧文件，否则清 meta 键后仍会被它重新标记
-        except OSError:
-            pass
-        return True
-    return False
-
-
-def _mark_seeded(key: str) -> None:
-    db.set_meta(f"seeded_{key}", "seeded")
 
 
 def seed_demo_papers() -> int:
@@ -227,90 +221,143 @@ def seed_sample_document() -> bool:
 
 _EXPERTS = [
     {
-        "name": "示例专家A", "institution": "示例大学A", "title": "教授",
-        "discipline": "科研管理 / 科技政策",
-        "research_areas": "科研诚信;科技政策;科研管理;评价体系",
-        "achievements": "主持科研诚信治理与科技评价相关课题（示例数据）",
-        "avoid_institutions": "示例大学B", "workload": 1, "available": True,
+        "name": "示例专家A", "institution": "沄州大学资源环境学院", "title": "教授",
+        "discipline": "遥感与地理信息",
+        "research_areas": "遥感监测;耕地保护;土地利用变化;多源影像融合",
+        "achievements": "主持耕地动态监测相关课题，发表遥感解译方向论文多篇（示例数据）",
+        "avoid_institutions": "", "workload": 1, "available": True,
     },
     {
-        "name": "示例专家B", "institution": "示例大学B", "title": "教授",
-        "discipline": "计算机科学 / 文本挖掘",
-        "research_areas": "语义查重;文本挖掘;自然语言处理;学术不端检测",
-        "achievements": "发表文本相似度与学术不端检测方向论文（示例数据）",
+        "name": "示例专家B", "institution": "澜川省地质调查院", "title": "研究员",
+        "discipline": "水文地质与工程地质",
+        "research_areas": "地面沉降;地下水监测;InSAR;地质环境",
+        "achievements": "承担区域地面沉降调查与监测网建设项目（示例数据）",
         "avoid_institutions": "", "workload": 2, "available": True,
     },
     {
-        "name": "示例专家C", "institution": "示例研究院C", "title": "研究员",
-        "discipline": "地理信息 / 自然资源",
-        "research_areas": "知识图谱;自然资源;国土空间;数据治理",
-        "achievements": "承担自然资源知识图谱与数据治理项目（示例数据）",
-        "avoid_institutions": "示例大学A", "workload": 0, "available": True,
-    },
-    {
-        "name": "示例专家D", "institution": "示例大学D", "title": "教授",
-        "discipline": "人工智能 / 大模型",
-        "research_areas": "大模型;检索增强;RAG;智能体;可解释性",
-        "achievements": "研究大模型在垂直领域的应用与评测（示例数据）",
+        "name": "示例专家C", "institution": "澜溪市测绘地理信息研究院", "title": "高级工程师",
+        "discipline": "摄影测量与遥感",
+        "research_areas": "InSAR形变分析;无人机激光雷达;高精度DEM;灾害识别",
+        "achievements": "参与地质灾害隐患早期识别与应急测绘项目（示例数据）",
         "avoid_institutions": "", "workload": 3, "available": True,
     },
     {
-        "name": "示例专家E", "institution": "示例研究院E", "title": "研究员",
-        "discipline": "科研管理 / 评审管理",
-        "research_areas": "专家评审;专家画像;科研管理;利益冲突",
-        "achievements": "参与科研项目评审与专家管理机制研究（示例数据）",
+        "name": "示例专家D", "institution": "澜川省国土空间规划设计研究院", "title": "研究员",
+        "discipline": "国土空间规划",
+        "research_areas": "规划实施监测;一张图平台;指标体系;空间治理",
+        "achievements": "主持市级国土空间规划体检评估课题（示例数据）",
+        "avoid_institutions": "临澜市自然资源和规划局", "workload": 2, "available": True,
+    },
+    {
+        "name": "示例专家E", "institution": "青屿大学环境与测绘学院", "title": "副教授",
+        "discipline": "水环境遥感",
+        "research_areas": "高光谱遥感;水质反演;富营养化;藻华预警",
+        "achievements": "研究内陆湖泊水质遥感反演方法（示例数据）",
         "avoid_institutions": "", "workload": 1, "available": True,
     },
     {
-        "name": "示例专家F", "institution": "示例大学F", "title": "教授",
-        "discipline": "信息安全 / 数据治理",
-        "research_areas": "数据安全;隐私计算;数据治理;合规审查",
-        "achievements": "研究科研数据安全与合规治理（示例数据）",
+        "name": "示例专家F", "institution": "澜溪市生态修复研究中心", "title": "高级工程师",
+        "discipline": "生态修复",
+        "research_areas": "矿山生态修复;修复效果评估;植被恢复;水土保持",
+        "achievements": "负责历史遗留废弃矿山修复工程与评估工作（示例数据）",
         "avoid_institutions": "", "workload": 2, "available": True,
     },
     {
-        "name": "示例专家G", "institution": "示例中心G", "title": "高级工程师",
-        "discipline": "技术转移 / 成果转化",
-        "research_areas": "成果转化;技术转移;价值评估;产学研合作",
-        "achievements": "从事科技成果转化与价值评估实践（示例数据）",
-        "avoid_institutions": "", "workload": 0, "available": True,
-    },
-    {
-        "name": "示例专家H", "institution": "示例研究院H", "title": "研究员",
-        "discipline": "测绘 / 自然资源信息化",
-        "research_areas": "自然资源;GIS;一张图;科研信息化;项目管理",
-        "achievements": "参与自然资源信息化与一张图建设（示例数据）",
-        "avoid_institutions": "", "workload": 1, "available": True,
-    },
-    {
-        "name": "示例专家I", "institution": "示例大学I", "title": "教授",
-        "discipline": "科研伦理 / 学术规范",
-        "research_areas": "科研诚信;学术不端;科研伦理;学术规范",
-        "achievements": "从事科研伦理与学术规范研究（示例数据）",
+        "name": "示例专家G", "institution": "沄州信息工程大学计算机学院", "title": "教授",
+        "discipline": "人工智能",
+        "research_areas": "大模型;遥感智能解译;知识图谱;深度学习",
+        "achievements": "研究大模型在自然资源行业的应用与评测（示例数据）",
         "avoid_institutions": "", "workload": 4, "available": True,
     },
     {
-        "name": "示例专家J", "institution": "示例大学J", "title": "教授",
-        "discipline": "文档智能 / 多模态",
-        "research_areas": "多模态;文档智能;信息抽取;知识图谱",
-        "achievements": "研究多模态文档理解与信息抽取（示例数据）",
+        "name": "示例专家H", "institution": "临澜市自然资源和规划局", "title": "高级工程师",
+        "discipline": "数据治理与信息化",
+        "research_areas": "不动产登记;数据治理;共享服务;数据安全",
+        "achievements": "主持不动产登记数据治理与共享服务平台建设（示例数据）",
         "avoid_institutions": "", "workload": 2, "available": True,
     },
     {
-        "name": "示例专家K", "institution": "示例研究院K", "title": "研究员",
-        "discipline": "信用评价 / 风险预警",
-        "research_areas": "风险预警;信用评价;指标体系;风险分级",
-        "achievements": "研究科研信用评价与风险预警模型（示例数据）",
+        "name": "示例专家I", "institution": "澜溪大学公共管理学院", "title": "副教授",
+        "discipline": "科研管理",
+        "research_areas": "科研诚信;科技政策;评审管理;项目评估",
+        "achievements": "从事科研诚信治理与评审机制研究（示例数据）",
+        "avoid_institutions": "", "workload": 1, "available": True,
+    },
+    {
+        "name": "示例专家J", "institution": "澜川省林业科学研究院", "title": "研究员",
+        "discipline": "森林经营与碳汇",
+        "research_areas": "森林碳汇;生物量模型;样地调查;增汇经营",
+        "achievements": "承担林业碳汇计量与监测研究课题（示例数据）",
+        "avoid_institutions": "", "workload": 3, "available": True,
+    },
+    {
+        "name": "示例专家K", "institution": "青屿市规划设计院", "title": "高级工程师",
+        "discipline": "测绘与三维地理信息",
+        "research_areas": "三维建模;城市地质;实景三维;空间数据管理",
+        "achievements": "参与城市地质三维建模项目（示例数据）",
         "avoid_institutions": "", "workload": 5, "available": True,
     },
     {
-        "name": "示例专家L", "institution": "示例大学L", "title": "副教授",
-        "discipline": "智能体 / 多智能体系统",
-        "research_areas": "智能体;多智能体;协同调度;大模型",
-        "achievements": "研究多智能体协同与任务调度（示例数据）",
+        "name": "示例专家L", "institution": "青屿市海岸带保护研究院", "title": "研究员",
+        "discipline": "海岸带管理",
+        "research_areas": "海岸带侵蚀淤积;沙滩养护;防护工程;滨海湿地",
+        "achievements": "从事海岸带动态监测与保护对策研究（示例数据）",
         "avoid_institutions": "", "workload": 1, "available": False,
     },
 ]
+
+
+def _seeded(key: str) -> bool:
+    """种子标记存放在数据库 meta 表中，与库同生命周期；
+    旧的文件标记（.seeded_*）只读取迁移，避免删库后标记残留导致不再播种。"""
+    if db.get_meta(f"seeded_{key}"):
+        return True
+    legacy = config.DATA_DIR / f".seeded_{key}"
+    if legacy.exists():
+        db.set_meta(f"seeded_{key}", "seeded")
+        try:
+            legacy.unlink()  # 消费掉旧文件，否则清 meta 键后仍会被它重新标记
+        except OSError:
+            pass
+        return True
+    return False
+
+
+def _mark_seeded(key: str) -> None:
+    db.set_meta(f"seeded_{key}", "seeded")
+
+
+def seed_demo_proposals() -> int:
+    """演示本子：10 份虚构的自然资源领域申报书（无任何真实或虚构人名），
+    用于查重与专家匹配演示。source='demo' 标记，可通过演示数据接口移除。"""
+    if not getattr(config, "SEED_DEMO_PROPOSALS", True):
+        return 0
+    if _seeded("proposals"):
+        return 0
+    inserted = 0
+    existing = {d["name"] for d in db.list_documents()}
+    for item in DEMO_PROPOSALS:
+        name = f"演示本子：{item['title']}"
+        if name in existing:
+            continue
+        pages = [{"page": None, "text": item["content"]}]
+        chunks = chunk_document(pages, chunk_size=config.CHUNK_SIZE, overlap=config.CHUNK_OVERLAP)
+        doc = {
+            "id": db.new_id(),
+            "name": name,
+            "kind": "proposal",
+            "year": item["year"],
+            "source": "demo",
+            "path": "",
+            "text_len": len(item["content"]),
+            "page_count": 0,
+            "warning": "",
+            "meta": {"seeded": True, "org": item["org"], "demo": True},
+        }
+        db.insert_document(doc, chunks)
+        inserted += 1
+    _mark_seeded("proposals")
+    return inserted
 
 
 def seed_demo_experts() -> int:
@@ -328,6 +375,7 @@ def seed_all() -> dict:
     return {
         "papers": seed_demo_papers(),
         "sample_doc": seed_sample_document(),
+        "proposals": seed_demo_proposals(),
         "experts": seed_demo_experts(),
         "users": seed_demo_users(),
     }

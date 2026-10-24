@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（48 项）
+python3 -m pytest tests/ -q                                 # 回归测试（50 项）
 ```
 
 PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行不需要 Node。
@@ -48,7 +48,8 @@ frontend/src/
 ## 数据事实
 
 - 库：`data/app.db`；上传原件：`data/uploads/`；两者均在 `.gitignore`。
-- 当前默认数据 = 1 份示例本子（种子写入）+ 42 篇合成文献 + 12 位合成专家（均 `is_sample=1`，界面可一键移除）。
+- 当前默认数据 = **10 份虚构演示本子**（`rag/demo_proposals.py`，source='demo'，界面可“移除演示本子”）+ 42 篇合成文献 + 12 位合成专家（均 `is_sample=1`，可一键移除）；真实申报书默认不入库（`SEED_SAMPLE_DOC=0`）。
+- 演示本子内置演示设计：P01/P02 同域含相似段落（查重演示）、P02/P07 同申报单位（同单位回避演示）、专家 K 负载满 / L 不可评审 / D 回避单位（排除演示）。
 - 重新播种演示数据：清 `meta` 表中 `seeded_papers` / `seeded_doc` / `seeded_experts` 对应键。
 - 外部真实数据入口：CSV 导入（界面）或 `POST /api/ingest/experts|papers`（JSON 推送，幂等）；契约自查 `GET /api/ingest/schema`。项目/诚信记录/政策版本 schema 已预留但**无存储**，勿提前建表。
 

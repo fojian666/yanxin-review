@@ -258,6 +258,19 @@ def count_papers() -> int:
         return int(conn.execute("SELECT COUNT(*) FROM papers").fetchone()[0])
 
 
+def delete_sample_documents() -> int:
+    """删除全部演示本子（source='demo' 的文档及其分块）。"""
+    with connect() as conn:
+        ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM documents WHERE source = 'demo'").fetchall()]
+        if not ids:
+            return 0
+        marks = ",".join("?" for _ in ids)
+        conn.execute(f"DELETE FROM chunks WHERE doc_id IN ({marks})", ids)
+        cur = conn.execute(f"DELETE FROM documents WHERE id IN ({marks})", ids)
+        return int(cur.rowcount)
+
+
 def delete_sample_papers() -> int:
     with connect() as conn:
         cur = conn.execute("DELETE FROM papers WHERE is_sample = 1")
