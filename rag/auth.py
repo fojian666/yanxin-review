@@ -42,7 +42,7 @@ def _public_user(row) -> dict:
 
 def create_user(username: str, password: str, role: str, display_name: str = "") -> bool:
     username = (username or "").strip()
-    if not username or role not in ROLES or len(password or "") < MIN_PASSWORD_LEN:
+    if not username or len(username) > 32 or role not in ROLES or len(password or "") < MIN_PASSWORD_LEN:
         return False
     with db.connect() as conn:
         row = conn.execute(

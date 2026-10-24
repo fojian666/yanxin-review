@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac as _hmac
 import json
 import logging
 import os
@@ -61,12 +62,20 @@ PUBLIC_API_PATHS = {
     "/api/auth/login",
     "/api/auth/logout",
     "/api/ingest/schema",
+    # 推送端点对中间件豁免：由 ingest_guard 自行校验
+    # （有效接入令牌 OR 已登录 manager/admin 会话），否则外部系统
+    # （无浏览器 Cookie）会被中间件先拦成 401，令牌流走不通
+    "/api/ingest/experts",
+    "/api/ingest/papers",
 }
 
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
+    # CORS 预检请求不带 Cookie，必须放行，否则跨域开发环境全部失败
+    if request.method == "OPTIONS":
+        return await call_next(request)
     if path.startswith("/api/") and path not in PUBLIC_API_PATHS:
         token = request.cookies.get(auth.SESSION_COOKIE, "")
         user = auth.resolve_session(token) if token else None
@@ -133,8 +142,32 @@ def _require_ingest_token(
     x_ingest_token: str = Header(default="", alias="X-INGEST-Token"),
 ) -> None:
     expected = (config.INGEST_TOKEN or "").strip()
-    if expected and x_ingest_token != expected:
+    if expected and not _hmac.compare_digest(x_ingest_token, expected):
         raise HTTPException(status_code=401, detail="无效的数据接入令牌")
+
+
+def ingest_guard(
+    request: Request,
+    x_ingest_token: str = Header(default="", alias="X-INGEST-Token"),
+) -> None:
+    """机器推送专用守卫：有效接入令牌 **或** 已登录的 manager/admin 会话均可。
+    只要求会话会把外部系统（无浏览器 Cookie）挡在门外；只要求令牌
+    又会在未配置令牌时退化为任意登录用户可写。二者取其一。"""
+    expected = (config.INGEST_TOKEN or "").strip()
+    if expected and _hmac.compare_digest(x_ingest_token, expected):
+        return
+    # 推送端点对中间件豁免，state.user 未必存在：令牌不匹配时自行解析会话
+    user = getattr(request.state, "user", None) or auth.resolve_session(
+        request.cookies.get(auth.SESSION_COOKIE, "")
+    )
+    if user and user.get("role") in {"manager", "admin"}:
+        return
+    if not expected:
+        raise HTTPException(
+            status_code=403,
+            detail="未配置 INGEST_TOKEN，请以科研管理/管理员账号登录后推送，或在 .env 配置令牌",
+        )
+    raise HTTPException(status_code=403, detail="需要有效的接入令牌或科研管理/管理员会话")
 
 
 def _infer_kind(filename: str, text: str = "") -> str:
@@ -457,10 +490,11 @@ async def import_papers(file: UploadFile = File(...), _user: dict = Depends(requ
     finally:
         temp.unlink(missing_ok=True)
     inserted = 0
+    known = db.paper_keys()
     for row in rows:
         row["is_sample"] = 0
         row["source"] = "csv"
-        if db.insert_paper_if_new(row):
+        if db.insert_paper_if_new(row, known):
             inserted += 1
     return {"ok": True, "count": inserted, "skipped": len(rows) - inserted}
 
@@ -483,8 +517,9 @@ async def import_experts(file: UploadFile = File(...), _user: dict = Depends(req
     try:
         rows = await run_in_threadpool(parse_experts_csv, temp)
         inserted = 0
+        known = db.expert_keys()
         for row in rows:
-            if db.insert_expert_if_new(row):
+            if db.insert_expert_if_new(row, known):
                 inserted += 1
         return {"ok": True, "count": inserted, "skipped": len(rows) - inserted}
     except ValueError as exc:
@@ -513,14 +548,14 @@ def tool_check(payload: ToolCheckRequest, _user: dict = Depends(require_role("re
 # ---------- 外部数据接入（预留接口） ----------
 
 
-@app.post("/api/ingest/experts", dependencies=[Depends(_require_ingest_token), Depends(require_role("manager", "admin"))])
+@app.post("/api/ingest/experts", dependencies=[Depends(ingest_guard)])
 def ingest_experts(payload: IngestExpertsRequest):
     """外部系统推送专家数据；同名同单位自动跳过，幂等可重放。"""
     inserted, skipped = ingest_service.ingest_experts(payload.experts)
     return {"ok": True, "count": inserted, "skipped": skipped}
 
 
-@app.post("/api/ingest/papers", dependencies=[Depends(_require_ingest_token), Depends(require_role("manager", "admin"))])
+@app.post("/api/ingest/papers", dependencies=[Depends(ingest_guard)])
 def ingest_papers(payload: IngestPapersRequest):
     """外部系统推送文献数据；同标题同年份自动跳过，幂等可重放。"""
     inserted, skipped = ingest_service.ingest_papers(payload.papers)

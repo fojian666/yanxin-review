@@ -93,9 +93,13 @@ function requestFormData<T>(
       }
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(data as T);
-      } else {
-        reject(new Error(errorMessage(data, xhr.status)));
+        return;
       }
+      if (xhr.status === 401) {
+        // 与 request() 一致：会话失效广播，切回登录页
+        window.dispatchEvent(new CustomEvent("auth:expired"));
+      }
+      reject(new Error(errorMessage(data, xhr.status)));
     };
     xhr.onerror = () => reject(new Error("网络错误，无法连接到服务器"));
     xhr.ontimeout = () => reject(new Error("上传超时，请重试"));
@@ -181,6 +185,9 @@ export async function streamChat(
     throw new Error("网络错误，无法连接到服务器");
   }
   if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent("auth:expired"));
+    }
     let data: unknown = null;
     try {
       data = await res.json();

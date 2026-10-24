@@ -349,25 +349,38 @@ def _norm_key(*parts: Any) -> str:
     return "|".join(re.sub(r"\s+", "", str(p or "")).casefold() for p in parts)
 
 
-def insert_paper_if_new(paper: dict[str, Any]) -> bool:
-    """同一文献（标题+年份）重复导入时跳过，保证 CSV 重复导入幂等。"""
-    key = _norm_key(paper.get("title"), paper.get("year"))
+def paper_keys() -> set[str]:
+    """库内全部文献的去重键（批量导入前预载，避免逐行全表扫描）。"""
     with connect() as conn:
         rows = conn.execute("SELECT title, year FROM papers").fetchall()
-    for row in rows:
-        if _norm_key(row["title"], row["year"]) == key:
-            return False
+    return {_norm_key(r["title"], r["year"]) for r in rows}
+
+
+def expert_keys() -> set[str]:
+    with connect() as conn:
+        rows = conn.execute("SELECT name, institution FROM experts").fetchall()
+    return {_norm_key(r["name"], r["institution"]) for r in rows}
+
+
+def insert_paper_if_new(paper: dict[str, Any], known_keys: set[str] | None = None) -> bool:
+    """同一文献（标题+年份）重复导入时跳过；批量导入时传入预载键集。"""
+    key = _norm_key(paper.get("title"), paper.get("year"))
+    if known_keys is None:
+        known_keys = paper_keys()
+    if key in known_keys:
+        return False
     insert_paper(paper)
+    known_keys.add(key)
     return True
 
 
-def insert_expert_if_new(expert: dict[str, Any]) -> bool:
-    """同一专家（姓名+单位）重复导入时跳过。"""
+def insert_expert_if_new(expert: dict[str, Any], known_keys: set[str] | None = None) -> bool:
+    """同一专家（姓名+单位）重复导入时跳过；批量导入时传入预载键集。"""
     key = _norm_key(expert.get("name"), expert.get("institution"))
-    with connect() as conn:
-        rows = conn.execute("SELECT name, institution FROM experts").fetchall()
-    for row in rows:
-        if _norm_key(row["name"], row["institution"]) == key:
-            return False
+    if known_keys is None:
+        known_keys = expert_keys()
+    if key in known_keys:
+        return False
     insert_expert(expert)
+    known_keys.add(key)
     return True

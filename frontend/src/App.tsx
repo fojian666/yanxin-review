@@ -26,7 +26,7 @@ function ScrollToTop() {
 
 function Shell() {
   const location = useLocation();
-  const { auth, authReady, sidebarCollapsed } = useApp();
+  const { auth, authReady, sidebarCollapsed, can } = useApp();
 
   if (!authReady) {
     return (
@@ -71,7 +71,10 @@ function Shell() {
                     <Route path="/match" element={<MatchPage />} />
                     <Route path="/review" element={<ReviewPage />} />
                     <Route path="/library" element={<LibraryPage />} />
-                    <Route path="/admin" element={<AdminPage />} />
+                    <Route
+                      path="/admin"
+                      element={can("admin") ? <AdminPage /> : <Navigate to="/chat" replace />}
+                    />
                     <Route path="*" element={<Navigate to="/chat" replace />} />
                   </Routes>
                 </Suspense>

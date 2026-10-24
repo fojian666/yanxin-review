@@ -289,3 +289,36 @@ def test_auth_login_endpoint_sets_cookie(tmp_path, monkeypatch):
     assert _json.loads(resp.body)["user"]["role"] == "manager"
     with pytest.raises(HTTPException):
         app_module.login(app_module.LoginRequest(username="manager", password="bad"))
+
+
+def test_ingest_guard_allows_token_or_privileged_session(tmp_path, monkeypatch):
+    """ingest_guard：令牌 OR 高权限会话二选一；未配置令牌时给出引导文案。"""
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth as rag_auth
+    from starlette.requests import Request as SR
+
+    def make_request(cookie: str = "") -> SR:
+        scope = {"type": "http", "method": "POST", "path": "/api/ingest/papers", "headers": []}
+        req = SR(scope)
+        if cookie:
+            # 直调守卫函数时 Header 依赖不会从 scope 读取，令牌经第二参数传入
+            req._cookies = {rag_auth.SESSION_COOKIE: cookie}
+        return req
+
+    # 1) 未配置令牌 + 无会话 → 403 且提示配置
+    monkeypatch.setattr(config, "INGEST_TOKEN", "")
+    with pytest.raises(HTTPException) as exc:
+        app_module.ingest_guard(make_request(), "")
+    assert "INGEST_TOKEN" in exc.value.detail
+    # 2) 未配置令牌 + admin 会话 → 放行
+    rag_auth.create_user("root", "yanxin2026", "admin")
+    sess = rag_auth.create_session("root")
+    assert app_module.ingest_guard(make_request(sess), "") is None
+    # 3) 配置令牌后，正确令牌放行（无需会话）
+    monkeypatch.setattr(config, "INGEST_TOKEN", "tok123")
+    assert app_module.ingest_guard(make_request(), "tok123") is None
+    # 4) 错误令牌 + viewer 会话 → 403
+    rag_auth.create_user("v", "yanxin2026", "viewer")
+    vsess = rag_auth.create_session("v")
+    with pytest.raises(HTTPException):
+        app_module.ingest_guard(make_request(vsess), "bad")
