@@ -259,6 +259,7 @@ def _session_response(payload: dict, token: str) -> JSONResponse:
         max_age=auth.SESSION_DAYS * 24 * 3600,
         httponly=True,
         samesite="lax",
+        secure=config.COOKIE_SECURE,
     )
     return resp
 
@@ -539,7 +540,7 @@ async def import_papers(file: UploadFile = File(...), _user: dict = Depends(requ
 
 
 @app.get("/api/experts")
-def experts():
+def experts(_user: dict = Depends(require_role("reviewer", "manager", "admin"))):
     items = db.list_experts()
     return {"experts": items, "count": len(items)}
 

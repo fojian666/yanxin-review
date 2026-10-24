@@ -469,6 +469,52 @@ def test_docx_rejects_oversized_uncompressed_content(tmp_path, monkeypatch):
     assert "体积过大" in str(exc.value)
 
 
+def test_docx_rejects_entity_declarations(tmp_path):
+    """正文 XML 不允许 DTD/实体声明，防止实体展开攻击。"""
+    path = tmp_path / "entity.docx"
+    xml = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE foo [<!ENTITY xxe "boom">]>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        "<w:body/></w:document>"
+    )
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("word/document.xml", xml)
+    with pytest.raises(parsers.ParseError) as exc:
+        parsers.parse_docx(path)
+    assert "实体" in str(exc.value)
+
+
+def test_llm_payload_thinking_toggle(monkeypatch):
+    from rag.llm import llm as llm_client
+
+    monkeypatch.setattr(config, "LLM_ENABLE_THINKING", False)
+    payload = llm_client._payload(
+        [{"role": "user", "content": "hi"}], False, 0.1, 100
+    )
+    assert payload["enable_thinking"] is False
+    monkeypatch.setattr(config, "LLM_ENABLE_THINKING", None)
+    payload = llm_client._payload([], False, 0.1, 100)
+    assert "enable_thinking" not in payload
+
+
+def test_pdf_parser_caps_pages(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "MAX_PDF_PAGES", 10)
+    calls: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout=("x\f" * 10).encode(), stderr=b""
+        )
+
+    monkeypatch.setattr(parsers.subprocess, "run", fake_run)
+    result = parsers.parse_pdf(tmp_path / "big.pdf")
+    assert "-l" in calls["cmd"]
+    assert "10" in calls["cmd"]
+    assert "仅解析前" in result["warning"]
+
+
 def test_clean_history_ignores_non_string_content():
     """history.content 为对象时不能 500。"""
     cleaned = qa._clean_history(
@@ -640,3 +686,69 @@ def test_login_rate_limited_after_repeated_failures(tmp_path, monkeypatch):
         app_module.LoginRequest(username="admin", password="yanxin2026"), request
     )
     assert resp.status_code == 200
+
+
+def test_cookie_secure_flag_follows_config(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    monkeypatch.setattr(auth, "_login_failures", {})
+    auth.create_user("u", "secret1", "viewer")
+    monkeypatch.setattr(config, "COOKIE_SECURE", True)
+    resp = app_module.login(
+        app_module.LoginRequest(username="u", password="secret1"), _login_request()
+    )
+    assert "secure" in resp.headers["set-cookie"].lower()
+
+
+def test_auth_matrix_via_asgi(tmp_path, monkeypatch):
+    """用真实 ASGI 链路验证 401/403，而不是只测函数。"""
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(config, "SEED_DEMO_PAPERS", False)
+    monkeypatch.setattr(config, "SEED_SAMPLE_DOC", False)
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+    monkeypatch.setattr(app_module.retriever, "rebuild", lambda: None)
+    from rag import auth
+    from starlette.testclient import TestClient
+
+    monkeypatch.setattr(auth, "_login_failures", {})
+    auth.create_user("viewer1", "secret1", "viewer")
+    auth.create_user("reviewer1", "secret1", "reviewer")
+    auth.create_user("manager1", "secret1", "manager")
+
+    with TestClient(app_module.app) as client:
+        assert client.get("/api/health").status_code == 200
+        assert client.get("/api/documents").status_code == 401
+        assert client.get("/api/ingest/schema").status_code == 200
+
+        assert client.post(
+            "/api/auth/login", json={"username": "viewer1", "password": "secret1"}
+        ).status_code == 200
+        assert client.get("/api/documents").status_code == 200
+        assert client.get("/api/experts").status_code == 403
+        assert client.post("/api/ingest/papers", json={"papers": []}).status_code == 403
+        assert client.post(
+            "/api/documents",
+            data={"kind": "other", "year": "", "title": ""},
+            files={"file": ("note.txt", b"hello", "text/plain")},
+        ).status_code == 403
+
+        assert client.post("/api/auth/logout").status_code == 200
+        assert client.post(
+            "/api/auth/login", json={"username": "reviewer1", "password": "secret1"}
+        ).status_code == 200
+        assert client.get("/api/experts").status_code == 200
+        assert client.post("/api/tool/check", json={"doc_id": "missing"}).status_code == 400
+        assert client.post(
+            "/api/auth/users",
+            json={"username": "x", "password": "secret1", "role": "viewer"},
+        ).status_code == 403
+
+        assert client.post("/api/auth/logout").status_code == 200
+        assert client.post(
+            "/api/auth/login", json={"username": "manager1", "password": "secret1"}
+        ).status_code == 200
+        assert client.post(
+            "/api/auth/users",
+            json={"username": "y", "password": "secret1", "role": "viewer"},
+        ).status_code == 403

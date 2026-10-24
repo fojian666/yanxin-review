@@ -22,6 +22,7 @@ MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "60000"))
 MAX_DOCX_UNCOMPRESSED_BYTES = int(
     os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(120 * 1024 * 1024))
 )
+MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))
@@ -72,10 +73,17 @@ OPENAI_MODEL = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
 
 # 数据不出内网：公网模型端点默认阻止，需显式授权
 ALLOW_EXTERNAL_LLM = os.getenv("ALLOW_EXTERNAL_LLM", "0") not in {"0", "false", "False"}
+# HTTPS 部署时设为 1，会话 Cookie 只经加密连接传输
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") not in {"0", "false", "False"}
 
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1400"))
+# None = 不向服务端发送该参数；False/True = 显式关闭/开启 Qwen3 思考模式
+_thinking = (os.getenv("LLM_ENABLE_THINKING") or "").strip().lower()
+LLM_ENABLE_THINKING: bool | None = (
+    None if not _thinking else _thinking not in {"0", "false", "no"}
+)
 
 # 外部系统数据推送（/api/ingest/*）的令牌；为空时本机原型不鉴权
 INGEST_TOKEN = (os.getenv("INGEST_TOKEN") or "").strip()
