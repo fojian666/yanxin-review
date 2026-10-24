@@ -35,20 +35,20 @@ export function Sidebar() {
     if (!sb) return;
     const DUR = 300;
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-    sb.style.width = "248px"; // class 已切换，动画期间以 248 宽滑动
+    sb.style.width = "264px"; // class 已切换，动画期间以 264 宽滑动
     if (!toCollapsed) {
-      sb.style.transform = "translateX(-172px)"; // 展开方向：从滑出位置起步
+      sb.style.transform = "translateX(-180px)"; // 展开方向：从滑出位置起步
       void sb.offsetWidth; // 强制回流，确保起点生效
     }
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / DUR);
       const e = easeOutCubic(p);
-      const shift = toCollapsed ? -172 * e : -172 * (1 - e);
+      const shift = toCollapsed ? -180 * e : -180 * (1 - e);
       sb.style.transform = `translateX(${shift.toFixed(1)}px)`;
       if (p < 1) requestAnimationFrame(tick);
       else {
-        // 落位：清除内联，交给样式表（折叠 76 / 展开 248，均无位移）
+        // 落位：清除内联，交给样式表（折叠 84 / 展开 264，均无位移）
         sb.style.width = "";
         sb.style.transform = "";
       }
