@@ -1,15 +1,25 @@
-import { motion } from "framer-motion";
-import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
+import {
+  Eye, EyeOff, FileSearch, Loader2, LogIn, MapPinned,
+  ScanSearch, ShieldCheck, TrendingUp, Users,
+} from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useApp } from "../AppContext";
-import { EASE } from "../motion";
 import type { UserRole } from "../types";
 
-const DEMO_ACCOUNTS: { username: UserRole; label: string; desc: string }[] = [
-  { username: "admin", label: "管理员", desc: "全部功能 + 用户管理" },
-  { username: "manager", label: "科研管理", desc: "上传/删除/导入/推送" },
-  { username: "reviewer", label: "评审专家", desc: "问答/预审/查重匹配" },
-  { username: "viewer", label: "访客", desc: "问答与趋势，只读" },
+const DEMO_ACCOUNTS: {
+  username: UserRole; label: string; desc: string; icon: typeof ShieldCheck;
+}[] = [
+  { username: "admin", label: "管理员", desc: "全部功能", icon: ShieldCheck },
+  { username: "manager", label: "科研管理", desc: "上传 · 导入", icon: FileSearch },
+  { username: "reviewer", label: "评审专家", desc: "预审 · 查重", icon: ScanSearch },
+  { username: "viewer", label: "访客", desc: "问答 · 趋势", icon: Eye },
+];
+
+const FEATURES = [
+  { icon: FileSearch, label: "引用溯源", desc: "句级标注原文出处" },
+  { icon: ScanSearch, label: "语义查重", desc: "段落级相似与证据" },
+  { icon: Users, label: "专家匹配", desc: "回避负载约束前置" },
+  { icon: TrendingUp, label: "文献趋势", desc: "多年热度与空白" },
 ];
 
 const DEMO_PASSWORD = "yanxin2026";
@@ -24,6 +34,7 @@ export function LoginPage() {
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    document.title = "登录 · 研信智评";
     nameRef.current?.focus();
   }, []);
 
@@ -54,90 +65,166 @@ export function LoginPage() {
 
   return (
     <div className="login-page">
-      <motion.div
-        className="login-card"
-        initial={{ opacity: 0, y: 14, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.34, ease: EASE }}
-      >
-        <div className="login-brand">
-          <motion.div
-            className="login-seal"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.34, ease: EASE, delay: 0.05 }}
-          >
-            研
-          </motion.div>
-          <h1>研信智评</h1>
-          <p className="login-brand-sub">科研诚信智能评审 · 内网工作台</p>
-          <ul className="login-points">
-            <li><ShieldCheck size={14} /> 带原文引用的问答与预审</li>
-            <li><ShieldCheck size={14} /> 语义查重与专家匹配一体化</li>
-            <li><ShieldCheck size={14} /> 评审材料不出内网</li>
-          </ul>
-          <div className="login-foot">江苏省自然资源科研课题 · 首期原型</div>
-        </div>
-        <form className="login-form" onSubmit={submit}>
-          <div className="eyebrow">SIGN IN</div>
-          <h2>登录</h2>
-          <label className="field">
-            <span>用户名</span>
-            <input
-              ref={nameRef}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              autoComplete="username"
-              placeholder="请输入用户名"
-              disabled={busy}
-            />
-          </label>
-          <label className="field">
-            <span>密码</span>
-            <div className="login-password">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                placeholder="请输入密码"
-                disabled={busy}
-              />
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "隐藏密码" : "显示密码"}
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+      <svg
+          className="login-terrain"
+          viewBox="0 0 1440 900"
+          preserveAspectRatio="xMidYMid slice"
+          aria-hidden="true"
+        >
+          <g>
+            <path d="M-120 170 C 140 60, 300 280, 520 160 S 880 60, 1090 210 S 1360 300, 1560 150" />
+            <path d="M-120 230 C 150 120, 320 340, 540 220 S 900 120, 1110 270 S 1380 360, 1580 210" />
+            <path d="M-140 620 C 120 500, 300 720, 520 600 S 880 500, 1100 650 S 1380 740, 1580 590" />
+            <path d="M-140 690 C 130 570, 320 790, 540 670 S 900 570, 1120 720 S 1400 810, 1600 660" />
+            <path d="M-140 760 C 140 640, 330 860, 560 740 S 920 640, 1140 790 S 1420 880, 1620 730" />
+          </g>
+          <g className="login-terrain-rings">
+            <ellipse cx="1180" cy="210" rx="160" ry="78" />
+            <ellipse cx="1180" cy="210" rx="120" ry="58" />
+            <ellipse cx="1180" cy="210" rx="80" ry="38" />
+            <ellipse cx="240" cy="720" rx="140" ry="66" />
+            <ellipse cx="240" cy="720" rx="100" ry="47" />
+            <ellipse cx="240" cy="720" rx="60" ry="28" />
+          </g>
+        </svg>
+        <span className="login-orb login-orb-a" aria-hidden="true" />
+        <span className="login-orb login-orb-b" aria-hidden="true" />
+        <span className="login-orb login-orb-c" aria-hidden="true" />
+
+        <div className="login-card">
+          <div className="login-brand">
+            <div className="login-sheet-meta">
+              <span>JIANGSU · NATURAL RESOURCES</span>
+              <span>32°03′N · 118°47′E</span>
             </div>
-          </label>
-          {error && <div className="login-error" role="alert">{error}</div>}
-          <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
-            {busy ? <><Loader2 size={16} className="spin" />登录中…</> : <><LogIn size={16} />登 录</>}
-          </button>
-          <div className="login-demo">
-            <div className="login-demo-title">演示账号（点击填充，密码统一 {DEMO_PASSWORD}）</div>
-            <div className="login-demo-grid">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  type="button"
-                  key={account.username}
-                  className="login-demo-chip"
-                  onClick={() => fillDemo(account.username)}
-                  disabled={busy}
-                >
-                  <strong>{account.label}</strong>
-                  <small>{account.username} · {account.desc}</small>
-                </button>
+            <svg
+              className="login-contours"
+              viewBox="0 0 400 620"
+              preserveAspectRatio="xMidYMid slice"
+              aria-hidden="true"
+            >
+              <g className="login-contour-lines">
+                <path d="M-50 96 C 70 20, 180 150, 320 70 S 470 130, 430 210" />
+                <path d="M-50 136 C 80 60, 190 190, 330 110 S 480 170, 440 250" />
+                <path d="M-50 176 C 90 100, 200 230, 340 150 S 490 210, 450 290" />
+                <path d="M-70 390 C 50 310, 160 440, 290 370 S 430 430, 430 530" />
+                <path d="M-70 430 C 60 350, 170 480, 300 410 S 440 470, 440 570" />
+                <path d="M-70 470 C 70 390, 180 520, 310 450 S 450 510, 450 610" />
+              </g>
+              <g className="login-contour-peak">
+                <ellipse cx="300" cy="150" rx="86" ry="44" />
+                <ellipse cx="300" cy="150" rx="62" ry="31" />
+                <ellipse cx="300" cy="150" rx="38" ry="19" />
+                <circle cx="300" cy="150" r="3" />
+              </g>
+              <g className="login-contour-peak">
+                <ellipse cx="96" cy="500" rx="54" ry="28" />
+                <ellipse cx="96" cy="500" rx="34" ry="17" />
+                <circle cx="96" cy="500" r="2.5" />
+              </g>
+            </svg>
+
+            <div className="login-seal-wrap">
+              <span className="login-seal-ring" aria-hidden="true" />
+              <div className="login-seal">研</div>
+            </div>
+            <div className="login-domain">
+              <MapPinned size={13} /> 自然资源 · 科研诚信 · 江苏
+            </div>
+            <h1>研信智评</h1>
+            <p className="login-brand-sub">科研诚信智能评审 · 内网工作台</p>
+            <div className="login-features-head">
+              <span>CORE CAPABILITIES</span>
+              <span>核心能力</span>
+            </div>
+            <div className="login-features">
+              {FEATURES.map(({ icon: Icon, label, desc }) => (
+                <div className="login-feature" key={label}>
+                  <span className="login-feature-icon"><Icon size={15} /></span>
+                  <div>
+                    <strong>{label}</strong>
+                    <small>{desc}</small>
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="login-demo-note">演示账号仅限内网验证；正式使用请由管理员创建账号或接统一身份认证。</div>
+            <div className="login-foot">
+              <span className="login-lan-badge">内网部署 · 数据不出域</span>
+              <span>江苏省自然资源科研课题 · 首期原型</span>
+            </div>
           </div>
-        </form>
-      </motion.div>
-    </div>
+
+          <form className="login-form" onSubmit={submit}>
+            <div className="login-form-head">
+              <div className="eyebrow">SIGN IN</div>
+              <h2>登录</h2>
+              <p>使用内网账号进入评审工作台</p>
+            </div>
+            <label className="field">
+              <span>用户名</span>
+              <input
+                ref={nameRef}
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                placeholder="请输入用户名"
+                disabled={busy}
+              />
+            </label>
+            <label className="field">
+              <span>密码</span>
+              <div className="login-password">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder="请输入密码"
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </label>
+            {error && <div className="login-error" role="alert">{error}</div>}
+            <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+              {busy ? <><Loader2 size={16} className="spin" />登录中…</> : <><LogIn size={16} />登 录</>}
+            </button>
+            <div className="login-secure-note">
+              <ShieldCheck size={13} /> 会话经 HttpOnly Cookie 保护 · 材料不出内网
+            </div>
+            <div className="login-demo">
+              <div className="login-demo-title">
+                演示账号 <code>{DEMO_PASSWORD}</code> · 点击填充
+              </div>
+              <div className="login-demo-grid">
+                {DEMO_ACCOUNTS.map(({ username, label, desc, icon: Icon }) => (
+                  <button
+                    type="button"
+                    key={username}
+                    className={`login-demo-chip role-${username}`}
+                    onClick={() => fillDemo(username)}
+                    title={`${username} · ${desc}`}
+                    disabled={busy}
+                  >
+                    <span className="login-demo-icon"><Icon size={13} /></span>
+                    <strong>{label}</strong>
+                    <small>{username} · {desc}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="login-demo-note">
+                演示账号仅限内网验证；正式使用请由管理员创建账号或接统一身份认证。
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
   );
 }
