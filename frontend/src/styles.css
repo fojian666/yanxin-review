@@ -931,28 +931,71 @@ a, img, svg, canvas,
   background:
     radial-gradient(1000px 520px at 12% -12%, rgba(14, 124, 107, .12), transparent 60%),
     radial-gradient(820px 420px at 108% 112%, rgba(181, 133, 60, .1), transparent 55%),
-    linear-gradient(rgba(16, 36, 46, .028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(16, 36, 46, .028) 1px, transparent 1px),
     var(--bg);
-  background-size: auto, auto, 56px 56px, 56px 56px, auto;
   padding: 28px;
 }
-.login-terrain {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  fill: none;
-  stroke: rgba(14, 124, 107, .11);
-  stroke-width: 1.1;
+.login-grid {
+  position: absolute; inset: -10%;
+  background-image:
+    linear-gradient(rgba(16, 36, 46, .03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 36, 46, .03) 1px, transparent 1px);
+  background-size: 56px 56px;
   pointer-events: none;
   z-index: 0;
-  animation: loginTerrainDrift 70s ease-in-out infinite alternate;
+  opacity: .8;
+  animation: loginGridDrift 80s linear infinite;
   will-change: transform;
 }
-@keyframes loginTerrainDrift {
-  from { transform: translate3d(calc(var(--px, 0) * 7px), calc(var(--py, 0) * 5px), 0) scale(1); }
-  to { transform: translate3d(calc(-14px + var(--px, 0) * 7px), calc(10px + var(--py, 0) * 5px), 0) scale(1.02); }
+@keyframes loginGridDrift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-56px, -56px, 0); }
+}
+.login-terrain {
+  position: absolute; inset: -4%;
+  width: 108%; height: 108%;
+  fill: none;
+  stroke: rgba(14, 124, 107, .11);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+.login-terrain-far {
+  stroke-width: 1;
+  opacity: .8;
+  animation: loginTerrainFar 72s ease-in-out infinite alternate;
+}
+.login-terrain-near {
+  stroke-width: 1.2;
+  opacity: .9;
+  animation: loginTerrainNear 48s ease-in-out infinite alternate;
+}
+@keyframes loginTerrainFar {
+  from { transform: translate3d(calc(var(--px, 0) * 4px - 8px), calc(var(--py, 0) * 3px - 6px), 0) scale(1.01); }
+  to { transform: translate3d(calc(var(--px, 0) * 4px + 8px), calc(var(--py, 0) * 3px + 6px), 0) scale(1.03); }
+}
+@keyframes loginTerrainNear {
+  from { transform: translate3d(calc(var(--px, 0) * 7px + 12px), calc(var(--py, 0) * 5px + 8px), 0) scale(1.02); }
+  to { transform: translate3d(calc(var(--px, 0) * 7px - 12px), calc(var(--py, 0) * 5px - 8px), 0) scale(1.04); }
+}
+.login-flow-line {
+  stroke: rgba(14, 124, 107, .2);
+  stroke-dasharray: .06 .04;
+  animation: loginContourFlow 18s linear infinite;
+}
+.login-flow-line:nth-child(2) { animation-duration: 24s; animation-delay: -6s; }
+@keyframes loginContourFlow {
+  to { stroke-dashoffset: -1; }
 }
 .login-terrain-rings { stroke: rgba(181, 133, 60, .16); }
+.login-grain {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
 .login-orb {
   position: absolute;
   border-radius: 50%;
@@ -960,12 +1003,12 @@ a, img, svg, canvas,
   opacity: .2;
   pointer-events: none;
   z-index: 0;
-  animation: loginOrbFloat 22s ease-in-out infinite alternate;
+  animation: loginOrbFloat 26s ease-in-out infinite alternate;
   will-change: transform;
 }
 .login-orb-a { width: 380px; height: 380px; left: -110px; top: -110px; background: radial-gradient(circle, #0e7c6b, transparent 68%); }
-.login-orb-b { width: 340px; height: 340px; right: -90px; bottom: -120px; background: radial-gradient(circle, #b5853c, transparent 70%); animation-duration: 27s; animation-delay: -8s; }
-.login-orb-c { width: 220px; height: 220px; right: 16%; top: -90px; background: radial-gradient(circle, #8ff3dd, transparent 70%); opacity: .13; animation-duration: 19s; animation-delay: -4s; }
+.login-orb-b { width: 340px; height: 340px; right: -90px; bottom: -120px; background: radial-gradient(circle, #b5853c, transparent 70%); animation-duration: 32s; animation-delay: -8s; }
+.login-orb-c { width: 220px; height: 220px; right: 16%; top: -90px; background: radial-gradient(circle, #8ff3dd, transparent 70%); opacity: .13; animation-duration: 24s; animation-delay: -4s; }
 @keyframes loginOrbFloat {
   from { transform: translate3d(calc(var(--px, 0) * -5px), calc(var(--py, 0) * -4px), 0) scale(1); }
   to { transform: translate3d(calc(22px + var(--px, 0) * -5px), calc(-26px + var(--py, 0) * -4px), 0) scale(1.08); }
@@ -1323,8 +1366,9 @@ a, img, svg, canvas,
   line-height: 1.6;
 }
 @media (prefers-reduced-motion: reduce) {
-  .login-card, .login-terrain, .login-orb, .login-contours, .login-brand::after,
+  .login-card, .login-grid, .login-terrain, .login-orb, .login-contours, .login-brand::after,
   .login-seal-ring, .login-feature, .login-demo-chip, .login-error { animation: none; }
+  .login-flow-line { animation: none; stroke-dashoffset: 0; }
   .login-contour-lines path { animation: none; stroke-dashoffset: 0; }
   .login-contour-peak { animation: none; }
   .login-scan { animation: none; opacity: 0; }
@@ -1378,6 +1422,7 @@ a, img, svg, canvas,
   .login-brand { padding: 28px 26px 24px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
   .login-sheet-meta span:last-child { display: none; }
   .login-side-label, .login-form::before { display: none; }
+  .login-terrain-near { display: none; }
   .login-foot { padding-top: 16px; }
   .login-form { padding: 26px; }
   .login-orb-c { display: none; }

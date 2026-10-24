@@ -24,6 +24,19 @@ const FEATURES = [
 
 const DEMO_PASSWORD = "yanxin2026";
 
+const TERRAIN_PATHS = [
+  "M-120 170 C 140 60, 300 280, 520 160 S 880 60, 1090 210 S 1360 300, 1560 150",
+  "M-120 230 C 150 120, 320 340, 540 220 S 900 120, 1110 270 S 1380 360, 1580 210",
+  "M-140 620 C 120 500, 300 720, 520 600 S 880 500, 1100 650 S 1380 740, 1580 590",
+  "M-140 690 C 130 570, 320 790, 540 670 S 900 570, 1120 720 S 1400 810, 1600 660",
+  "M-140 760 C 140 640, 330 860, 560 740 S 920 640, 1140 790 S 1420 880, 1620 730",
+];
+
+const FLOW_PATHS = [
+  "M-140 460 C 160 330, 360 600, 620 430 S 1000 300, 1240 470 S 1520 620, 1640 430",
+  "M-140 780 C 140 640, 340 900, 600 730 S 980 600, 1220 770 S 1500 900, 1640 740",
+];
+
 export function LoginPage() {
   const { login } = useApp();
   const [username, setUsername] = useState("");
@@ -98,31 +111,41 @@ export function LoginPage() {
       onPointerMove={handlePointerMove}
       onPointerLeave={resetParallax}
     >
+      <span className="login-grid" aria-hidden="true" />
       <svg
-          className="login-terrain"
-          viewBox="0 0 1440 900"
-          preserveAspectRatio="xMidYMid slice"
-          aria-hidden="true"
-        >
-          <g>
-            <path d="M-120 170 C 140 60, 300 280, 520 160 S 880 60, 1090 210 S 1360 300, 1560 150" />
-            <path d="M-120 230 C 150 120, 320 340, 540 220 S 900 120, 1110 270 S 1380 360, 1580 210" />
-            <path d="M-140 620 C 120 500, 300 720, 520 600 S 880 500, 1100 650 S 1380 740, 1580 590" />
-            <path d="M-140 690 C 130 570, 320 790, 540 670 S 900 570, 1120 720 S 1400 810, 1600 660" />
-            <path d="M-140 760 C 140 640, 330 860, 560 740 S 920 640, 1140 790 S 1420 880, 1620 730" />
-          </g>
-          <g className="login-terrain-rings">
-            <ellipse cx="1180" cy="210" rx="160" ry="78" />
-            <ellipse cx="1180" cy="210" rx="120" ry="58" />
-            <ellipse cx="1180" cy="210" rx="80" ry="38" />
-            <ellipse cx="240" cy="720" rx="140" ry="66" />
-            <ellipse cx="240" cy="720" rx="100" ry="47" />
-            <ellipse cx="240" cy="720" rx="60" ry="28" />
-          </g>
-        </svg>
-        <span className="login-orb login-orb-a" aria-hidden="true" />
-        <span className="login-orb login-orb-b" aria-hidden="true" />
-        <span className="login-orb login-orb-c" aria-hidden="true" />
+        className="login-terrain login-terrain-far"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
+        <g>
+          {TERRAIN_PATHS.map((d) => <path key={d} d={d} />)}
+        </g>
+        <g className="login-terrain-rings">
+          <ellipse cx="1180" cy="210" rx="160" ry="78" />
+          <ellipse cx="1180" cy="210" rx="120" ry="58" />
+          <ellipse cx="1180" cy="210" rx="80" ry="38" />
+          <ellipse cx="240" cy="720" rx="140" ry="66" />
+          <ellipse cx="240" cy="720" rx="100" ry="47" />
+          <ellipse cx="240" cy="720" rx="60" ry="28" />
+        </g>
+      </svg>
+      <svg
+        className="login-terrain login-terrain-near"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
+        <g>
+          {FLOW_PATHS.map((d) => (
+            <path key={d} className="login-flow-line" pathLength={1} d={d} />
+          ))}
+        </g>
+      </svg>
+      <span className="login-orb login-orb-a" aria-hidden="true" />
+      <span className="login-orb login-orb-b" aria-hidden="true" />
+      <span className="login-orb login-orb-c" aria-hidden="true" />
+      <span className="login-grain" aria-hidden="true" />
 
         <div className="login-card">
           <div className="login-brand">
