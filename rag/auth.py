@@ -24,6 +24,7 @@ ROLE_LABELS = {
 SESSION_COOKIE = "yanxin_session"
 SESSION_DAYS = 7
 MIN_PASSWORD_LEN = 6
+_DUMMY_SALT = "0" * 32
 
 
 def _hash_password(password: str, salt: str) -> str:
@@ -72,12 +73,43 @@ def verify_login(username: str, password: str) -> dict | None:
             "SELECT * FROM users WHERE username = ?", ((username or "").strip(),)
         ).fetchone()
     if not row:
+        # 未知用户也执行一次等价哈希，避免用户名枚举的时序差
+        _hash_password(password or "", _DUMMY_SALT)
         return None
     expected = row["password_hash"]
     actual = _hash_password(password or "", row["salt"])
     if not hmac.compare_digest(expected, actual):
         return None
     return _public_user(row)
+
+
+def change_password(username: str, old_password: str, new_password: str) -> bool:
+    username = (username or "").strip()
+    if len(new_password or "") < MIN_PASSWORD_LEN:
+        return False
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        if not row:
+            return False
+        if not hmac.compare_digest(
+            row["password_hash"], _hash_password(old_password or "", row["salt"])
+        ):
+            return False
+        salt = uuid.uuid4().hex
+        conn.execute(
+            "UPDATE users SET password_hash = ?, salt = ? WHERE username = ?",
+            (_hash_password(new_password, salt), salt, username),
+        )
+    return True
+
+
+def delete_user_sessions(username: str) -> None:
+    with db.connect() as conn:
+        conn.execute(
+            "DELETE FROM sessions WHERE username = ?", ((username or "").strip(),)
+        )
 
 
 def create_session(username: str) -> str:

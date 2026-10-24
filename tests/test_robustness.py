@@ -1,6 +1,10 @@
 import asyncio
 import io
+import os
+import subprocess
+import sys
 import zipfile
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -24,8 +28,12 @@ def test_trends_empty_library_returns_empty_result(monkeypatch):
     assert result["papers"] == []
 
 
-def test_spa_rejects_path_traversal():
+def test_spa_rejects_path_traversal(tmp_path, monkeypatch):
     """The SPA fallback must never serve files outside frontend/dist."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("ok", encoding="utf-8")
+    monkeypatch.setattr(app_module, "DIST_DIR", dist)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(app_module.spa("../requirements.txt"))
     assert exc.value.status_code == 404
@@ -322,3 +330,109 @@ def test_ingest_guard_allows_token_or_privileged_session(tmp_path, monkeypatch):
     vsess = rag_auth.create_session("v")
     with pytest.raises(HTTPException):
         app_module.ingest_guard(make_request(vsess), "bad")
+
+
+def test_seed_sample_document_default_is_off(tmp_path):
+    """真实申请书含个人信息，默认不得自动复制入库。"""
+    env = {k: v for k, v in os.environ.items() if k != "SEED_SAMPLE_DOC"}
+    env.update({"DATA_DIR": str(tmp_path), "DB_PATH": str(tmp_path / "cfg.db")})
+    proc = subprocess.run(
+        [sys.executable, "-c", "from rag import config; print(config.SEED_SAMPLE_DOC)"],
+        cwd=str(Path(__file__).resolve().parents[1]),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == "False"
+
+
+def test_loopback_detection():
+    """只有回环地址才允许默认写入演示账号。"""
+    assert config.is_loopback("127.0.0.1")
+    assert config.is_loopback("localhost")
+    assert config.is_loopback("::1")
+    assert not config.is_loopback("0.0.0.0")
+    assert not config.is_loopback("10.1.2.3")
+
+
+def test_demo_users_skipped_when_not_loopback(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+    assert seed.seed_demo_users() == 0
+    assert auth.list_users() == []
+
+
+def test_demo_users_use_configured_password(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", True)
+    monkeypatch.setattr(config, "DEMO_USER_PASSWORD", "StrongPass123")
+    assert seed.seed_demo_users() == 4
+    assert auth.verify_login("admin", "StrongPass123")["role"] == "admin"
+    assert auth.verify_login("admin", "yanxin2026") is None
+
+
+def test_demo_users_short_password_does_not_mark_seeded(tmp_path, monkeypatch):
+    """配置的演示密码过短时跳过且不写标记，改好密码后仍能重试。"""
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", True)
+    monkeypatch.setattr(config, "DEMO_USER_PASSWORD", "123")
+    assert seed.seed_demo_users() == 0
+    assert auth.list_users() == []
+    assert not db.get_meta("seeded_users")
+    monkeypatch.setattr(config, "DEMO_USER_PASSWORD", "StrongPass123")
+    assert seed.seed_demo_users() == 4
+
+
+def test_demo_users_do_not_touch_existing_accounts(tmp_path, monkeypatch):
+    """已有真实账号时不得再灌入默认演示账号。"""
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+
+    auth.create_user("realadmin", "secret1", "admin")
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", True)
+    assert seed.seed_demo_users() == 0
+    assert [u["username"] for u in auth.list_users()] == ["realadmin"]
+
+
+def test_change_password_updates_hash_and_revokes_sessions(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+
+    auth.create_user("admin", "oldpass1", "admin")
+    token = auth.create_session("admin")
+    assert auth.change_password("admin", "wrong", "newpass1") is False
+    assert auth.change_password("admin", "oldpass1", "newpass1") is True
+    assert auth.verify_login("admin", "newpass1")["role"] == "admin"
+    assert auth.verify_login("admin", "oldpass1") is None
+    auth.delete_user_sessions("admin")
+    assert auth.resolve_session(token) is None
+
+
+def test_change_password_endpoint_reissues_session(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    from starlette.requests import Request as SR
+
+    auth.create_user("admin", "oldpass1", "admin")
+    old_token = auth.create_session("admin")
+    request = SR(
+        {"type": "http", "method": "POST", "path": "/api/auth/password", "headers": []}
+    )
+    request.state.user = {"username": "admin", "role": "admin"}
+    response = app_module.change_password(
+        app_module.ChangePasswordRequest(
+            old_password="oldpass1", new_password="newpass1"
+        ),
+        request,
+    )
+    assert auth.SESSION_COOKIE in response.headers.get("set-cookie", "")
+    assert auth.resolve_session(old_token) is None
+    assert auth.verify_login("admin", "newpass1") is not None
