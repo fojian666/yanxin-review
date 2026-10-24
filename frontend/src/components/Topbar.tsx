@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Upload } from "lucide-react";
-import { useEffect } from "react";
+import { LogOut, Upload, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
-import { EASE } from "../motion";
+import { ROLE_LABELS, type UserRole } from "../types";
+import { EASE, SPRING } from "../motion";
 
 const META: Record<string, { title: string; sub: string }> = {
   "/chat": { title: "智能问答", sub: "基于上传资料回答，逐条给出原文依据" },
@@ -16,7 +17,26 @@ const META: Record<string, { title: string; sub: string }> = {
 
 export function Topbar() {
   const { pathname } = useLocation();
-  const { health, openUpload, can } = useApp();
+  const { health, auth, openUpload, can, logout } = useApp();
+  const [userOpen, setUserOpen] = useState(false);
+  const userRef = useRef<HTMLDivElement>(null);
+
+  // 点击菜单外关闭 + ESC
+  useEffect(() => {
+    if (!userOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!userRef.current?.contains(e.target as Node)) setUserOpen(false);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setUserOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [userOpen]);
   const meta = META[pathname] ?? META["/chat"];
   const online = Boolean(health?.llm.configured);
 
@@ -63,6 +83,51 @@ export function Topbar() {
             <Upload size={17} />
             上传文档
           </motion.button>
+        )}
+        {auth && (
+          <div className="user-menu" ref={userRef}>
+            <button
+              className="user-trigger"
+              onClick={() => setUserOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={userOpen}
+              title={auth.display_name || auth.username}
+            >
+              <span className="user-avatar small">
+                {(auth.display_name || auth.username).slice(0, 1)}
+              </span>
+              <span className="user-trigger-text">
+                <strong>{auth.display_name || auth.username}</strong>
+                <span className={`role-badge role-${auth.role}`}>{ROLE_LABELS[auth.role as UserRole]}</span>
+              </span>
+            </button>
+            {userOpen && (
+              <motion.div
+                className="user-dropdown"
+                role="menu"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={SPRING}
+              >
+                <div className="user-dropdown-head">
+                  <UserRound size={14} />
+                  <span>{auth.username}</span>
+                </div>
+                <button
+                  className="user-dropdown-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setUserOpen(false);
+                    void logout();
+                  }}
+                >
+                  <LogOut size={15} />
+                  退出登录
+                </button>
+              </motion.div>
+            )}
+          </div>
         )}
       </div>
     </header>

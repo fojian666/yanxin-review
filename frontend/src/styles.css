@@ -1090,3 +1090,48 @@ a, img, svg, canvas,
 @media (max-width: 640px) {
   .login-demo-grid { grid-template-columns: 1fr; }
 }
+
+
+/* ---------- 顶栏用户菜单（右上角） ---------- */
+.topbar-actions { align-items: center; }
+.user-menu { position: relative; margin-left: 4px; }
+.user-trigger {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.user-trigger:hover { transform: translateY(-1px); border-color: #b8d8cf; box-shadow: 0 4px 12px rgba(16,36,46,.08); }
+.user-avatar.small { width: 26px; height: 26px; font-size: 12px; border-radius: 50%; }
+.user-trigger-text { display: grid; gap: 1px; text-align: left; line-height: 1.2; }
+.user-trigger-text strong { font-size: 12px; color: var(--ink); font-weight: 600; }
+.user-trigger-text .role-badge { margin-top: 0; font-size: 9.5px; }
+.user-dropdown {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  min-width: 168px; z-index: 60;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px;
+  box-shadow: 0 14px 34px rgba(16,36,46,.16);
+}
+.user-dropdown-head {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 9px; margin-bottom: 4px;
+  color: var(--muted); font-size: 11px;
+  border-bottom: 1px dashed var(--line);
+}
+.user-dropdown-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 9px;
+  border: 0; border-radius: 5px;
+  background: none; cursor: pointer;
+  font-size: 12.5px; color: var(--ink-2);
+  transition: background .18s ease;
+}
+.user-dropdown-item:hover { background: var(--teal-soft); color: var(--teal-deep); }
+
+/* 折叠态侧栏不再有用户卡相关规则（已迁至顶栏） */
+@media (max-width: 680px) {
+  .user-trigger-text { display: none; }
+  .user-trigger { padding: 4px; }
+}

@@ -1,9 +1,8 @@
 import { motion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight, FolderOpen, LogOut, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { SPRING } from "../motion";
-import { ROLE_LABELS, type UserRole } from "../types";
 
 const NAV = [
   { to: "/chat", label: "智能问答", icon: MessageSquareText },
@@ -14,7 +13,7 @@ const NAV = [
 ];
 
 export function Sidebar() {
-  const { health, auth, can, logout, sidebarCollapsed, toggleSidebar } = useApp();
+  const { health, can, sidebarCollapsed, toggleSidebar } = useApp();
   const online = Boolean(health?.llm.configured);
   const nav = can("admin") ? [...NAV, { to: "/admin", label: "用户管理", icon: UserCog }] : NAV;
 
@@ -98,18 +97,6 @@ export function Sidebar() {
       </nav>
 
       <div className="sidebar-foot">
-        {auth && (
-          <div className="user-chip">
-            <span className="user-avatar">{(auth.display_name || auth.username).slice(0, 1)}</span>
-            <div className="user-info">
-              <div className="user-name">{auth.display_name || auth.username}</div>
-              <span className={`role-badge role-${auth.role}`}>{ROLE_LABELS[auth.role as UserRole]}</span>
-            </div>
-            <button className="icon-btn" onClick={() => void logout()} aria-label="退出登录" title="退出登录">
-              <LogOut size={15} />
-            </button>
-          </div>
-        )}
         <div className={`llm-status ${online ? "online" : ""}`}>
           <span className="status-dot" />
           <div>
