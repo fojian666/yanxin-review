@@ -320,7 +320,7 @@ export function TrendPage() {
                 <p>基于当前文献集合统计而成，不替代人工文献综述</p>
               </div>
               <span className={`mode-badge ${data.mode === "qwen" ? "online" : ""}`}>
-                {data.mode === "qwen" ? "千问生成" : "规则摘要"}
+                {data.mode === "qwen" ? "大模型生成" : "规则摘要"}
               </span>
             </div>
             <motion.div

@@ -167,7 +167,7 @@ def _llm_summary(query: str, years: list[int], counts: list[int], series: list[d
                 text += "\n\n说明：当前使用演示数据（合成文献），结论仅用于验证趋势分析功能。"
             return text, ""
     except LLMError as exc:
-        return "", f"千问调用失败，已使用规则趋势摘要：{exc}"
+        return "", f"大模型调用失败，已使用规则趋势摘要：{exc}"
     return "", ""
 
 

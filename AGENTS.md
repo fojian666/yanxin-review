@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（86 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（92 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -43,7 +43,8 @@ rag/
   experts.py           专家匹配：硬约束过滤（不可评审/在研≥5/同单位/回避）→
                        0.55·语义 + 0.30·关键词 + 0.15·学科 − 负载惩罚；查重分级 ≥0.55 高 / 0.30–0.55 关注
   trends.py            文献趋势：相关性筛选 + 年度统计 + 规则/千问摘要
-  llm.py               OpenAI 兼容客户端（DashScope/内网 vLLM/SGLang/Ollama）；已兼容 Qwen3 思考模式
+  llm.py               OpenAI 兼容客户端（DashScope/DeepSeek/内网 vLLM/SGLang/Ollama）；
+                       思考参数按方言发送（Qwen 的 enable_thinking / DeepSeek 的 thinking.type）
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）
   auth.py               账号密码认证（PBKDF2）+ 会话（SQLite）+ 四角色
   corpus.py             公开政策语料入库（corpus/ → documents kind=policy/source=public，幂等，--force 重建）
@@ -90,7 +91,7 @@ frontend/src/
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
-- `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；Qwen3 思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；HTTPS 部署设 `COOKIE_SECURE=1`。
+- `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
 - 上传大小限制由 `/api/health` 的 `upload_limit_mb` 下发，前端同步展示；上传走 XHR 以显示真实进度。
 
 ## 改动与提交约定

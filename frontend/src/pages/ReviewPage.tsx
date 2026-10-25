@@ -362,7 +362,7 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
         <div>
           <span className={`risk-badge ${riskClass}`}>风险等级：{risk}</span>
           <div className="report-meta">
-            <span>{report.mode === "qwen" ? "千问预审" : "规则预审"}</span>
+            <span>{report.mode === "qwen" ? "大模型预审" : "规则预审"}</span>
             <span>{report.overall.generated_at.replace("T", " ")}</span>
           </div>
         </div>

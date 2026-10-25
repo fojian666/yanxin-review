@@ -94,7 +94,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
               exit={{ opacity: 0, y: -3 }}
               transition={{ duration: 0.2, ease: EASE }}
             >
-              {online ? `千问 · ${health?.llm.model}` : "离线演示"}
+              {online ? `大模型 · ${health?.llm.model}` : "离线演示"}
             </motion.span>
           </AnimatePresence>
         </span>

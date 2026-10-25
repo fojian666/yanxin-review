@@ -102,6 +102,10 @@ _thinking = (os.getenv("LLM_ENABLE_THINKING") or "").strip().lower()
 LLM_ENABLE_THINKING: bool | None = (
     None if not _thinking else _thinking not in {"0", "false", "no"}
 )
+# 思考模式参数的「方言」：不同家叫法不一样，乱传会被 400 或静默忽略
+#   auto（默认）按端点推断：含 deepseek → thinking.type；其余按千问的 enable_thinking
+#   qwen / deepseek 可强制指定，none 表示不发送任何思考相关参数
+LLM_THINKING_STYLE = (os.getenv("LLM_THINKING_STYLE") or "auto").strip().lower()
 
 # 外部系统数据推送（/api/ingest/*）的令牌；为空时本机原型不鉴权
 INGEST_TOKEN = (os.getenv("INGEST_TOKEN") or "").strip()
@@ -149,7 +153,7 @@ def _blocked_external(label: str) -> dict:
         "provider": "offline",
         "label": f"{label}（公网出口已阻止）",
         "base_url": "",
-        "model": "检索式回答（未配置千问）",
+        "model": "检索式回答（未配置大模型）",
         "api_key": "",
         "blocked_external": True,
     }
@@ -162,11 +166,11 @@ def llm_provider() -> dict:
     custom_qwen_base = bool(explicit_qwen_base and explicit_qwen_base != DASHSCOPE_BASE_URL)
     if QWEN_API_KEY or custom_qwen_base:
         if _is_public_host(QWEN_BASE_URL) and not ALLOW_EXTERNAL_LLM:
-            return _blocked_external("千问公网地址")
+            return _blocked_external("公网模型地址")
         return {
             "configured": True,
             "provider": "qwen",
-            "label": "千问 / Qwen",
+            "label": "大模型（OpenAI 兼容）",
             "base_url": QWEN_BASE_URL,
             "model": QWEN_MODEL,
             "api_key": QWEN_API_KEY,
@@ -189,7 +193,7 @@ def llm_provider() -> dict:
         "provider": "offline",
         "label": "离线演示模式",
         "base_url": "",
-        "model": "检索式回答（未配置千问）",
+        "model": "检索式回答（未配置大模型）",
         "api_key": "",
         "blocked_external": False,
     }

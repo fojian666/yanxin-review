@@ -1,17 +1,17 @@
-源程序清单（首期原型 V1.7）
+源程序清单（首期原型 V1.8）
 
 后端（Python）
     704 app.py
       1 rag/__init__.py
     207 rag/auth.py
-    195 rag/config.py
+    199 rag/config.py
     242 rag/corpus.py
     417 rag/db.py
     293 rag/demo_proposals.py
     349 rag/embeddings.py
     329 rag/experts.py
      33 rag/ingest.py
-    171 rag/llm.py
+    186 rag/llm.py
     298 rag/parsers.py
     187 rag/qa.py
     223 rag/retrieval.py
@@ -20,7 +20,7 @@
     381 rag/seed.py
     294 rag/text.py
     287 rag/trends.py
-   5182 total
+   5201 total
 前端（TypeScript/TSX/CSS）
     227 frontend/src/App.tsx
     286 frontend/src/AppContext.tsx
@@ -53,9 +53,10 @@
      11 tests/conftest.py
     187 tests/test_corpus.py
      16 tests/test_docs.py
+     73 tests/test_llm_payload.py
     378 tests/test_retrieval_embedding.py
     827 tests/test_robustness.py
-   1419 total
+   1492 total
 工具（Python）
     198 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -63,7 +64,7 @@
     169 tools/soft_copyright.py
     975 total
 合计
-  14590 total（54 个文件）
+  14682 total（55 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

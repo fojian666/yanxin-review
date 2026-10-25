@@ -17,7 +17,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # 发版改这里；《软件说明书》的版本记录最后一行必须与它一致（doc_check 会校验）
-SOFTWARE_VERSION = "V1.7"
+SOFTWARE_VERSION = "V1.8"
 LIST_PATH = ROOT / "交付材料" / "01-软件著作权" / "源程序清单.txt"
 
 SECTIONS = [

@@ -36,7 +36,7 @@ class LLMClient:
             "configured": self.configured,
             "provider": self.info.get("provider", "offline"),
             "label": self.info.get("label", "离线演示模式"),
-            "model": self.model if self.configured else "检索式回答（未配置千问）",
+            "model": self.model if self.configured else "检索式回答（未配置大模型）",
             "base_url": self.base_url if self.configured else "",
             "blocked_external": bool(self.info.get("blocked_external")),
         }
@@ -55,8 +55,17 @@ class LLMClient:
             "max_tokens": max_tokens,
             "stream": stream,
         }
-        if config.LLM_ENABLE_THINKING is not None:
-            payload["enable_thinking"] = config.LLM_ENABLE_THINKING
+        style = config.LLM_THINKING_STYLE
+        if style == "auto":
+            style = "deepseek" if "deepseek" in self.base_url.lower() else "qwen"
+        if style == "qwen":
+            if config.LLM_ENABLE_THINKING is not None:
+                payload["enable_thinking"] = config.LLM_ENABLE_THINKING
+        elif style == "deepseek":
+            # DeepSeek 默认开思考：JSON 类任务会把 max_tokens 全耗在 reasoning 上，
+            # 正文为空。未显式要求时一律关掉。
+            if config.LLM_ENABLE_THINKING is not True:
+                payload["thinking"] = {"type": "disabled"}
         return payload
 
     def chat(
@@ -66,7 +75,7 @@ class LLMClient:
         max_tokens: int | None = None,
     ) -> str:
         if not self.configured:
-            raise LLMError("未配置千问服务")
+            raise LLMError("未配置大模型服务")
         url = f"{self.base_url}/chat/completions"
         payload = self._payload(
             messages,
@@ -82,24 +91,30 @@ class LLMClient:
                 timeout=(10, config.LLM_TIMEOUT),
             )
         except requests.RequestException as exc:
-            raise LLMError(f"千问服务连接失败：{exc}") from exc
+            raise LLMError(f"大模型服务连接失败：{exc}") from exc
         if resp.status_code >= 400:
             detail = resp.text[:500]
-            raise LLMError(f"千问服务返回 {resp.status_code}：{detail}")
+            raise LLMError(f"大模型服务返回 {resp.status_code}：{detail}")
         try:
             data = resp.json()
             message = data["choices"][0]["message"] or {}
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-            raise LLMError(f"千问返回格式异常：{resp.text[:300]}") from exc
+            raise LLMError(f"大模型返回格式异常：{resp.text[:300]}") from exc
         content = (message.get("content") or "").strip() if isinstance(message, dict) else ""
         if content:
             return content
         if isinstance(message, dict) and message.get("reasoning_content"):
+            finish = (data["choices"][0].get("finish_reason") or "").strip()
+            if finish == "length":
+                raise LLMError(
+                    "思考过程耗尽了 max_tokens（finish_reason=length），正文被截断；"
+                    "请关闭思考模式（LLM_ENABLE_THINKING=0）或调大 LLM_MAX_TOKENS"
+                )
             raise LLMError(
-                "千问仅返回思考内容（reasoning_content）而无正文；"
-                "请在服务侧关闭思考模式（enable_thinking=false）或将结果输出到 content 字段"
+                "大模型仅返回思考内容（reasoning_content）而无正文；"
+                "请关闭思考模式（LLM_ENABLE_THINKING=0）或将结果输出到 content 字段"
             )
-        raise LLMError("千问返回了空内容")
+        raise LLMError("大模型返回了空内容")
 
     def stream_chat(
         self,
@@ -108,7 +123,7 @@ class LLMClient:
         max_tokens: int | None = None,
     ) -> Generator[str, None, None]:
         if not self.configured:
-            raise LLMError("未配置千问服务")
+            raise LLMError("未配置大模型服务")
         url = f"{self.base_url}/chat/completions"
         payload = self._payload(
             messages,
@@ -125,10 +140,10 @@ class LLMClient:
                 stream=True,
             )
         except requests.RequestException as exc:
-            raise LLMError(f"千问服务连接失败：{exc}") from exc
+            raise LLMError(f"大模型服务连接失败：{exc}") from exc
         if resp.status_code >= 400:
             detail = resp.text[:500]
-            raise LLMError(f"千问服务返回 {resp.status_code}：{detail}")
+            raise LLMError(f"大模型服务返回 {resp.status_code}：{detail}")
         emitted = False
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
@@ -158,13 +173,13 @@ class LLMClient:
                     emitted = True
                     yield text
         except requests.RequestException as exc:
-            raise LLMError(f"千问流式读取失败：{exc}") from exc
+            raise LLMError(f"大模型流式读取失败：{exc}") from exc
         finally:
             resp.close()
         if not emitted:
             raise LLMError(
-                "千问没有返回正文内容（若使用 Qwen3 思考模式，请在服务侧关闭 "
-                "enable_thinking，或将结果输出到 content 字段）"
+                "大模型没有返回正文内容（若用思考型模型，请设 LLM_ENABLE_THINKING=0，"
+                "或将结果输出到 content 字段）"
             )
 
 

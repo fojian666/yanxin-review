@@ -420,9 +420,9 @@ def review_document(doc_id: str) -> dict:
                         questions = llm_questions[:8]
                     mode = "qwen"
         except LLMError as exc:
-            warning = f"千问调用失败，已使用规则预审：{exc}"
+            warning = f"大模型调用失败，已使用规则预审：{exc}"
         except Exception as exc:
-            warning = f"千问结果解析失败，已使用规则预审：{exc}"
+            warning = f"大模型结果解析失败，已使用规则预审：{exc}"
 
     return {
         "doc": {

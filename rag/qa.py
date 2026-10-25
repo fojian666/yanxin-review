@@ -129,7 +129,7 @@ def fallback_answer(question: str, citations: list[dict], warning: str = "") -> 
         lines.append(f"{n}. {label}{_sentence_excerpt(c.get('text',''), terms, section=section)} [{i}]")
     lines.append("")
     lines.append(
-        "以上为依据原文的摘录式回答。当前为离线演示模式，配置千问 API 后可生成更完整的归纳、对比与评审建议。"
+        "以上为依据原文的摘录式回答。当前为离线演示模式，配置大模型 API 后可生成更完整的归纳、对比与评审建议。"
     )
     if warning:
         lines.append(f"提示：{warning}")
@@ -183,5 +183,5 @@ def answer(question: str, history: list[dict] | None = None, scope: list[str] | 
                 result["answer"] = text
                 result["mode"] = "qwen"
         except LLMError as exc:
-            result["warning"] = (prepared["warning"] + " " if prepared["warning"] else "") + f"千问调用失败，已回退到离线检索：{exc}"
+            result["warning"] = (prepared["warning"] + " " if prepared["warning"] else "") + f"大模型调用失败，已回退到离线检索：{exc}"
     return result
