@@ -11,6 +11,23 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+_TRUE = {"1", "true", "yes", "on", "y"}
+_FALSE = {"0", "false", "no", "off", "n"}
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    """布尔环境变量统一解析：认不出的值一律取默认（安全项默认关）。
+
+    旧写法 `os.getenv(..) not in {"0","false","False"}` 会把 `FALSE`/`off` 当成开启，
+    对「数据出内网」这类开关是 fail-open。
+    """
+    raw = (os.getenv(name) or "").strip().lower()
+    if raw in _TRUE:
+        return True
+    if raw in _FALSE:
+        return False
+    return default
+
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
 UPLOAD_DIR = DATA_DIR / "uploads"
 DB_PATH = Path(os.getenv("DB_PATH", str(DATA_DIR / "app.db")))
@@ -26,10 +43,10 @@ MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))
-SEED_DEMO_PAPERS = os.getenv("SEED_DEMO_PAPERS", "1") not in {"0", "false", "False"}
-SEED_DEMO_PROPOSALS = os.getenv("SEED_DEMO_PROPOSALS", "1") not in {"0", "false", "False"}
+SEED_DEMO_PAPERS = _env_flag("SEED_DEMO_PAPERS", True)
+SEED_DEMO_PROPOSALS = _env_flag("SEED_DEMO_PROPOSALS", True)
 # 真实申请书含个人信息，默认不复制入库；仅本机演示时显式开启
-SEED_SAMPLE_DOC = os.getenv("SEED_SAMPLE_DOC", "0") not in {"0", "false", "False"}
+SEED_SAMPLE_DOC = _env_flag("SEED_SAMPLE_DOC", False)
 SAMPLE_DOCX = BASE_DIR / "3.科研课题申请书（终稿）.docx"
 
 
@@ -73,9 +90,9 @@ OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").
 OPENAI_MODEL = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
 
 # 数据不出内网：公网模型端点默认阻止，需显式授权
-ALLOW_EXTERNAL_LLM = os.getenv("ALLOW_EXTERNAL_LLM", "0") not in {"0", "false", "False"}
+ALLOW_EXTERNAL_LLM = _env_flag("ALLOW_EXTERNAL_LLM", False)
 # HTTPS 部署时设为 1，会话 Cookie 只经加密连接传输
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") not in {"0", "false", "False"}
+COOKIE_SECURE = _env_flag("COOKIE_SECURE", False)
 
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "90"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
@@ -88,6 +105,21 @@ LLM_ENABLE_THINKING: bool | None = (
 
 # 外部系统数据推送（/api/ingest/*）的令牌；为空时本机原型不鉴权
 INGEST_TOKEN = (os.getenv("INGEST_TOKEN") or "").strip()
+
+# ---- 嵌入（向量）检索 ----
+# auto：本地模型可用就用本地，否则有 key 用 API，都没有就退回纯 TF-IDF
+EMBED_BACKEND = (os.getenv("EMBED_BACKEND") or "auto").strip().lower()
+EMBED_API_KEY = (os.getenv("EMBED_API_KEY") or "").strip()
+EMBED_BASE_URL = (os.getenv("EMBED_BASE_URL") or "https://api.siliconflow.cn/v1").rstrip("/")
+EMBED_MODEL = (os.getenv("EMBED_MODEL") or "BAAI/bge-m3").strip()
+EMBED_BATCH = max(1, int(os.getenv("EMBED_BATCH", "16")))
+EMBED_TIMEOUT = int(os.getenv("EMBED_TIMEOUT", "60"))
+EMBED_CACHE_DIR = DATA_DIR / "embed_cache"
+# 向量余弦下限：低于此值不进结果（等价于「没有相关资料」）。
+# 本语料实测：完全无关的问题最高分 0.34~0.44，领域内问题 0.48~0.74，取 0.45 分开。
+EMBED_MIN_SCORE = float(os.getenv("EMBED_MIN_SCORE", "0.45"))
+# 嵌入同样属于「数据出内网」面：公网端点需显式授权，否则降级为纯 TF-IDF
+ALLOW_EXTERNAL_EMBED = _env_flag("ALLOW_EXTERNAL_EMBED", False)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
 DOC_KINDS = {"auto", "proposal", "policy", "paper", "other"}

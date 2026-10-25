@@ -13,7 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（66 项）
+python3 -m pytest tests/ -q                                 # 回归测试（85 项，默认不联网）
+python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
 python3 tools/fetch_corpus.py --check                       # 离线校验政策快照与溯源清单 sha256
 ```
@@ -31,8 +32,11 @@ rag/
   db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new
   parsers.py           DOCX（含脚注/尾注）/PDF（pdftotext，页码）/TXT/CSV 解析；60k 字截断保护
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
-  retrieval.py         字符 n-gram TF-IDF 检索 + 关键词/章节加权 + 文档间段落查重
-                       （检索升级为向量混合检索时只替换此模块，接口不变）
+  retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
+                       keyword/章节加权与文档间段落查重（查重固定走 TF-IDF，理由见下）
+  embeddings.py        嵌入后端 local/api/none（auto 逐级降级，本地加载失败改走 API）；公网端点受
+                       ALLOW_EXTERNAL_EMBED 门禁 + 拒绝跟随重定向；向量按「后端|端点|模型 + 单条文本」
+                       哈希缓存（新增文档不重算整库），查询向量不落盘
   qa.py                RAG 问答：系统提示含防注入；无 LLM 时离线摘录式回答
   review.py            预审：规则引擎（8 类必需章节）+ 可选千问 JSON（解析失败自动回退规则）
   experts.py           专家匹配：硬约束过滤（不可评审/在研≥5/同单位/回避）→
@@ -46,6 +50,7 @@ rag/
   demo_proposals.py    10 份虚构演示本子（内置相似段落/同单位/负载满等演示设计）
 tools/
   fetch_corpus.py      抓取公开公文 → corpus/policy/*.txt + corpus/sources.json（唯一联网环节，--check 离线校验）
+  eval_retrieval.py    14 个政策问题的 TF-IDF vs 向量召回对比（命中@k / MRR，答案按原文关键句定位）
 corpus/                随仓库交付的真实公文快照：sources.json（URL/许可/抓取时间/sha256）+ policy/*.txt
 frontend/src/
   pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
@@ -67,13 +72,16 @@ frontend/src/
 
 1. **AI 不打分、不排名、不给立项/处罚结论**；预审/查重/匹配输出必须带免责声明，查重必须提示"相似≠抄袭、需人工复核"。
 2. **专家匹配不使用性别、年龄等敏感属性**；回避/负载约束过滤必须在语义排序之前。
-3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。
+3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。
 4. **隐私**：`3.科研课题申请书（终稿）.docx` 与 `交付材料/01-软件著作权/screenshots/` 含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
 
 ## 已知边界（勿误报为 bug）
 
-- 检索是 TF-IDF，不是向量检索（升级路线已定，见实施方案 §5.2）。
+- 检索有向量后端，但**不是向量库**：矩阵在内存里做点积（几千条量级，numpy 比 HTTP 往返快），不需要 Milvus。未配置或端点在公网且未授权时自动退回纯 TF-IDF。
+- 两种打分尺度不同，阈值必须分开：结果下限 `EMBED_MIN_SCORE=0.45`（向量）、政策引用 `0.58` / TF-IDF `0.08`；证据面板的相似度条也按后端分档。改任何一个前先跑 `tools/eval_retrieval.py`，并在真实本子上确认政策引用非空。
+- **查重不走向量**：字面重合查重才是对的，向量会把“主题相近但无重复”判成高相似。
+- 单测默认 `EMBED_BACKEND=none`（`tests/conftest.py`），不要为了“测得更真实”去放开——单测不该发外部请求。
 - 政策库只有两部公开公文。条款级比对只输出“可能相关条款 + 人工核对”，**不做版本时效判断**（`PolicyMeta` 的生效/失效/被替代字段已冻结、未建存储）。政策引用保留全角标点（`normalize_text` 用 NFC + 全角数字字母转半角，**不要改回 NFKC**，否则「（一）…；」会变「(一)…;」）。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。

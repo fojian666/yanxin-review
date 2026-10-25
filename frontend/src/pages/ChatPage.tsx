@@ -70,7 +70,9 @@ export function ChatPage() {
     setChatMessages: setMessages,
     chatCitations: citations,
     setChatCitations: setCitations,
+    health,
   } = useApp();
+  const retrievalMode = health?.retrieval?.mode;
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
@@ -410,7 +412,7 @@ export function ChatPage() {
         </div>
       </div>
 
-      <SourcesPanel citations={citations} focused={focusedSource} />
+      <SourcesPanel citations={citations} focused={focusedSource} mode={retrievalMode} />
     </div>
   );
 }
@@ -450,7 +452,23 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (ind
   );
 }
 
-function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: number | null }) {
+// 两种检索的分值尺度差一个量级：TF-IDF 约 0.05–0.3，向量约 0.45–0.9。
+// 固定 ×240 会把向量分值全部顶到 99%，条形读不出强弱，所以按当前后端分档映射。
+function scorePct(score: number | undefined, mode?: "tfidf" | "embedding") {
+  const value = score || 0;
+  const ratio = mode === "embedding" ? (value - 0.45) / 0.35 : value * 2.4;
+  return Math.round(Math.min(99, Math.max(6, ratio * 100)));
+}
+
+function SourcesPanel({
+  citations,
+  focused,
+  mode,
+}: {
+  citations: Citation[];
+  focused: number | null;
+  mode?: "tfidf" | "embedding";
+}) {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   // 换一轮回答时收起全部：卡片序号会复用，旧展开态不能带过去
   useEffect(() => setExpanded(new Set()), [citations]);
@@ -478,7 +496,7 @@ function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: 
           />
         ) : (
           citations.map((c, index) => {
-            const pct = Math.min(99, Math.max(6, Math.round((c.score || 0) * 240)));
+            const pct = scorePct(c.score, mode);
             return (
               <motion.div
                 className={`source-card ${focused === c.index ? "flash" : ""}`}

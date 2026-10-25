@@ -245,6 +245,12 @@ def health():
         "llm": llm.status(),
         "stats": db.stats(),
         "retriever_ready": retriever.ready,
+        "retrieval": {
+            "mode": "embedding" if retriever.uses_embedding else "tfidf",
+            "model": retriever.embed_model,
+            # 索引在进程启动时构建；用 CLI 导完语料需重启才生效，这里给出块数便于自查
+            "chunks": len(retriever.chunks),
+        },
         "upload_limit_mb": config.MAX_UPLOAD_BYTES // 1024 // 1024,
     }
 

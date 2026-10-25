@@ -34,6 +34,11 @@ export interface Health {
   };
   retriever_ready: boolean;
   upload_limit_mb?: number;
+  retrieval?: {
+    mode: "tfidf" | "embedding";
+    model: string;
+    chunks: number;
+  };
 }
 
 export interface DocItem {
@@ -124,6 +129,8 @@ export interface ReviewItem {
   status: CheckStatus;
   detail: string;
   evidence: string;
+  /** 政策条款全文（evidence 为短摘要，供「展开全文」用） */
+  evidence_full?: string;
 }
 
 export interface ReviewSection {

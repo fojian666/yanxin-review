@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -9,6 +10,8 @@ from . import db
 from .llm import LLMError, llm
 from .retrieval import retriever
 from .text import extract_terms, truncate
+
+log = logging.getLogger("rag.review")
 
 REQUIRED_SECTIONS = [
     {"key": "background", "label": "立项背景与研究目标", "terms": ["立项背景", "研究背景", "研究目标", "研究意义"], "core": True},
@@ -30,7 +33,15 @@ POLICY_QUERY_TERMS = ["科研诚信", "项目管理", "评审", "合规", "经�
 POLICY_GENERIC_TERMS = {
     "研究", "项目", "课题", "方法", "技术", "分析", "系统", "问题", "内容", "设计", "实现",
 }
-POLICY_MIN_SCORE = 0.08
+# 两种打分尺度不同，阈值必须分开：
+# TF-IDF 的无关文本余弦接近 0；向量（bge-m3）对无关中文段落也有 0.3~0.4 的底噪。
+# 0.58 来自本语料实测：泛泛提问时最高分约 0.62，而真正对口的条款在 0.68 以上。
+POLICY_MIN_SCORE = 0.08       # TF-IDF 余弦
+POLICY_MIN_SCORE_EMBED = 0.58  # 向量余弦
+
+
+def _policy_min_score() -> float:
+    return POLICY_MIN_SCORE_EMBED if retriever.uses_embedding else POLICY_MIN_SCORE
 
 
 def _find_evidence(text: str, terms: list[str]) -> str:
@@ -155,12 +166,16 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
             if len(policy_items) >= 3:
                 break
             label = f"政策依据：《{doc_name}》{section}" if section else f"政策依据：《{doc_name}》"
+            full_text = str(c.get("text", "") or "")
             policy_items.append(
                 {
                     "label": label,
                     "status": "warn",
                     "detail": "已检索到可能相关的政策条款，需人工核对适用版本与具体条款。",
-                    "evidence": truncate(c.get("text", ""), 180),
+                    # evidence 保持短摘要供列表阅读，evidence_full 供「展开全文」；
+                    # 只给 180 字会被拦在句中，评审人看不到完整条款
+                    "evidence": truncate(full_text, 180),
+                    "evidence_full": truncate(full_text, 900),
                 }
             )
     elif has_policy_docs:
@@ -333,12 +348,18 @@ def review_document(doc_id: str) -> dict:
             if t not in POLICY_GENERIC_TERMS
         ]
         query = " ".join(doc_terms + POLICY_QUERY_TERMS)
-        policy_cites = [
-            c for c in retriever.search(
-                query, scope=[d["id"] for d in policy_docs], top_k=8
+        hits = retriever.search(query, scope=[d["id"] for d in policy_docs], top_k=8)
+        # 阈值在检索之后取：万一本次查询向量化失败、索引熔断回 TF-IDF，
+        # 阈值也跟着回到 TF-IDF 尺度，否则会把结果一次性卡空
+        min_score = _policy_min_score()
+        policy_cites = [c for c in hits if float(c.get("score") or 0) >= min_score][:4]
+        if hits:
+            log.info(
+                "政策检索最高分 %.3f（%s，阈值 %.2f）",
+                float(hits[0].get("score") or 0),
+                "向量" if retriever.uses_embedding else "TF-IDF",
+                min_score,
             )
-            if float(c.get("score") or 0) >= POLICY_MIN_SCORE
-        ][:4]
 
     sections, questions = _heuristic_sections(
         text, doc, duplicate_matches, policy_cites, bool(policy_docs)

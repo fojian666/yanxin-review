@@ -594,7 +594,8 @@ flowchart LR
 - 安全加固（P2 审查）：**公网 LLM 端点默认阻止**（`ALLOW_EXTERNAL_LLM` 显式授权，内网判定覆盖 CGNAT/保留网段）；登录失败限速（5 次/300 秒，429+Retry-After）；上传弹窗焦点陷阱与键盘可达。
 - 安全加固（P3–P5 审查）：`/api/experts` 最小权限（viewer 不可读回避画像）；DOCX XML 实体声明直接拒绝；PDF 解析页数上限（`MAX_PDF_PAGES`，默认 2000）；`LLM_ENABLE_THINKING` 三态开关（Qwen3 兼容）；`COOKIE_SECURE` 会话加密传输；ASGI 真实权限矩阵回归（401/403/200）。
 - 界面与文案：登录页动态地形背景（等高线描边/视差/扫描带/纸纹）；全局尺度与状态动效（表格行增删、匹配切换、KPI 闪光、上传完成）；全站文案统一为"勘验阅卷"意象，按钮/状态/免责声明保持直白。
-- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 66 项。
+- 检索升级（向量）：`rag/embeddings.py` 提供 local / api / none 三种后端，`auto` 按 本地 → API → 纯 TF-IDF 降级；向量接管 `search()`，TF-IDF 保留为基线与回落。公网嵌入端点受 `ALLOW_EXTERNAL_EMBED` 门禁（与 LLM 同口径）；向量按单条文本哈希缓存，新增文档不重算整库；后端不可用、行数不符、查询向量化失败三种情况均实测自动回落。`tools/eval_retrieval.py` 在 14 个政策问题上对比：命中@3 71.4%→92.9%、MRR 0.631→0.762。查重仍固定走 TF-IDF（字面重合才是查重口径）。暂不引入 Milvus：当前量级内存点积（37ms/次）已够，向量库要先起 etcd+MinIO，收益不抵运维成本。
+- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 85 项。
 
 **下一轮 4 周（建议）**
 
@@ -602,7 +603,7 @@ flowchart LR
 |---|---|---|
 | W1 | 接入真实 Qwen（内网优先）；建 20–30 份政策、10–20 份真实本子评测集 | 千问可用、评测集 v1 |
 | W2 | 用真实数据校准检索阈值、引用准确率、预审口径 | 政策问答 10 题 ≥8 题引用正确 |
-| W3 | 替换/并行验证 Qwen3-Embedding + Milvus 混合检索 + Reranker | Recall@5、引用准确率达标 |
+| W3 | 本地化嵌入（bge-m3 落 `models/`，走 `EMBED_BACKEND=local`）+ 词面/向量混合检索 + Reranker；量级上到十万块再评估 Milvus | Recall@5、引用准确率达标 |
 | W4 | 与现有系统做 A 方式（iframe/SSO）联调；试点演示 | 单本 5 分钟内出带引用报告 |
 
 MVP 验收标准：上传一份本子，5 分钟内生成带原文引用的形式/合规检查报告；政策问答 10 题中至少 8 题引用正确。

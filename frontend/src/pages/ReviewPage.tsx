@@ -31,6 +31,16 @@ export function ReviewPage() {
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState("");
+  // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(() => new Set());
+  useEffect(() => setExpandedEvidence(new Set()), [report]);
+  const toggleEvidence = (key: string) =>
+    setExpandedEvidence((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const runningRef = useRef(false);
   const progress = report ? 100 : busy ? Math.min(96, ((step + 1) / STEPS.length) * 100) : 0;
 
@@ -244,18 +254,36 @@ export function ReviewPage() {
                   <h3>{section.title}</h3>
                   <StatusPill status={section.status} />
                 </div>
-                {section.items.map((item, index) => (
-                  <div className="check-item" key={`${section.key}-${index}`}>
-                    <div className="check-top">
-                      <div>
-                        <div className="check-label">{item.label}</div>
-                        <div className="check-detail">{item.detail}</div>
+                {section.items.map((item, index) => {
+                  const key = `${section.key}-${index}`;
+                  const expanded = expandedEvidence.has(key);
+                  const full = item.evidence_full || "";
+                  const hasMore = full.length > item.evidence.length;
+                  return (
+                    <div className="check-item" key={key}>
+                      <div className="check-top">
+                        <div>
+                          <div className="check-label">{item.label}</div>
+                          <div className="check-detail">{item.detail}</div>
+                        </div>
+                        <StatusPill status={item.status} />
                       </div>
-                      <StatusPill status={item.status} />
+                      {item.evidence && (
+                        <div className="check-evidence">{expanded ? full : item.evidence}</div>
+                      )}
+                      {hasMore && (
+                        <button
+                          type="button"
+                          className="source-toggle"
+                          aria-expanded={expanded}
+                          onClick={() => toggleEvidence(key)}
+                        >
+                          {expanded ? "收起原文" : `展开全文（${full.length} 字）`}
+                        </button>
+                      )}
                     </div>
-                    {item.evidence && <div className="check-evidence">{item.evidence}</div>}
-                  </div>
-                ))}
+                  );
+                })}
               </motion.div>
             ))}
             {report.duplicate.matches.length > 0 && (
