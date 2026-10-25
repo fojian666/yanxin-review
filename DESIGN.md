@@ -20,12 +20,18 @@ colors:
   nav-surface: "#0b1a23"
   nav-surface-2: "#102a35"
   on-navy: "#f5faf7"
+  on-navy-note: "rgba(233, 242, 239, 0.62)"
+  on-navy-faint: "rgba(233, 242, 239, 0.58)"
+  on-navy-caption: "rgba(238, 247, 243, 0.72)"
   gold: "#b5853c"
   gold-soft: "#f5ead6"
   gold-ink: "#7a5521"
   warning: "#b26a1f"
   danger: "#b3453f"
   danger-soft: "#f8e6e3"
+  danger-hairline: "#e3cbc7"
+  idle-surface: "#efeae0"
+  idle-ink: "#575f58"
   toast-error: "#6e2b27"
   focus: "#0e7c6b"
 typography:
@@ -101,6 +107,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.6
     letterSpacing: 0.2px
+  badge-role:
+    fontFamily: "PingFang SC, Hiragino Sans GB, Microsoft YaHei, Helvetica Neue, Arial, sans-serif"
+    fontSize: 11.5px
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: 0.35px
   caption-xs:
     fontFamily: "PingFang SC, Hiragino Sans GB, Microsoft YaHei, Helvetica Neue, Arial, sans-serif"
     fontSize: 10.5px
@@ -174,6 +186,13 @@ components:
     rounded: "{rounded.sm}"
     padding: 0 18px
     height: 40px
+  button-ghost-danger:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.danger}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.sm}"
+    padding: 0 12px
+    height: 32px
   button-sm:
     typography: "{typography.body-sm}"
     rounded: "{rounded.sm}"
@@ -217,6 +236,12 @@ components:
     rounded: "{rounded.full}"
     padding: 0 9px
     height: 24px
+  status-pill-idle:
+    backgroundColor: "{colors.idle-surface}"
+    textColor: "{colors.idle-ink}"
+    typography: "{typography.caption}"
+    rounded: "{rounded.full}"
+    padding: 3px 9px
   status-pill-pass:
     backgroundColor: "{colors.primary-soft}"
     textColor: "{colors.primary-deep}"
@@ -238,9 +263,21 @@ components:
   role-badge-admin:
     backgroundColor: "#f5e3d3"
     textColor: "#8a5521"
-    typography: "{typography.caption}"
+    typography: "{typography.badge-role}"
     rounded: "{rounded.full}"
     padding: 1px 7px
+  role-badge-viewer:
+    backgroundColor: "#eee9df"
+    textColor: "{colors.idle-ink}"
+    typography: "{typography.badge-role}"
+    rounded: "{rounded.full}"
+    padding: 1px 7px
+  picked-doc:
+    backgroundColor: "{colors.surface-2}"
+    textColor: "{colors.ink-secondary}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.sm}"
+    padding: 7px 10px
   table-header:
     backgroundColor: "{colors.surface-2}"
     textColor: "{colors.muted}"
@@ -278,6 +315,24 @@ components:
     typography: "{typography.body-ui}"
     rounded: "{rounded.lg}"
     padding: 26px
+  modal-head:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.heading-modal}"
+    rounded: "8px 8px 0px 0px"
+    padding: 26px 26px 12px
+  welcome-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-ui}"
+    rounded: "{rounded.md}"
+    padding: 16px 16px 14px
+  welcome-card-icon:
+    backgroundColor: "{colors.primary-soft}"
+    textColor: "{colors.primary-deep}"
+    rounded: "50% 50% 50% 8px"
+    width: 38px
+    height: 38px
   skip-link:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.primary-deep}"
@@ -425,6 +480,9 @@ components:
   hover 亮度 +7% 并抬升 1px；disabled `opacity .55` + `cursor: not-allowed`；loading 时文字改为
   进行时并禁用，不显示持续旋转的装饰图标。
 - `button-ghost`：次要操作（导出、取消、模板下载）。1px `hairline` 边 + 半透明 `surface` 底。
+- `button-ghost-danger`（`.btn-ghost.danger`）：**清除类**操作（移除演示本子/文献/专家）统一用
+  `danger` 文字 + `danger-hairline` 边，hover 换 `danger-soft` 底；与 `table-btn.danger`、
+  `link-btn.danger` 同族，让"会删数据"的动作在页面上只有一种颜色。
 - `button-sm`（32px）：表格行内、面板头。移动端不在表格里堆叠超过 3 个。
 - 图标统一 Lucide、`stroke-width 1.7`；图标 + 文字并排，间距 8px；纯图标按钮必须有 `aria-label`。
 
@@ -433,6 +491,9 @@ components:
 - `text-input` 40px 高、`sm` 圆角、`hairline` 边；focus-visible 时 2px `primary` 环（offset 2px），
   **不得**只换边框颜色。
 - `select-control` 42px；原生下拉优先，不自定义复杂菜单。
+- `picked-doc`：下拉框会截断长标题，选定后在其下方用一行 `surface-2` 底 + `hairline` 边呈示**全称**
+  （前缀标签"当前选定"12px `muted`，标题 13.5px `ink-secondary`，`overflow-wrap: anywhere` 允许折行）。
+  查重匹配与本子预审两页共用，不得只靠 `title` 提示。
 - 必填与校验：标签常显，错误就近显示并 `role="alert"`；错误文案说明"原因 + 怎么改"。
 
 **面板 / 数据**
@@ -445,7 +506,9 @@ components:
 
 **状态**
 
-- `status-pill-pass`（通过/可评审）、`status-pill-warn`（关注/负载已满）、`status-pill-fail`（风险/不可评审）。
+- `status-pill-idle`（待检查/尚未运行）、`status-pill-pass`（通过/可评审）、`status-pill-warn`（关注/负载已满）、
+  `status-pill-fail`（风险/不可评审）。**未运行前不得用 pass 色**：绿色暗示"已查过且干净"，会误导结论。
+- KPI 卡顶部色条同理：`kpi-teal` 是常规强调，出现高相似命中时改用 `kpi-gold`，不作为"评分"。
 - 演示数据用金色 `badge-sample`（10.5px，`gold-soft` 底），与真实数据明确区分。
 - 角色徽章四色：管理员金、科研管理青、评审专家蓝、访客灰；管理员因历史原因仍用
   `#f5e3d3 / #8a5521` 原始值（见 Known Gaps）。
@@ -464,7 +527,11 @@ components:
   过渡只表示"正在进入"，不得伪造百分比或加载步骤；刷新与会话恢复不重复播放。
 - 欢迎页：按时段问候（上午好/下午好…），显示名与角色不同才追加角色徽章；主 CTA「进入智能问答」，
   其余入口由卡片承担；入口卡按权限过滤（访客仅问答/趋势/文档库），图标 + 标题 + 一句说明 + 右箭头。
-- 布局：桌面 2–3 列（`auto-fit minmax(280px,1fr)`）、移动 1 列；无固定高度，矮屏整页滚动；免责声明置于页尾，不折叠。
+- 布局：桌面 2–3 列（`auto-fit minmax(280px,1fr)`，列数随宽度自然落位，1440 三列 / 1280 两列，
+  不再另写断点）、移动 1 列；无固定高度，矮屏整页滚动；免责声明置于页尾，不折叠。
+- 卡片结构：三列栅格 `38px 图标 / minmax(0,1fr) 文本 / auto 箭头`；图标底用 `welcome-card-icon`
+  （`primary-soft` 底 + `primary-deep` 图形，异形圆 `50% 50% 50% 8px`，与登录印章同形）；
+  标题 15px/600、说明 13.5px `muted`、hover 抬升 2px 且箭头右移 3px。
 - 侧栏品牌名是返回欢迎页的链接；欢迎页不进入导航高亮，避免与工具页争夺"当前页"。
 
 **反馈**
@@ -472,7 +539,8 @@ components:
 - `toast` 顶部居中，3.4s 自动消失，`aria-live="polite"`；错误用 `toast-error`，不抢焦点。
 - 空态：图标 + 一句话说明 + 下一步动作；文案可用楷体按语。
 - 弹窗：`role="dialog"` + `aria-modal`、焦点陷阱、ESC、关闭后焦点归还触发按钮；
-  有未保存内容时关闭需确认。
+  有未保存内容时关闭需确认。`modal-head` 吸顶（`position: sticky; top: 0` + 负外边距覆盖卡片内边距），
+  卡片内部滚动时标题与关闭按钮始终可见可点。
 
 **图表**
 
@@ -553,6 +621,12 @@ components:
 ## Accessibility
 
 - 对比度：正文与辅助文字 ≥4.5:1（已实测 token 组合）；焦点环与 UI 边界 ≥3:1。
+- 辅助文字下限：状态药丸、侧栏按语、登录页脚与特性说明 ≥12px，角色徽章 ≥11.5px，且都需实测过线——
+  `on-navy-note .62`≈5.9、`on-navy-faint .58`≈5.3、`on-navy-caption .72`≈7.6、
+  `idle-ink on idle-surface` 5.50、`role-viewer #575f58 on #eee9df` 5.45。
+  纯装饰的字距标签（`.eyebrow` 10.5px、`badge-sample` 10.5px）不承载独有信息，允许更小。
+- 快捷键提示（Enter 发送 / Shift+Enter 换行）只在精确指针设备出现：
+  `@media (hover: none), (pointer: coarse)` 下 `.kbd-hint` 隐藏，触屏只保留免责句。
 - 焦点：全局 `:focus-visible` 2px `primary` 环 + offset 2px；指针触发的焦点不显示 UA 环形，
   但**不得**移除键盘焦点样式。
 - skip link：每页第一个 Tab 是"跳到主要内容"；路由切换后焦点移交 `<main id="main" tabindex="-1">`
@@ -566,24 +640,30 @@ components:
 
 ## Implementation Alignment
 
-- **Token 源**：`frontend/src/styles.css` 的 `:root`（`--bg --panel --panel-2 --ink --ink-2 --muted
-  --muted-2 --line --line-strong --teal --teal-deep --teal-soft --gold --gold-soft --amber --red
-  --red-soft --navy --navy-2 --shadow --radius`）。
+- **Token 源**：`frontend/src/styles.css` 的 `:root`（22 个颜色 + `--shadow` + `--radius`：
+  `--bg --panel --panel-2 --ink --ink-2 --muted --muted-2 --line --line-strong --teal --teal-deep
+  --teal-soft --gold --gold-soft --amber --red --red-soft --red-line --idle --idle-ink --navy --navy-2`；
+  `--font-kai` 单独在文件后半段的第二个 `:root` 块补定义）。
 - **动效源**：`frontend/src/motion.ts`（`EASE`、`SPRING`、`pageVariants`、`staggerContainer`、
   `prefersReducedMotion`）。
 - **组件落点**：`frontend/src/components/`（Topbar、Sidebar、UploadModal、KpiCard、EmptyState、
   StatusPill、EChart）与 `frontend/src/pages/`。
 - **映射关系**：`primary→--teal`、`primary-deep→--teal-deep`、`primary-soft→--teal-soft`、
   `ink→--ink`、`muted→--muted`、`canvas→--bg`、`surface→--panel`、`surface-2→--panel-2`、
-  `hairline→--line`、`nav-surface→--navy`、`gold-soft→--gold-soft`、`danger→--red`。
+  `hairline→--line`、`nav-surface→--navy`、`gold-soft→--gold-soft`、`danger→--red`、
+  `danger-hairline→--red-line`、`idle-surface→--idle`、`idle-ink→--idle-ink`。
 - **验证命令**：`cd frontend && npm run build`（tsc + vite）；改动样式后至少核对 1440/375 两档。
 
 ## Known Gaps
 
-- `styles.css` 仍有约 159 处硬编码 hex（如 `#fffdf8` 21 次）；本文按语义记录，尚未全部收口为变量。
-- `surface-hover`、`spacing`、`rounded` 的绝大多数档位目前是"规则"而非 CSS 变量；已变量化的只有 `--radius` 与 `--shadow`。
-- 角色徽章（管理员/评审专家/访客）颜色仍是局部原始值，未进 `:root`；建议后续补 4 组 token。
+- `styles.css` 仍有约 199 处硬编码 hex（`#fffdf8` 21 次最多）；本文按语义记录，尚未全部收口为变量。
+- `surface-hover`、`spacing`、`rounded` 的绝大多数档位目前是"规则"而非 CSS 变量；已变量化的只有 `--radius`、`--shadow` 与 22 个颜色。
+- 角色徽章四色中，访客已改用 `--idle-ink`，管理员/科研管理/评审专家仍是局部原始值（`#f5e3d3`、`#e5edf6` 等）；建议补 4 组 token。
+- 深色侧栏/登录页上的前景以 `rgba(..., .58/.62/.72)` 字面量书写，本文按 `on-navy-*` 记录，CSS 侧尚未变量化。
+- 图标尺寸（13–42px）与欢迎卡 38px 图标底只记录在本文组件条目里，未建尺寸档位。
 - 触控目标：主按钮 40px、`button-sm` 32px、表格操作 26px，低于 44px 建议；移动端未单独放大。
 - 图表 tooltip 仅悬停可达，键盘用户只能读到 `aria-label` 摘要；未提供数据表降级。
-- 无暗色模式；无 `SCREEN_SPEC.md` 页面级规格；图标尺寸（13–42px）未建 token 档位。
+- 无暗色模式；无 `SCREEN_SPEC.md` 页面级规格。
 - 宋体/楷体依赖系统字体，Windows 与部分 Linux 环境回退为默认衬线，需在目标终端复核。
+- 真实读屏（VoiceOver/NVDA）与 iOS/Android 真机走查仍未做；触屏快捷键提示的隐藏已用 CDP 模拟
+  `(hover: none)` 验证，未在真机复测。

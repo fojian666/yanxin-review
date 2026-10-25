@@ -1,7 +1,7 @@
 # SECURITY.md — 研信智评 · 安全设计与漏洞披露
 
-> 基线：commit `efc3cbc`（2026-10-25）。本文描述**当前代码实际行为**，不是目标态；
-> 该基线之后仅有文档与 `run.sh` 解释器探测变更，安全行为未变。
+> 基线：commit `71e1bf3`（2026-10-25）。本文描述**当前代码实际行为**，不是目标态；
+> 该基线收口三项加固：DOCX 实体声明全文扫描、登录/改密入参长度上限、限速分桶键定长摘要。
 > 与代码不一致时以代码为准，并请提 issue 修正本文。
 > 使用与部署步骤见 `README.md`；AI 助手速览见 `AGENTS.md`。
 
@@ -25,12 +25,13 @@
 
 | 项 | 实现 | 位置 |
 |---|---|---|
-| 口令哈希 | PBKDF2-HMAC-SHA256，120,000 轮，每用户 `uuid4` 随机盐 | `rag/auth.py:71` |
-| 口令下限 | ≥6 位（创建与自助改密同校验）；用户名 ≤32 字符 | `rag/auth.py:30,87,129` |
-| 会话令牌 | 随机 token，**库中仅存 SHA-256(token)**；有效期 7 天 | `rag/auth.py:165` |
-| Cookie | `HttpOnly` + `SameSite=Lax`；`COOKIE_SECURE=1` 时加 `Secure` | `app.py:257-262` |
+| 口令哈希 | PBKDF2-HMAC-SHA256，120,000 轮，每用户 `uuid4` 随机盐 | `rag/auth.py:73` |
+| 口令下限 | ≥6 位（创建与自助改密同校验）；用户名 ≤32 字符 | `rag/auth.py:30,89,131` |
+| 登录入参上限 | `LoginRequest` 用户名 ≤64、口令 ≤256；`ChangePasswordRequest` 两字段各 ≤256，越界 422——防止超长口令把 120k 轮 PBKDF2 变成 CPU 放大 | `app.py:129-138` |
+| 会话令牌 | 随机 token，**库中仅存 SHA-256(token)**；有效期 7 天 | `rag/auth.py:167` |
+| Cookie | `HttpOnly` + `SameSite=Lax`；`COOKIE_SECURE=1` 时加 `Secure` | `app.py:257-264` |
 | 改密 | `POST /api/auth/password`，改密后该用户全部旧会话失效 | `rag/auth.py` |
-| 登录限速 | 同一用户名+IP 窗口 300s 内失败 5 次 → 429 + `Retry-After`；内存桶上限 5000 键自动淘汰 | `rag/auth.py:34,49` |
+| 登录限速 | 同一用户名+IP 窗口 300s 内失败 5 次 → 429 + `Retry-After`；内存桶上限 5000 键自动淘汰；分桶键取 `SHA-256(用户名|IP)` 前 32 位（定长，超长用户名不会撑大表） | `rag/auth.py:33-34,39-42,45` |
 | 会话失效 | 任意 `/api/*` 返回 401 时前端清理状态并回登录页 | `frontend/src/AppContext.tsx` |
 
 演示账号仅在本机监听时自动创建（密码 `yanxin2026`）；对外监听默认不创建，须显式 `SEED_DEMO_USERS=1` + `DEMO_USER_PASSWORD`（留空生成随机密码打印到日志）。
@@ -62,8 +63,8 @@
 | 风险 | 防护 | 位置 |
 |---|---|---|
 | 任意文件上传 | 扩展名白名单 `.pdf .docx .txt .md .csv`；单文件 ≤30MB（`MAX_UPLOAD_BYTES`，由 `/api/health` 下发前端同步展示） | `rag/config.py:92` |
-| zip 炸弹 | DOCX 解压总量 ≤120MB（`MAX_DOCX_UNCOMPRESSED_BYTES`），逐条目累加校验 | `rag/parsers.py` |
-| XML 实体攻击 | DOCX 含 `<!DOCTYPE>` / `<!ENTITY>` 直接拒绝 | `rag/parsers.py` |
+| zip 炸弹 | DOCX 解压总量 ≤120MB（`MAX_DOCX_UNCOMPRESSED_BYTES`），逐条目累加校验 | `rag/parsers.py:21` |
+| XML 实体攻击 | 正文/脚注/尾注 XML **全文**扫描 `<!\s*(doctype\|entity)`（大小写不敏感），命中即拒绝解析；扫描范围由上一行体积上限约束，不受偏移限制 | `rag/parsers.py:32,40` |
 | 超大 PDF | `pdftotext -l MAX_PDF_PAGES`（默认 2000，0 为不限） | `rag/parsers.py` |
 | 超长内容撑爆索引 | 解析后统一截断 `MAX_CONTENT_CHARS`（默认 6 万字）并返回 warning | `rag/text.py` |
 | 参数越界 | `ToolCheckRequest.top_k` 限 1–20，越界 422 | `app.py` |
@@ -109,4 +110,4 @@
 
 - 本仓库为课题原型，**无外部赏金计划**；发现安全问题请通过课题负责人内网渠道报告，勿在公开 issue 中披露可利用细节。
 - 报告请附：影响端点/文件、复现步骤、危害评估；修复后在 `CHANGELOG`（待建）与本文同步记录。
-- 回归基线：`python3 -m pytest tests/ -q`（50 项，含认证矩阵、路径穿越、脱敏、实体防护、接入鉴权等 ASGI 级用例）。
+- 回归基线：`python3 -m pytest tests/ -q`（53 项，含认证矩阵、路径穿越、脱敏、实体防护（含偏移绕过）、登录入参上限、接入鉴权等 ASGI 级用例）。
