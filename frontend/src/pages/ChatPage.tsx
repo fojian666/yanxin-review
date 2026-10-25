@@ -404,7 +404,10 @@ export function ChatPage() {
             {busy ? <><Loader2 size={16} className="spin" />生成中</> : <><Send size={17} />发送</>}
           </motion.button>
         </div>
-        <div className="composer-hint">Enter 发送 · Shift + Enter 换行 · 回答仅供辅助，须人工复核</div>
+        <div className="composer-hint">
+          <span className="kbd-hint">Enter 发送 · Shift + Enter 换行 · </span>
+          回答仅供辅助，须人工复核
+        </div>
       </div>
 
       <SourcesPanel citations={citations} focused={focusedSource} />

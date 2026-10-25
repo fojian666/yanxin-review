@@ -16,6 +16,9 @@
   --amber: #b26a1f;
   --red: #b3453f;
   --red-soft: #f8e6e3;
+  --red-line: #e3cbc7;
+  --idle: #efeae0;
+  --idle-ink: #575f58;
   --navy: #0b1a23;
   --navy-2: #102a35;
   --shadow: 0 10px 28px rgba(16, 36, 46, 0.055);
@@ -139,8 +142,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 16px; padding: 0 6px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 4px rgba(178,106,31,.14); flex: 0 0 auto; margin-top: 6px; }
 .status-title { font-size: 12px; color: #f2f7f4; }
-.status-sub { font-size: 10.5px; color: rgba(233,242,239,.5); margin-top: 2px; }
-.sidebar-note { font-size: 11.5px; line-height: 1.8; color: rgba(233,242,239,.34); padding-left: 2px; }
+.status-sub { font-size: 11.5px; color: rgba(233,242,239,.58); margin-top: 2px; }
+.sidebar-note { font-size: 12px; line-height: 1.8; color: rgba(233,242,239,.62); padding-left: 2px; }
 
 .main {
   /* app-shell 是 flex 容器，必须 flex:1 占满剩余空间；
@@ -199,6 +202,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .btn-primary:disabled { opacity: .55; transform: none; cursor: not-allowed; }
 .btn-ghost { color: var(--ink-2); border-color: var(--line); background: rgba(255,253,248,.55); }
 .btn-ghost:hover { border-color: var(--line-strong); background: #fffdf8; }
+/* 清除类操作（移除演示数据/文档）统一用危险色，与普通次级按钮区分 */
+.btn-ghost.danger { color: var(--red); border-color: var(--red-line); background: rgba(255,253,248,.55); }
+.btn-ghost.danger:hover { color: var(--red); border-color: var(--red); background: var(--red-soft); }
 .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
 .btn-block { width: 100%; margin-top: 16px; }
 .icon-btn {
@@ -208,6 +214,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .icon-btn:hover { background: var(--panel-2); color: var(--ink); }
 .link-btn { border: 0; background: none; color: var(--teal); padding: 0; text-decoration: underline; text-underline-offset: 3px; font-size: inherit; }
+.link-btn.danger { color: var(--red); }
+.link-btn.danger:hover { color: #8f352f; }
 
 /* ---------- panels ---------- */
 .view { display: none; }
@@ -347,6 +355,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .composer textarea:focus { border-color: #9acdc0; box-shadow: 0 0 0 3px rgba(14,124,107,.08); background: #fff; }
 .send-btn { height: 48px; padding: 0 20px; }
 .composer-hint { padding: 0 20px 12px; color: var(--muted-2); font-size: 12px; background: #fffdf8; }
+/* 触屏虚拟键盘没有 Shift+Enter 换行习惯，快捷键提示只在精确指针设备展示 */
+@media (hover: none), (pointer: coarse) { .kbd-hint { display: none; } }
 
 .sources-panel { display: flex; flex-direction: column; height: calc(100vh - 214px); height: calc(100dvh - 214px); min-height: 0; overflow: hidden; }
 .sources-panel .panel-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fffdf8, #fbf8f1); }
@@ -436,6 +446,15 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .review-control h2 { font-family: "Songti SC", "STSong", serif; font-size: 28px; margin: 0 0 9px; font-weight: 600; }
 .review-control .hint { color: var(--muted); font-size: 13.5px; line-height: 1.8; margin: 0 0 22px; }
 .field-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+/* 下拉框会截断长标题，选定后把全称单独呈示 */
+.picked-doc {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--panel-2); font-size: 13.5px; color: var(--ink-2); line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.picked-doc-label { flex: 0 0 auto; color: var(--muted); font-size: 12px; letter-spacing: .04em; }
+.review-control .picked-doc { margin-top: 10px; }
 .select { width: 100%; height: 42px; border: 1px solid var(--line); border-radius: 4px; background: #fffdf8; padding: 0 11px; font-size: 13.5px; outline: none; }
 .select:focus { border-color: #9acdc0; }
 .review-steps { margin: 24px 0 22px; display: flex; flex-direction: column; gap: 12px; }
@@ -464,7 +483,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .section-block { margin-top: 22px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 15px 18px; background: #fbf8f1; border-bottom: 1px solid var(--line); }
 .section-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
-.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; white-space: nowrap; }
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+.status-idle { background: var(--idle); color: var(--idle-ink); }
 .status-pass { background: var(--teal-soft); color: var(--teal-deep); }
 .status-warn { background: var(--gold-soft); color: #7a5521; }
 .status-fail { background: var(--red-soft); color: var(--red); }
@@ -473,7 +493,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .check-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
 .check-label { font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .check-detail { margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.7; }
-.check-evidence { margin-top: 8px; padding: 8px 11px; background: #f7f4ec; border-radius: 3px; font-size: 12px; color: #68736c; line-height: 1.7; border-left: 2px solid #d8cdb9; }
+.check-evidence { margin-top: 8px; padding: 8px 11px; background: #f7f4ec; border-radius: 3px; font-size: 12px; color: var(--muted); line-height: 1.7; border-left: 2px solid #d8cdb9; }
 .questions { margin: 12px 0 0; padding-left: 22px; }
 .questions li { margin: 8px 0; font-size: 14px; line-height: 1.75; }
 .report-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
@@ -522,7 +542,12 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(8, 20, 26, 0.55); backdrop-filter: blur(3px); }
 .modal-card { position: relative; width: min(600px, 100%); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 30px 80px rgba(8,20,26,.3); padding: 26px; animation: rise .26s ease both; }
-.modal-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.modal-head {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  margin: -26px -26px 16px; padding: 26px 26px 12px;
+  background: var(--panel); border-radius: 8px 8px 0 0;
+}
 .modal-head h2 { font-family: "Songti SC", "STSong", serif; font-size: 26px; margin: 0; font-weight: 600; }
 .modal-drop { border: 1px dashed #cfc3ae; background: #fdfbf6; border-radius: 6px; padding: 26px; text-align: center; cursor: pointer; margin-bottom: 16px; transition: border-color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease; }
 .modal-drop:hover, .modal-drop.dragover { border-color: var(--teal); background: #f2faf6; }
@@ -1320,11 +1345,11 @@ a, img, svg, canvas,
 }
 .login-feature:hover .login-feature-icon { background: rgba(143, 243, 221, .26); transform: translateY(-1px); }
 .login-feature strong { display: block; font-size: 13px; color: #f2faf7; letter-spacing: .04em; overflow-wrap: anywhere; }
-.login-feature small { display: block; margin-top: 2px; font-size: 11.5px; color: rgba(238, 247, 243, .58); line-height: 1.45; overflow-wrap: anywhere; }
+.login-feature small { display: block; margin-top: 2px; font-size: 12px; color: rgba(238, 247, 243, .72); line-height: 1.5; overflow-wrap: anywhere; }
 .login-foot {
   margin-top: auto; padding-top: 22px;
   display: grid; gap: 8px;
-  font-size: 11.5px; color: rgba(238, 247, 243, .55);
+  font-size: 12px; color: rgba(238, 247, 243, .72);
   letter-spacing: .02em;
 }
 .login-lan-badge {
@@ -1426,9 +1451,9 @@ a, img, svg, canvas,
 .login-demo-chip.role-admin .login-demo-icon { background: #f5e3d3; color: #8a5521; }
 .login-demo-chip.role-manager .login-demo-icon { background: var(--teal-soft); color: var(--teal-deep); }
 .login-demo-chip.role-reviewer .login-demo-icon { background: #e5edf6; color: #33567a; }
-.login-demo-chip.role-viewer .login-demo-icon { background: #eee9df; color: #6d766f; }
+.login-demo-chip.role-viewer .login-demo-icon { background: #eee9df; color: var(--idle-ink); }
 .login-demo-chip strong { font-size: 12.5px; color: var(--ink); }
-.login-demo-chip small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.login-demo-chip small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .login-demo-note {
   margin-top: 11px;
   font-family: var(--font-kai);
@@ -1470,13 +1495,13 @@ a, img, svg, canvas,
 .role-badge {
   display: inline-block; margin-top: 2px;
   padding: 1px 7px; border-radius: 999px;
-  font-size: 10px; letter-spacing: .03em;
+  font-size: 11.5px; letter-spacing: .03em;
   background: #eee7da; color: #6d6353;
 }
 .role-badge.role-admin { background: #f5e3d3; color: #8a5521; }
 .role-badge.role-manager { background: var(--teal-soft); color: var(--teal-deep); }
 .role-badge.role-reviewer { background: #e5edf6; color: #33567a; }
-.role-badge.role-viewer { background: #eee9df; color: #6d766f; }
+.role-badge.role-viewer { background: #eee9df; color: var(--idle-ink); }
 
 /* ---------- 用户管理页 ---------- */
 .admin-page { display: grid; gap: 15px; }
@@ -1554,7 +1579,7 @@ a, img, svg, canvas,
 .user-avatar.small { width: 30px; height: 30px; font-size: 13px; border-radius: 50%; }
 .user-trigger-text { display: grid; justify-items: center; gap: 2px; text-align: center; line-height: 1.2; }
 .user-trigger-text strong { font-size: 13px; color: var(--ink); font-weight: 600; }
-.user-trigger-text .role-badge { margin-top: 0; font-size: 11px; line-height: 1.35; }
+.user-trigger-text .role-badge { margin-top: 0; font-size: 12px; line-height: 1.35; }
 .user-dropdown {
   position: absolute; right: 0; top: calc(100% + 8px);
   min-width: 190px; z-index: 60;

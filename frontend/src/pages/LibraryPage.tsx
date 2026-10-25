@@ -135,7 +135,7 @@ export function LibraryPage() {
             <p>资料仅存于本机 data/uploads；删除文档，索引随之清除。</p>
           </div>
           {can("delete-doc") && (
-            <button className="btn btn-ghost btn-sm" onClick={() => void removeSampleDocs()}>
+            <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSampleDocs()}>
               <Trash2 size={14} />移除演示本子
             </button>
           )}
@@ -250,7 +250,7 @@ export function LibraryPage() {
               transition={{ duration: 0.34, ease: EASE }}
             >
               当前包含演示文献（合成数据），趋势结论仅用于功能验证。
-              {can("remove-sample") && <button className="link-btn" onClick={() => void clearSamples()}>移除演示文献</button>}
+              {can("remove-sample") && <button className="link-btn danger" onClick={() => void clearSamples()}>移除演示文献</button>}
             </motion.div>
           )}
         </AnimatePresence>

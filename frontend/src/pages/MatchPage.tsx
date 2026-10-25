@@ -53,6 +53,8 @@ export function MatchPage() {
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
 
+  const selectedDoc = sortedDocs.find((doc) => doc.id === docId);
+
   const loadExperts = async () => {
     try {
       const data = await api.experts();
@@ -212,6 +214,10 @@ export function MatchPage() {
               sortedDocs.map((doc) => <option value={doc.id} key={doc.id}>{doc.name}</option>)
             )}
           </select>
+          <div className="picked-doc">
+            <span className="picked-doc-label">当前选定</span>
+            <span>{selectedDoc?.name || "尚未选定本子"}</span>
+          </div>
           <div className="match-actions">
             <button className="btn btn-primary" onClick={() => void run()} disabled={loading || !docId}>
               {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />运行一体化检查</>}
@@ -245,7 +251,7 @@ export function MatchPage() {
           label="最高相似度"
           value={duplicate ? `${Math.round(duplicate.highest * 100)}%` : "—"}
           sub={duplicate ? `高相似 ${duplicate.high_count} · 关注 ${duplicate.watch_count}` : "尚未检查"}
-          tone="teal"
+          tone={duplicate?.high_count ? "gold" : "teal"}
         />
         <KpiCard
           label="查重命中"
@@ -275,7 +281,7 @@ export function MatchPage() {
               <h2>语义查重</h2>
               <p>段落级相似度，附原文证据；相似不等于抄袭，须人工复核</p>
             </div>
-            <span className={`status-pill ${duplicate && duplicate.high_count ? "status-fail" : duplicate && duplicate.watch_count ? "status-warn" : "status-pass"}`}>
+            <span className={`status-pill ${!duplicate ? "status-idle" : duplicate.high_count ? "status-fail" : duplicate.watch_count ? "status-warn" : "status-pass"}`}>
               {duplicate ? (duplicate.high_count ? "高风险" : duplicate.watch_count ? "需关注" : "未发现高相似") : "待检查"}
             </span>
           </div>
@@ -422,7 +428,7 @@ export function MatchPage() {
               }}
             />
             {can("remove-sample") && (
-            <button className="btn btn-ghost btn-sm" onClick={() => void removeSamples()}>
+            <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSamples()}>
               <Trash2 size={14} />移除演示专家
             </button>
             )}

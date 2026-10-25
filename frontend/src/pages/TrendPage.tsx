@@ -175,7 +175,7 @@ export function TrendPage() {
           >
             <div><strong>演示数据</strong> · 当前趋势图使用合成文献验证功能，不代表真实研究结论。</div>
             {can("remove-sample") && (
-            <button className="btn btn-ghost btn-sm" onClick={() => void clearSamples()}>
+            <button className="btn btn-ghost btn-sm danger" onClick={() => void clearSamples()}>
               <Trash2 size={14} />
               移除演示文献
             </button>

@@ -40,6 +40,10 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   }, [userOpen]);
   const meta = META[pathname] ?? META["/chat"];
   const online = Boolean(health?.llm.configured);
+  const roleLabel = auth ? ROLE_LABELS[auth.role as UserRole] ?? auth.role : "";
+  // 演示账号的 display_name 与角色标签同名，直接用登录名避免出现「管理员 / 管理员」两行重复
+  const displayName = auth?.display_name || auth?.username || "";
+  const chipName = displayName === roleLabel ? auth?.username || displayName : displayName;
 
   useEffect(() => {
     document.title = `${meta.title} · 研信智评`;
@@ -113,14 +117,14 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
               onClick={() => setUserOpen((v) => !v)}
               aria-haspopup="menu"
               aria-expanded={userOpen}
-              title={auth.display_name || auth.username}
+              title={chipName}
             >
               <span className="user-avatar small">
                 <UserRound size={16} />
               </span>
               <span className="user-trigger-text">
-                <strong>{auth.display_name || auth.username}</strong>
-                <span className={`role-badge role-${auth.role}`}>{ROLE_LABELS[auth.role as UserRole]}</span>
+                <strong>{chipName}</strong>
+                <span className={`role-badge role-${auth.role}`}>{roleLabel}</span>
               </span>
             </button>
             {userOpen && (

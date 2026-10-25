@@ -39,6 +39,8 @@ export function ReviewPage() {
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
 
+  const selectedDoc = sortedDocs.find((doc) => doc.id === docId);
+
   useEffect(() => {
     if (!sortedDocs.length) {
       setDocId("");
@@ -162,6 +164,10 @@ export function ReviewPage() {
             ))
           )}
         </select>
+        <div className="picked-doc">
+          <span className="picked-doc-label">当前选定</span>
+          <span>{selectedDoc?.name || "尚未选定文档"}</span>
+        </div>
         <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
           {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始 AI 预审</>}
         </button>
@@ -205,7 +211,14 @@ export function ReviewPage() {
                 tall
                 icon={<FileSearch size={42} />}
                 title={error ? "预审失败" : "预审报告将在此呈卷"}
-                description={error || "先上传本子，再于左侧选定文档，即可开始预审。"}
+                description={
+                  error ||
+                  (!sortedDocs.length
+                    ? "文档库尚空，先上传一份申报书再行预审。"
+                    : docId
+                      ? "卷宗已选定，点击「开始 AI 预审」即依次勘验四道关。"
+                      : "先在左侧选定一份待审文档，即可开始预审。")
+                }
               />
             </motion.div>
           ) : (
