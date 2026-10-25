@@ -47,6 +47,12 @@ typography:
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: 0.5px
+  display-welcome:
+    fontFamily: "Kaiti SC, STKaiti, KaiTi, 楷体, AR PL UKai CN, Kaiti TC, serif"
+    fontSize: 28px
+    fontWeight: 600
+    lineHeight: 1.6
+    letterSpacing: 1.5px
   heading-panel:
     fontFamily: "Songti SC, STSong, serif"
     fontSize: 20px
@@ -72,11 +78,11 @@ typography:
     lineHeight: 1.2
     letterSpacing: 2px
   body-reading:
-    fontFamily: "PingFang SC, Hiragino Sans GB, Microsoft YaHei, Helvetica Neue, Arial, sans-serif"
+    fontFamily: "Kaiti SC, STKaiti, KaiTi, 楷体, AR PL UKai CN, Kaiti TC, serif"
     fontSize: 15px
     fontWeight: 400
     lineHeight: 1.85
-    letterSpacing: 0px
+    letterSpacing: 0.3px
   body-ui:
     fontFamily: "PingFang SC, Hiragino Sans GB, Microsoft YaHei, Helvetica Neue, Arial, sans-serif"
     fontSize: 14px
@@ -347,21 +353,22 @@ components:
 
 三套字体分工，全部为系统字体栈（无 webfont、无 FOIT）：
 
-- **宋体（Songti SC / STSong）**：品牌、页面标题、面板标题、KPI 数字——"阅卷"的正式感；
+- **宋体（Songti SC / STSong）**：品牌、页面标题、面板标题、趋势/查重主标题、KPI 数字——"阅卷"的正式感；
 - **黑体（PingFang SC / Microsoft YaHei…）**：界面控件、表格、标签——可读与中性；
-- **楷体（Kaiti SC / KaiTi…）**：按语式文案（来源位置、空态说明、免责声明旁的说明）——手写批注感；
+- **楷体（Kaiti SC / KaiTi…）**：文案阅读层（欢迎语、问答回答、摘要、研判、证据原文、免责声明）——手写批注感；
 - **等宽（SFMono / Menlo）**：英文小标签（`CORE CAPABILITIES`、`SIGN IN`）与演示口令。
 
 | Level | 字体 | 字号/行高 | 用途 |
 |---|---|---|---|
 | `display-login` | 宋体 600 | 40 / 1.15 · 6px | 登录页品牌主标题 |
 | `display-page` | 宋体 600 | 34 / 1.15 | 顶栏页面标题 |
-| `display-hero` | 宋体 600 | 28 / 1.25 | 欢迎语、趋势/查重主标题 |
+| `display-hero` | 宋体 600 | 28 / 1.25 | 趋势/查重主标题 |
+| `display-welcome` | 楷体 600 | 28 / 1.6 · 1.5px | 问答欢迎语（≤680px 为 24px） |
 | `heading-panel` | 宋体 600 | 20 / 1.25 | 面板标题 |
 | `heading-modal` | 宋体 600 | 26 / 1.2 | 上传弹窗标题 |
 | `brand` | 宋体 600 | 21 / 1.2 · 2px | 侧栏品牌名 |
 | `data-display` | 宋体 600 | 36 / 1.15 | KPI 数值（`tabular-nums`） |
-| `body-reading` | 黑体 400 | 15 / 1.85 | 问答回答、摘要、报告正文 |
+| `body-reading` | 楷体 400 | 15 / 1.85 | 问答回答、摘要、报告正文、证据原文 |
 | `body-ui` | 黑体 400 | 14 / 1.6 | 默认界面文字、按钮 |
 | `body-sm` | 黑体 400 | 13.5 / 1.6 | 面板说明、表格 |
 | `caption` | 黑体 400 | 12 / 1.6 | 字段标签、辅助说明、徽章 |
@@ -469,7 +476,7 @@ components:
 **Do**
 
 - 用 token：颜色写 `var(--primary)`、间距用刻度、圆角用 `rounded` 档位。
-- 标题用宋体、正文用黑体、按语用楷体；中文标点全角，数字与英文半角。
+- 标题用宋体、界面文字用黑体、文案阅读层用楷体；中文标点全角，数字与英文半角。
 - 状态同时给颜色与文字/图标；空态给出下一步动作。
 - 动效只用 `transform`/`opacity`，并在 `prefers-reduced-motion` 下关闭。
 - 新增可交互元素时同时实现：hover、focus-visible、active、disabled、loading（如适用）。

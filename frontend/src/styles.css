@@ -1700,3 +1700,34 @@ a, img, svg, canvas,
 @media (max-height: 620px) {
   .login-features, .login-features-head { display: none; }
 }
+
+/* ---------- 审查修复：横屏/矮屏聊天、移动登录首屏、回归项 ---------- */
+@media (max-width: 680px) {
+  .chat-panel {
+    height: max(calc(100vh - 250px), 320px);
+    height: max(calc(100dvh - 250px), 320px);
+  }
+  .composer textarea:placeholder-shown { height: 48px !important; }
+}
+@media (max-width: 860px) {
+  .login-features, .login-features-head { display: none; }
+}
+@media (max-width: 980px) {
+  .review-control { max-height: none; overflow: visible; }
+}
+@media print {
+  .nav-scrim { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .sidebar { transition: none; }
+}
+
+@media (max-width: 680px) {
+  .match-hero { padding: 18px; }
+  .trend-hero h2, .match-hero h2 {
+    font-size: 24px;
+    line-height: 1.3;
+    letter-spacing: 1px;
+    text-wrap: balance;
+  }
+}
