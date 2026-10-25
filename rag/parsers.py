@@ -29,10 +29,15 @@ def _check_zip_size(z: zipfile.ZipFile) -> None:
         )
 
 
+_UNSAFE_XML = re.compile(rb"<!\s*(?:doctype|entity)", re.IGNORECASE)
+
+
 def _reject_unsafe_xml(xml: bytes) -> None:
-    """DOCX 正文不需要 DTD/实体声明；出现即视为实体展开攻击。"""
-    head = xml[:65536].lower()
-    if b"<!doctype" in head or b"<!entity" in head:
+    """DOCX 正文不需要 DTD/实体声明；出现即视为实体展开攻击。
+
+    全文扫描：只查前若干字节时，把声明藏在长注释或超长无害内容之后即可绕过。
+    """
+    if _UNSAFE_XML.search(xml):
         raise ParseError("DOCX 包含不安全的 XML 实体声明，已拒绝解析")
 
 

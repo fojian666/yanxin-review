@@ -485,6 +485,24 @@ def test_docx_rejects_entity_declarations(tmp_path):
     assert "实体" in str(exc.value)
 
 
+def test_docx_rejects_entity_declaration_hidden_behind_long_content(tmp_path):
+    """实体声明藏在超长无害内容之后也必须拦下：只扫头部字节会被绕过。"""
+    path = tmp_path / "late-entity.docx"
+    noise = "<w:p><w:r><w:t>" + "A" * 70_000 + "</w:t></w:r></w:p>"
+    xml = (
+        '<?xml version="1.0"?>'
+        "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
+        f"{noise}"
+        '<!DOCTYPE w:document [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+        "<w:body/></w:document>"
+    )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("word/document.xml", xml)
+    with pytest.raises(parsers.ParseError) as exc:
+        parsers.parse_docx(path)
+    assert "实体" in str(exc.value)
+
+
 def test_llm_payload_thinking_toggle(monkeypatch):
     from rag.llm import llm as llm_client
 
@@ -686,6 +704,29 @@ def test_login_rate_limited_after_repeated_failures(tmp_path, monkeypatch):
         app_module.LoginRequest(username="admin", password="yanxin2026"), request
     )
     assert resp.status_code == 200
+
+
+def test_login_request_bounds_input_length():
+    """超长口令必须在模型层拒绝，否则每次都触发一次 120k 轮 PBKDF2。"""
+    with pytest.raises(ValidationError):
+        app_module.LoginRequest(username="u", password="x" * 5000)
+    with pytest.raises(ValidationError):
+        app_module.LoginRequest(username="u" * 200, password="secret1")
+    with pytest.raises(ValidationError):
+        app_module.ChangePasswordRequest(old_password="o" * 1000, new_password="n" * 1000)
+    ok = app_module.LoginRequest(username="admin", password="yanxin2026")
+    assert ok.username == "admin"
+
+
+def test_login_throttle_key_is_fixed_length():
+    """限速分桶键定长：不同来源仍可区分，且不会把超长用户名当键存下。"""
+    from rag import auth
+
+    long_key = auth._login_key("A" * 100_000, "10.0.0.1")
+    assert len(long_key) == 32
+    assert long_key != auth._login_key("A" * 100_000, "10.0.0.2")
+    assert auth._login_key("Admin", "10.0.0.1") == auth._login_key("admin", "10.0.0.1")
+    assert auth._login_key("\ud800x", "10.0.0.1")  # 孤立代理项也不能抛异常
 
 
 def test_cookie_secure_flag_follows_config(tmp_path, monkeypatch):

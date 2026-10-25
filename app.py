@@ -127,13 +127,14 @@ class IngestPapersRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str = ""
-    password: str = ""
+    # 长度上限同时兜住两条线：PBKDF2 的 CPU 放大、限速表键的内存放大
+    username: str = Field(default="", max_length=64)
+    password: str = Field(default="", max_length=256)
 
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str = ""
-    new_password: str = ""
+    old_password: str = Field(default="", max_length=256)
+    new_password: str = Field(default="", max_length=256)
 
 
 class CreateUserRequest(BaseModel):

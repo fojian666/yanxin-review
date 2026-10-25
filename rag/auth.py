@@ -37,7 +37,9 @@ _login_lock = threading.Lock()
 
 
 def _login_key(username: str, client: str) -> str:
-    return f"{(username or '').strip().lower()}|{(client or '').strip()}"
+    """限速分桶键：定长哈希，避免超长用户名把任意长度的字符串当作字典键常驻内存。"""
+    raw = f"{(username or '').strip().lower()}|{(client or '').strip()}"
+    return hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()[:32]
 
 
 def login_allowed(username: str, client: str) -> bool:
