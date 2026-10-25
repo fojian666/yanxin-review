@@ -132,7 +132,7 @@ export function LibraryPage() {
               <h2>文档库</h2>
               <span className="count-badge">{docs.length} 份</span>
             </div>
-            <p>资料仅存于本机 data/uploads；删除文档，索引随之清除。</p>
+            <p>上传件存于本机 data/uploads；政策语料来自 corpus/ 快照（删除后需重新导入）。删除文档，索引随之清除。</p>
           </div>
           {can("delete-doc") && (
             <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSampleDocs()}>
@@ -170,6 +170,9 @@ export function LibraryPage() {
                     <td>
                       <span className="kind-badge">{KIND_LABELS[doc.kind] ?? "资料"}</span>
                       {doc.source === "demo" && <span className="badge-sample">演示</span>}
+                      {doc.source === "public" && (
+                        <span className="badge-public" title="政府公开信息，来源见 corpus/sources.json">公开公文</span>
+                      )}
                     </td>
                     <td>{doc.year ?? "—"}</td>
                     <td>{doc.chunk_count}</td>

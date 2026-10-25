@@ -8,7 +8,7 @@ from typing import Any
 from . import db
 from .llm import LLMError, llm
 from .retrieval import retriever
-from .text import truncate
+from .text import extract_terms, truncate
 
 REQUIRED_SECTIONS = [
     {"key": "background", "label": "立项背景与研究目标", "terms": ["立项背景", "研究背景", "研究目标", "研究意义"], "core": True},
@@ -24,6 +24,13 @@ REQUIRED_SECTIONS = [
 INTEGRITY_TERMS = ["科研诚信", "学术不端", "科研伦理", "科技伦理", "数据安全", "保密", "知识产权", "利益冲突"]
 
 DISCLAIMER = "本报告由 AI 基于上传文档自动生成，仅作为形式检查与评审辅助参考，不构成立项、资助、处罚结论，须经专家和管理人员复核。"
+
+# 政策合规检索：本文主题词 + 领域兜底词；低于阈值的命中不入报告（宁缺勿滥）
+POLICY_QUERY_TERMS = ["科研诚信", "项目管理", "评审", "合规", "经费", "数据安全", "知识产权"]
+POLICY_GENERIC_TERMS = {
+    "研究", "项目", "课题", "方法", "技术", "分析", "系统", "问题", "内容", "设计", "实现",
+}
+POLICY_MIN_SCORE = 0.08
 
 
 def _find_evidence(text: str, terms: list[str]) -> str:
@@ -137,10 +144,20 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
 
     policy_items = []
     if policy_cites:
-        for c in policy_cites[:3]:
+        # 同一部文件的多条命中只保留「文件 + 条款」不同的组合，避免三行都在引同一部规则
+        seen_cites: set[tuple[str, str]] = set()
+        for c in policy_cites:
+            doc_name = str(c.get("doc_name", "")).strip()
+            section = str(c.get("section", "") or "").strip()
+            if (doc_name, section) in seen_cites:
+                continue
+            seen_cites.add((doc_name, section))
+            if len(policy_items) >= 3:
+                break
+            label = f"政策依据：《{doc_name}》{section}" if section else f"政策依据：《{doc_name}》"
             policy_items.append(
                 {
-                    "label": f"政策依据：《{c.get('doc_name','')}》",
+                    "label": label,
                     "status": "warn",
                     "detail": "已检索到可能相关的政策条款，需人工核对适用版本与具体条款。",
                     "evidence": truncate(c.get("text", ""), 180),
@@ -310,21 +327,26 @@ def review_document(doc_id: str) -> dict:
     policy_docs = [d for d in db.list_documents() if d.get("kind") == "policy"]
     policy_cites: list[dict] = []
     if policy_docs:
-        policy_cites = retriever.search(
-            "科研诚信 项目管理 评审 合规 经费 数据安全 知识产权",
-            scope=[d["id"] for d in policy_docs],
-            top_k=4,
-        )
+        # 检索词取自本文，避免所有本子都命中同一批条款（固定关键词串会与正文无关）
+        doc_terms = [
+            t for t in extract_terms(text, max_terms=10)
+            if t not in POLICY_GENERIC_TERMS
+        ]
+        query = " ".join(doc_terms + POLICY_QUERY_TERMS)
+        policy_cites = [
+            c for c in retriever.search(
+                query, scope=[d["id"] for d in policy_docs], top_k=8
+            )
+            if float(c.get("score") or 0) >= POLICY_MIN_SCORE
+        ][:4]
 
     sections, questions = _heuristic_sections(
         text, doc, duplicate_matches, policy_cites, bool(policy_docs)
     )
     summary = _summary(doc, text, sections, questions)
-    if not policy_docs:
-        summary += " 政策库尚未接入，政策合规项仅作提示，未计入风险等级。"
-    risk_sections = [
-        s for s in sections if not (s.get("key") == "policy" and not policy_docs)
-    ]
+    summary += " 政策合规项为提示性质，不计入风险等级，引用前须人工核对适用版本与条款。"
+    # 政策合规只作提示：无论是否入库都不参与风险等级，否则任何本子恒 ≥「中」
+    risk_sections = [s for s in sections if s.get("key") != "policy"]
     risk = _risk_level(risk_sections)
     mode = "offline"
     warning = ""

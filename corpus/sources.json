@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-25T16:34:25+08:00",
+  "generator": "tools/fetch_corpus.py",
+  "note": "本清单记录 corpus/ 下每条公开语料的来源与校验值。原始网页/PDF 不入库，复核时按 URL 重抓并比对 raw_sha256。",
+  "sources": [
+    {
+      "id": "most_research_misconduct",
+      "kind": "policy",
+      "title": "科研失信行为调查处理规则",
+      "issuer": "科技部等二十二部门",
+      "doc_no": "国科发监〔2022〕221号",
+      "published_at": "2022-09-14",
+      "year": 2022,
+      "url": "https://www.most.gov.cn/xxgk/xinxifenlei/fdzdgknr/fgzc/gfxwj/gfxwj2022/202209/t20220907_182313.html",
+      "format": "html",
+      "license": "政府公开信息（行政规范性文件）",
+      "license_note": "科学技术部政府信息公开栏目主动公开的公文；引用请保留发布机关与文号。",
+      "usage": "政策合规检索、预审政策依据引用",
+      "fetched_at": "2026-10-25T16:34:23+08:00",
+      "http_status": 200,
+      "raw_bytes": 41433,
+      "raw_sha256": "de131168f215fe75a009df71309425959c2ba14f2a44312f7d4b8d31eda59e73",
+      "text_path": "corpus/policy/most_research_misconduct.txt",
+      "text_chars": 8789,
+      "text_sha256": "2310ab27085d0d4df8296b32c747e0805f397c1da929b0666849ba7b4de0e58b",
+      "checked_anchors": [
+        "科研失信行为调查处理规则",
+        "第一章",
+        "第一条"
+      ]
+    },
+    {
+      "id": "jiangsu_project_credit",
+      "kind": "policy",
+      "title": "江苏省科技计划项目信用管理办法",
+      "issuer": "江苏省科学技术厅",
+      "doc_no": "苏科技规〔2022〕3号",
+      "published_at": "2022-11-29",
+      "year": 2022,
+      "url": "http://kjj.lyg.gov.cn/lygskxjsj/upload/cd8b5057-058e-4042-ab30-d0b40e27a865.pdf",
+      "format": "pdf",
+      "license": "政府公开信息（行政规范性文件）",
+      "license_note": "江苏省科学技术厅印发、标注「此件主动公开」；本快照取自连云港市科技局网站转载件，引用请以省科技厅发布版本为准。",
+      "usage": "政策合规检索、预审政策依据引用",
+      "channel_note": "转载渠道：连云港市科技局（kjj.lyg.gov.cn）",
+      "fetched_at": "2026-10-25T16:34:24+08:00",
+      "http_status": 200,
+      "raw_bytes": 228296,
+      "raw_sha256": "53b72ba5308a8c053aa512513e1b1a6ec4868a446cb60ebb8da4dd2ac0cfefdd",
+      "text_path": "corpus/policy/jiangsu_project_credit.txt",
+      "text_chars": 4249,
+      "text_sha256": "e9589dcd598f0730e5657b364f9a9dfeea22336a6d84595d5d84d1417e525184",
+      "checked_anchors": [
+        "江苏省科技计划项目信用管理办法",
+        "第一条",
+        "信用管理"
+      ]
+    }
+  ]
+}

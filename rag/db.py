@@ -277,6 +277,24 @@ def delete_sample_papers() -> int:
         return int(cur.rowcount)
 
 
+def public_policy_docs() -> dict[str, str]:
+    """公开政策语料的 source_id → 文档 id 映射，供幂等导入判断是否已入库。"""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id, meta_json FROM documents WHERE source = 'public'"
+        ).fetchall()
+    out: dict[str, str] = {}
+    for row in rows:
+        try:
+            meta = json.loads(row["meta_json"] or "{}")
+        except json.JSONDecodeError:
+            continue
+        source_id = str(meta.get("source_id") or "").strip()
+        if source_id:
+            out[source_id] = row["id"]
+    return out
+
+
 def insert_expert(expert: dict[str, Any]) -> int:
     with connect() as conn:
         cur = conn.execute(

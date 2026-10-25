@@ -378,7 +378,10 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .source-index { flex: 0 0 auto; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 3px; background: var(--teal-soft); color: var(--teal-deep); font-size: 11px; font-weight: 700; }
 .source-name { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.5; }
 .source-loc { margin-top: 3px; font-size: 12px; color: var(--muted); }
-.source-text { margin-top: 10px; color: #52605a; font-size: 13px; line-height: 1.8; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.source-text { margin-top: 10px; color: #52605a; font-size: 13px; line-height: 1.8; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.source-text.is-expanded { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.source-toggle { margin-top: 7px; padding: 0; border: 0; background: none; color: var(--teal-deep); font-family: inherit; font-size: 12px; line-height: 1.6; cursor: pointer; text-underline-offset: 2px; }
+.source-toggle:hover { text-decoration: underline; }
 .source-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .score-bar { flex: 1; height: 4px; background: #ece7dc; border-radius: 3px; overflow: hidden; }
 .score-bar i { display: block; height: 100%; background: linear-gradient(90deg, #7bc9b8, var(--teal)); }
@@ -439,6 +442,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .paper-title { margin: 4px 0 6px; font-size: 14.5px; line-height: 1.55; color: var(--ink); font-weight: 600; }
 .paper-meta { font-size: 12px; color: var(--muted); display: flex; gap: 7px; flex-wrap: wrap; }
 .badge-sample { display: inline-block; padding: 0 6px; border-radius: 2px; background: var(--gold-soft); color: #80581d; font-size: 10.5px; }
+.badge-public { display: inline-block; padding: 0 6px; border-radius: 2px; background: var(--teal-soft); color: var(--teal-deep); font-size: 10.5px; }
 
 /* ---------- review ---------- */
 .review-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -493,7 +497,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .check-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
 .check-label { font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .check-detail { margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.7; }
-.check-evidence { margin-top: 8px; padding: 8px 11px; background: #f7f4ec; border-radius: 3px; font-size: 12px; color: var(--muted); line-height: 1.7; border-left: 2px solid #d8cdb9; }
+.check-evidence { margin-top: 8px; padding: 8px 11px; background: #f7f4ec; border-radius: 3px; font-size: 13.5px; color: var(--muted); line-height: 1.85; border-left: 2px solid #d8cdb9; white-space: pre-wrap; overflow-wrap: anywhere; }
 .questions { margin: 12px 0 0; padding-left: 22px; }
 .questions li { margin: 8px 0; font-size: 14px; line-height: 1.75; }
 .report-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
@@ -948,7 +952,7 @@ a, img, svg, canvas,
 .summary-body { font-size: 15px; }
 .report-summary { font-size: 14.5px; }
 .source-text { font-size: 13px; }
-.check-evidence { font-size: 12px; }
+.check-evidence { font-size: 13.5px; }
 
 /* ---------- 证据与引用面板：小字重排，加呼吸感 ---------- */
 .sources-panel .panel-head p { font-family: var(--font-kai); font-size: 13.5px; letter-spacing: .02em; }
@@ -1852,3 +1856,8 @@ a, img, svg, canvas,
 html.entering { background: #0b1a23; scrollbar-color: #0b1a23 #0b1a23; }
 html.entering::-webkit-scrollbar-thumb,
 html.entering::-webkit-scrollbar-track { background: #0b1a23; }
+
+/* ---------- 预审政策依据：窄屏不挤压标题 ---------- */
+@media (max-width: 680px) {
+  .check-top { flex-direction: column; align-items: flex-start; gap: 6px; }
+}

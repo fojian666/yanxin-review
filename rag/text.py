@@ -56,8 +56,18 @@ COMMON_HEADINGS = {
 }
 
 
+# 全角数字/字母 → 半角（检索与年份抽取需要）；全角标点**不转**。
+# 不用 NFKC：NFKC 会把「，；（）：」转成半角，政策原文引用会失真
+# （例如「（一）抄袭剽窃…；」变成「(一)抄袭剽窃…;」）。
+_FW_ALNUM = str.maketrans(
+    "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ"
+    "ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ",
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+)
+
+
 def normalize_text(text: str) -> str:
-    text = unicodedata.normalize("NFKC", text or "")
+    text = unicodedata.normalize("NFC", text or "").translate(_FW_ALNUM)
     text = text.replace("\u3000", " ").replace("\xa0", " ")
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
     text = re.sub(r"[ \t]+\n", "\n", text)

@@ -46,4 +46,9 @@ if [ ! -d frontend/dist ]; then
   (cd frontend && npm install && npm run build)
 fi
 
+# 公开政策语料（真实公文）：已入库则整批跳过，幂等；失败不阻断启动
+if [ -d corpus/policy ]; then
+  "${PY}" -m rag.corpus || echo "提示：政策语料未导入，可手动运行 python3 -m rag.corpus 查看原因"
+fi
+
 exec "${PY}" -m uvicorn app:app --host "${HOST:-127.0.0.1}" --port "${PORT:-8010}"

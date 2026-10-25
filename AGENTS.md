@@ -13,7 +13,9 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（53 项）
+python3 -m pytest tests/ -q                                 # 回归测试（66 项）
+python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
+python3 tools/fetch_corpus.py --check                       # 离线校验政策快照与溯源清单 sha256
 ```
 
 PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行不需要 Node。
@@ -39,8 +41,12 @@ rag/
   llm.py               OpenAI 兼容客户端（DashScope/内网 vLLM/SGLang/Ollama）；已兼容 Qwen3 思考模式
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）
   auth.py               账号密码认证（PBKDF2）+ 会话（SQLite）+ 四角色
+  corpus.py             公开政策语料入库（corpus/ → documents kind=policy/source=public，幂等，--force 重建）
   seed.py              演示数据种子（标记存 meta 表，与库同生命周期；旧 .seeded_* 文件自动迁移）
   demo_proposals.py    10 份虚构演示本子（内置相似段落/同单位/负载满等演示设计）
+tools/
+  fetch_corpus.py      抓取公开公文 → corpus/policy/*.txt + corpus/sources.json（唯一联网环节，--check 离线校验）
+corpus/                随仓库交付的真实公文快照：sources.json（URL/许可/抓取时间/sha256）+ policy/*.txt
 frontend/src/
   pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
@@ -52,6 +58,7 @@ frontend/src/
 
 - 库：`data/app.db`；上传原件：`data/uploads/`；两者均在 `.gitignore`。
 - 当前默认数据 = **10 份虚构演示本子**（`rag/demo_proposals.py`，source='demo'，界面可“移除演示本子”）+ 42 篇合成文献 + 12 位合成专家（均 `is_sample=1`，可一键移除）；真实申报书默认不入库（`SEED_SAMPLE_DOC=0`）。
+- **真实政策语料**：`corpus/` 下两部政府公开公文（科技部等22部门《科研失信行为调查处理规则》国科发监〔2022〕221号、江苏省《科技计划项目信用管理办法》苏科技规〔2022〕3号），`python3 -m rag.corpus` 导入为 `kind='policy'`、`source='public'`，溯源信息存 `corpus/sources.json` 与 `documents.meta_json`。**它不是演示数据**：`./run.sh` 启动时自动导入一次（幂等、失败不阻断）；直接用 `uvicorn` 起服务时需手动跑 `rag.corpus`。
 - 演示本子内置演示设计：P01/P02 同域含相似段落（查重演示）、P02/P07 同申报单位（同单位回避演示）、专家 K 负载满 / L 不可评审 / D 回避单位（排除演示）。
 - 重新播种演示数据：清 `meta` 表中 `seeded_papers` / `seeded_doc` / `seeded_experts` 对应键。
 - 外部真实数据入口：CSV 导入（界面）或 `POST /api/ingest/experts|papers`（JSON 推送，幂等）；契约自查 `GET /api/ingest/schema`。项目/诚信记录/政策版本 schema 已预留但**无存储**，勿提前建表。
@@ -67,6 +74,7 @@ frontend/src/
 ## 已知边界（勿误报为 bug）
 
 - 检索是 TF-IDF，不是向量检索（升级路线已定，见实施方案 §5.2）。
+- 政策库只有两部公开公文。条款级比对只输出“可能相关条款 + 人工核对”，**不做版本时效判断**（`PolicyMeta` 的生效/失效/被替代字段已冻结、未建存储）。政策引用保留全角标点（`normalize_text` 用 NFC + 全角数字字母转半角，**不要改回 NFKC**，否则「（一）…；」会变「(一)…;」）。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。

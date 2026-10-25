@@ -451,6 +451,16 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (ind
 }
 
 function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: number | null }) {
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  // 换一轮回答时收起全部：卡片序号会复用，旧展开态不能带过去
+  useEffect(() => setExpanded(new Set()), [citations]);
+  const toggle = (index: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
   return (
     <aside className="panel sources-panel">
       <div className="panel-head">
@@ -485,7 +495,17 @@ function SourcesPanel({ citations, focused }: { citations: Citation[]; focused: 
                     <div className="source-loc">{locationText(c)}</div>
                   </div>
                 </div>
-                <div className="source-text">{c.text}</div>
+                <div className={`source-text ${expanded.has(c.index) ? "is-expanded" : ""}`}>{c.text}</div>
+                {(c.text || "").length > 120 && (
+                  <button
+                    type="button"
+                    className="source-toggle"
+                    aria-expanded={expanded.has(c.index)}
+                    onClick={() => toggle(c.index)}
+                  >
+                    {expanded.has(c.index) ? "收起原文" : `展开全文（${(c.text || "").length} 字）`}
+                  </button>
+                )}
                 <div className="source-foot">
                   <div className="score-bar"><i style={{ width: `${pct}%` }} /></div>
                   <span className="source-score">{(c.score || 0).toFixed(3)}</span>

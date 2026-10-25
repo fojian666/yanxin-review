@@ -427,7 +427,10 @@ def remove_document(doc_id: str, _user: dict = Depends(require_role("manager", "
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
     try:
-        Path(doc["path"]).unlink(missing_ok=True)
+        target = Path(doc["path"])
+        # corpus/ 快照随仓库交付，删文档不能连带删语料原件；只清理本系统写入 uploads 的原件
+        if doc.get("source") != "public" and config.UPLOAD_DIR in target.parents:
+            target.unlink(missing_ok=True)
     except OSError:
         pass
     retriever.rebuild()
