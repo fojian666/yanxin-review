@@ -500,6 +500,20 @@ components:
 - 触控目标原则 ≥44px；当前按钮 40px、`button-sm` 32px 属于已知差距（见 Known Gaps）。
 - 不提供暗色模式；深色仅用于侧栏、图表与 Toast。
 
+**高度适配（视口高度断点）**
+
+- 布局高度一律优先 `100dvh`（保留 `100vh` 回退），避免移动端浏览器地址栏造成的跳动。
+- 问答面板与证据面板共用 `height: calc(100dvh - 214px)`、`min-height: 0`，矮屏只做面板内滚动，
+  **不允许**再把整页顶出视口（≤680px 时为 `- 250px`）。
+- ≤760px 高：侧栏与登录卡内边距收紧、导航项 42px、主区底部留白 32px。
+- ≤640px 高：品牌印章缩小、隐藏侧栏副标题、聊天工具栏/输入区压缩、输入框最高 96px。
+- ≤620px 高：登录页隐藏装饰性"核心能力"卡（功能不受影响），页面本身保持可滚动。
+- 弹窗：`max-height: calc(100dvh - 40px)` + 内部滚动；375×560 下"开始上传"仍可达。
+- 预审左栏：`position: sticky` + `max-height: calc(100dvh - 32px)` + 内部滚动。
+- 表格滚动区：`max-height: min(560px, calc(100dvh - 260px))`。
+- 登录页使用 `place-items: safe center`：内容高于视口时顶部不被裁切，整页可滚动。
+- 侧栏 `overflow-y: auto`：极矮视口下导航可滚动，页脚不会被截断。
+
 ## Motion
 
 - 统一缓动：`cubic-bezier(.22, 1, .36, 1)`（`EASE`）；弹簧 `stiffness 330 / damping 30 / mass .9`。
