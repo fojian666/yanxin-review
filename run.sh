@@ -13,7 +13,31 @@ if [ -f .env ]; then
   export HOST PORT
 fi
 
-python3 - <<'PY' || python3 -m pip install -r requirements.txt
+# 选择解释器：显式 PYTHON > 项目 .venv > conda/Anaconda > 系统 python3，
+# 取第一个能导入全部依赖的；若都缺依赖则退回首个可执行者交给下面安装。
+find_python() {
+  local candidates=() base
+  [ -n "${PYTHON:-}" ] && candidates+=("$PYTHON")
+  [ -x ".venv/bin/python3" ] && candidates+=(".venv/bin/python3")
+  for base in "${CONDA_PREFIX:-}" "$HOME/anaconda3" "$HOME/miniconda3" /opt/anaconda3 /opt/miniconda3; do
+    [ -n "$base" ] && [ -x "$base/bin/python3" ] && candidates+=("$base/bin/python3")
+  done
+  candidates+=("python3")
+  for base in "${candidates[@]}"; do
+    if "$base" -c "import fastapi, uvicorn, multipart, sklearn, numpy, jieba, dotenv, requests" 2>/dev/null; then
+      echo "$base"; return 0
+    fi
+  done
+  for base in "${candidates[@]}"; do
+    if "$base" -c "pass" 2>/dev/null; then echo "$base"; return 0; fi
+  done
+  return 1
+}
+
+PY="$(find_python)" || { echo "未找到可用的 Python 解释器，请安装 Python 3.10+"; exit 1; }
+echo "使用 Python：${PY}（$("${PY}" -V 2>&1)）"
+
+"${PY}" - <<'PY' || "${PY}" -m pip install -r requirements.txt
 import fastapi, uvicorn, multipart, sklearn, numpy, jieba, dotenv, requests
 PY
 
@@ -22,4 +46,4 @@ if [ ! -d frontend/dist ]; then
   (cd frontend && npm install && npm run build)
 fi
 
-exec python3 -m uvicorn app:app --host "${HOST:-127.0.0.1}" --port "${PORT:-8010}"
+exec "${PY}" -m uvicorn app:app --host "${HOST:-127.0.0.1}" --port "${PORT:-8010}"

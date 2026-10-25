@@ -74,7 +74,7 @@ cp .env.example .env        # 可选：填入千问配置
 
 `run.sh` 做的事情：
 
-1. 检查 Python 依赖；
+1. 自动选择解释器（显式 `PYTHON` > 项目 `.venv` > conda/Anaconda 已知路径 > 系统 `python3`，取首个能导入依赖者）并检查依赖；
 2. 如果 `frontend/dist` 不存在，执行 `cd frontend && npm install && npm run build`；
 3. 用 Uvicorn 启动 FastAPI，并托管 React 构建产物。
 
