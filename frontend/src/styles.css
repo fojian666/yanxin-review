@@ -977,7 +977,6 @@ a, img, svg, canvas,
 .table-btn { border-radius: 4px; transition: background .2s ease, color .2s ease, transform .2s ease; }
 .table-btn:hover { text-decoration: none; background: var(--teal-soft); color: var(--teal-deep); transform: translateY(-1px); }
 .table-btn.danger:hover { background: var(--red-soft); color: var(--red); }
-.table-btn.danger:hover { background: #f7e8e6; }
 .icon-btn { transition: background .23s ease, color .23s ease, transform .23s ease; }
 .icon-btn:hover { transform: translateY(-1px); }
 
