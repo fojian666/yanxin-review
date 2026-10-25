@@ -261,7 +261,7 @@ export function ChatPage() {
           <div className="scope-wrap" ref={scopeRef}>
             <button className="scope-btn" onClick={() => setScopeOpen((v) => !v)} aria-haspopup="menu" aria-expanded={scopeOpen}>
               <FolderOpen size={15} />
-              <span>{scopeLabel}</span>
+              <span className="scope-label">{scopeLabel}</span>
               <ChevronDown size={14} />
             </button>
             <AnimatePresence>

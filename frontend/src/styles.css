@@ -215,6 +215,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  min-width: 0;
 }
 .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
 .panel-title-row { display: flex; align-items: center; gap: 10px; }
@@ -1624,13 +1625,27 @@ a, img, svg, canvas,
   .app-shell.sidebar-collapsed .sidebar-foot { align-items: flex-start; }
   .app-shell .main,
   .app-shell.sidebar-collapsed .main { margin-left: 0; }
-  .topbar .mobile-nav-btn { display: grid; flex: 0 0 auto; }
+  .topbar .mobile-nav-btn { display: grid; flex: 0 0 auto; margin-right: auto; }
   .topbar-actions > * { flex: 0 0 auto; }
-  .topbar-actions { gap: 10px; }
+  .topbar-actions { gap: 10px; justify-content: flex-start; }
+  .topbar-actions .user-menu { margin-left: 0; }
+  .panel-head { flex-wrap: wrap; row-gap: 10px; }
+  .panel-head .btn { flex-shrink: 0; }
+  .panel-head .head-actions { flex-wrap: wrap; row-gap: 8px; }
+  .table-wrap { padding: 0 8px 12px; }
+  .data-table th, .data-table td { padding: 8px 6px; }
+  .chat-toolbar { gap: 10px; }
+  .scope-wrap { min-width: 0; }
+  .chat-toolbar .scope-wrap { flex: 1 1 auto; max-width: 210px; }
+  .chat-toolbar .toolbar-right { flex: 0 0 auto; }
+  .scope-btn { min-width: 0; max-width: 100%; padding: 0 10px; gap: 6px; }
+  .scope-btn .scope-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toolbar-right .muted { white-space: nowrap; }
 }
 
 @media (max-width: 360px) {
   .topbar .mode-chip { display: none; }
+  .chat-toolbar { flex-wrap: wrap; row-gap: 8px; }
 }
 
 @media (max-width: 420px) {
