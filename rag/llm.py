@@ -55,8 +55,9 @@ class LLMClient:
             "max_tokens": max_tokens,
             "stream": stream,
         }
-        style = config.LLM_THINKING_STYLE
-        if style == "auto":
+        # 供应商预设已经声明了方言；自定义端点再按地址推断
+        style = self.info.get("style") or config.LLM_THINKING_STYLE
+        if style in {"", "auto"}:
             style = "deepseek" if "deepseek" in self.base_url.lower() else "qwen"
         if style == "qwen":
             if config.LLM_ENABLE_THINKING is not None:

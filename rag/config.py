@@ -156,38 +156,41 @@ def _blocked_external(label: str) -> dict:
         "model": "检索式回答（未配置大模型）",
         "api_key": "",
         "blocked_external": True,
+        "style": "",
     }
 
 
-def llm_provider() -> dict:
-    explicit_qwen_base = (os.getenv("QWEN_BASE_URL") or "").rstrip("/")
-    # An explicitly configured non-DashScope endpoint (vLLM/Ollama) may not
-    # require a key; the default DashScope URL without a key is not configured.
-    custom_qwen_base = bool(explicit_qwen_base and explicit_qwen_base != DASHSCOPE_BASE_URL)
-    if QWEN_API_KEY or custom_qwen_base:
-        if _is_public_host(QWEN_BASE_URL) and not ALLOW_EXTERNAL_LLM:
-            return _blocked_external("公网模型地址")
-        return {
-            "configured": True,
-            "provider": "qwen",
-            "label": "大模型（OpenAI 兼容）",
-            "base_url": QWEN_BASE_URL,
-            "model": QWEN_MODEL,
-            "api_key": QWEN_API_KEY,
-            "blocked_external": False,
-        }
-    if OPENAI_API_KEY:
-        if _is_public_host(OPENAI_BASE_URL) and not ALLOW_EXTERNAL_LLM:
-            return _blocked_external("OpenAI 兼容公网地址")
-        return {
-            "configured": True,
-            "provider": "openai",
-            "label": "OpenAI 兼容接口",
-            "base_url": OPENAI_BASE_URL,
-            "model": OPENAI_MODEL,
-            "api_key": OPENAI_API_KEY,
-            "blocked_external": False,
-        }
+# 预置供应商：填 LLM_PROVIDER 与对应 key 就能切，不用记各家 base_url/模型名。
+# style 决定思考模式参数的方言（见 llm.py），填错会被对方 400。
+_LLM_PRESETS: dict[str, dict] = {
+    "qwen": {
+        "provider": "qwen",
+        "label": "千问 / DashScope",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus",
+        "key_env": ("QWEN_API_KEY", "DASHSCOPE_API_KEY"),
+        "style": "qwen",
+    },
+    "deepseek": {
+        "provider": "deepseek",
+        "label": "DeepSeek",
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-flash",
+        "key_env": ("DEEPSEEK_API_KEY", "QWEN_API_KEY"),
+        "style": "deepseek",
+    },
+    "openai": {
+        "provider": "openai",
+        "label": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+        "key_env": ("OPENAI_API_KEY",),
+        "style": "qwen",
+    },
+}
+
+
+def _offline() -> dict:
     return {
         "configured": False,
         "provider": "offline",
@@ -196,4 +199,72 @@ def llm_provider() -> dict:
         "model": "检索式回答（未配置大模型）",
         "api_key": "",
         "blocked_external": False,
+        "style": "",
     }
+
+
+def _configured(provider: str, label: str, base_url: str, model: str, key: str, style: str) -> dict:
+    return {
+        "configured": True,
+        "provider": provider,
+        "label": label,
+        "base_url": base_url,
+        "model": model,
+        "api_key": key,
+        "blocked_external": False,
+        "style": style,
+    }
+
+
+def llm_provider() -> dict:
+    """解析当前用哪个模型端点。
+
+    `LLM_PROVIDER` 可选 qwen / deepseek / openai / custom / auto（默认）。
+    - 预设：只需给 key，base_url 与模型名用预设值，`QWEN_*` 仍可覆盖（兼容旧配置）；
+    - custom：完全按 `QWEN_BASE_URL` / `OPENAI_BASE_URL` 走，适合内网 vLLM / Ollama；
+    - auto：维持历史行为，按已配置的 key 依次判断。
+    """
+    provider = (os.getenv("LLM_PROVIDER") or "auto").strip().lower()
+    # 预设模式只认通用覆盖变量：留着旧的 QWEN_BASE_URL 就换供应商，会把 A 家的 key 发到 B 家
+    base_override = (os.getenv("LLM_BASE_URL") or "").rstrip("/")
+    model_override = (os.getenv("LLM_MODEL") or "").strip()
+    override_base = (os.getenv("QWEN_BASE_URL") or "").rstrip("/")
+    override_model = (os.getenv("QWEN_MODEL") or "").strip()
+
+    if provider in _LLM_PRESETS:
+        preset = _LLM_PRESETS[provider]
+        key = next(
+            ((os.getenv(name) or "").strip() for name in preset["key_env"] if os.getenv(name)),
+            "",
+        ) or (os.getenv("LLM_API_KEY") or "").strip()
+        base = base_override or preset["base_url"]
+        model = model_override or preset["model"]
+        if not key:
+            return _offline()
+        if _is_public_host(base) and not ALLOW_EXTERNAL_LLM:
+            return _blocked_external(f"{preset['label']}公网地址")
+        return _configured(preset["provider"], preset["label"], base, model, key, preset["style"])
+
+    if provider == "custom":
+        key = (os.getenv("LLM_API_KEY") or QWEN_API_KEY or OPENAI_API_KEY).strip()
+        base = base_override or override_base or OPENAI_BASE_URL
+        model = model_override or override_model or OPENAI_MODEL
+        # 内网自建服务往往不要 key，只要给了地址就试
+        if not key and not (base and not _is_public_host(base)):
+            return _offline()
+        if _is_public_host(base) and not ALLOW_EXTERNAL_LLM:
+            return _blocked_external("公网模型地址")
+        return _configured("custom", "内网 / 自建模型", base, model, key, "qwen")
+
+    # auto：保持历史行为（只认模块级变量，兼容旧写法）
+    custom_qwen_base = bool(QWEN_BASE_URL and QWEN_BASE_URL != DASHSCOPE_BASE_URL)
+    if QWEN_API_KEY or custom_qwen_base:
+        if _is_public_host(QWEN_BASE_URL) and not ALLOW_EXTERNAL_LLM:
+            return _blocked_external("公网模型地址")
+        style = "deepseek" if "deepseek" in QWEN_BASE_URL.lower() else "qwen"
+        return _configured("qwen", "大模型（OpenAI 兼容）", QWEN_BASE_URL, QWEN_MODEL, QWEN_API_KEY, style)
+    if OPENAI_API_KEY:
+        if _is_public_host(OPENAI_BASE_URL) and not ALLOW_EXTERNAL_LLM:
+            return _blocked_external("OpenAI 兼容公网地址")
+        return _configured("openai", "OpenAI 兼容接口", OPENAI_BASE_URL, OPENAI_MODEL, OPENAI_API_KEY, "qwen")
+    return _offline()

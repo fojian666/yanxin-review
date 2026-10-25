@@ -129,7 +129,8 @@ def fallback_answer(question: str, citations: list[dict], warning: str = "") -> 
         lines.append(f"{n}. {label}{_sentence_excerpt(c.get('text',''), terms, section=section)} [{i}]")
     lines.append("")
     lines.append(
-        "以上为依据原文的摘录式回答。当前为离线演示模式，配置大模型 API 后可生成更完整的归纳、对比与评审建议。"
+        "以上为原文摘录（离线模式）：按关键词与章节挑出最相关的句子，未做归纳、对比与推断。"
+        "点引用编号可核对原文；配置大模型后可生成完整回答。"
     )
     if warning:
         lines.append(f"提示：{warning}")

@@ -167,6 +167,8 @@ export interface ReviewReport {
   questions: string[];
   mode: string;
   warning: string;
+  /** 未启用大模型时的能力边界说明，空数组表示由模型生成 */
+  limitations?: string[];
   disclaimer: string;
 }
 

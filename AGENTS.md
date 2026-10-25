@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（92 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（103 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -29,7 +29,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ```
 app.py                 FastAPI：25 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
 rag/
-  config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、Qwen/INGEST_TOKEN）
+  config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new
   parsers.py           DOCX（含脚注/尾注）/PDF（pdftotext，页码）/TXT/CSV 解析；60k 字截断保护
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
@@ -88,6 +88,7 @@ frontend/src/
 - **查重不走向量**：字面重合查重才是对的，向量会把“主题相近但无重复”判成高相似。
 - 单测默认 `EMBED_BACKEND=none`（`tests/conftest.py`），不要为了“测得更真实”去放开——单测不该发外部请求。
 - 政策库只有两部公开公文。条款级比对只输出“可能相关条款 + 人工核对”，**不做版本时效判断**（`PolicyMeta` 的生效/失效/被替代字段已冻结、未建存储）。政策引用保留全角标点（`normalize_text` 用 NFC + 全角数字字母转半角，**不要改回 NFKC**，否则「（一）…；」会变「(一)…;」）。
+- **无模型不是故障**：未配 `LLM_PROVIDER` 或没有 key 时，问答走原文摘录、预审走规则引擎、趋势走规则统计；预审报告带 `limitations` 逐条说明规则做不到什么，前端显示在结论下方。不要把这些兜底结果当成语义判断。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。

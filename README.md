@@ -137,52 +137,48 @@ npm run build
 
 ## 5. 接入大模型
 
-客户端是 OpenAI 兼容的，千问、DeepSeek、内网 vLLM/Ollama 都走同一组变量（`QWEN_*` 是历史命名，
-不限于千问）。公网端点必须 `ALLOW_EXTERNAL_LLM=1` 才放行。
+`LLM_PROVIDER` 选供应商，其余变量按需覆盖。预设只填 key 就能用，不用记 base_url 和模型名：
 
-### 方式 A：DashScope 千问（公网/政务云 MaaS）
-
-```bash
-QWEN_API_KEY=sk-xxxxxxxx
-# 默认即 DashScope + qwen-plus，可不填下面两项
-# QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-# QWEN_MODEL=qwen-plus
-```
-
-### 方式 A2：DeepSeek
+| `LLM_PROVIDER` | 端点 | 默认模型 | 需要的 key |
+|---|---|---|---|
+| `qwen` | DashScope 兼容模式 | `qwen-plus` | `QWEN_API_KEY` / `DASHSCOPE_API_KEY` |
+| `deepseek` | `api.deepseek.com/v1` | `deepseek-flash` | `DEEPSEEK_API_KEY` |
+| `openai` | `api.openai.com/v1` | `gpt-4o-mini` | `OPENAI_API_KEY` |
+| `custom` | `LLM_BASE_URL`（内网 vLLM / SGLang / Ollama） | `LLM_MODEL` | 可不填，内网通常不校验 |
+| `auto`（默认） | 按已有 key 推断，兼容旧配置 | — | — |
 
 ```bash
-QWEN_BASE_URL=https://api.deepseek.com/v1
-QWEN_MODEL=deepseek-flash          # 或 deepseek-v4-pro
+# 千问（留好位置，将来填 key 即用）
+LLM_PROVIDER=qwen
 QWEN_API_KEY=sk-xxxxxxxx
+
+# DeepSeek
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=sk-xxxxxxxx
 ALLOW_EXTERNAL_LLM=1               # 公网端点默认被拦
+
+# 内网自建（推荐用于真实评审材料）
+LLM_PROVIDER=custom
+LLM_BASE_URL=http://10.0.0.10:8000/v1
+LLM_MODEL=Qwen3-32B
 ```
 
-DeepSeek 默认开思考模式，而预审要的是 JSON：思考会把 `max_tokens` 吃光、正文为空。
-代码按端点自动识别方言（`LLM_THINKING_STYLE=auto`，含 `deepseek` 就发 `thinking.type=disabled`），
-也可以用 `LLM_ENABLE_THINKING=0` 显式关掉。
+任何预设都可以用 `LLM_MODEL` / `LLM_BASE_URL` 覆盖。**别用旧的 `QWEN_BASE_URL` 覆盖**：
+预设模式下它不参与，就是为了防止留着 A 家的地址却换成 B 家的 key。
 
-### 方式 B：内网私有化 Qwen（推荐用于真实评审材料）
+两个与模型有关的行为：
 
-以 vLLM / SGLang 部署 OpenAI 兼容服务：
+- **思考模式**：DeepSeek 默认开思考，预审要 JSON 时思考会把 `max_tokens` 吃光、正文为空。
+  代码按 `style` 发不同参数（DeepSeek 发 `thinking.type=disabled`，千问发 `enable_thinking`），
+  `LLM_ENABLE_THINKING=0` 可显式关掉，`LLM_THINKING_STYLE` 可强制指定方言。
+- **没有模型时的兜底**：问答退化为按关键词与章节挑句的原文摘录，预审退化为规则引擎（形式完整性、
+  诚信表述、字面查重、政策条款提示），趋势退化为规则统计。三者都会在结果里写明「只到这一步」——
+  预审报告的 `limitations` 会逐条列出规则做不到的事（语义归纳、版本时效、改写型重复），
+  前端显示在结论下方。**这时不会假装做过语义判断。**
 
-```bash
-QWEN_BASE_URL=http://10.0.0.10:8000/v1
-QWEN_API_KEY=EMPTY
-QWEN_MODEL=Qwen3-32B
-```
+重启后顶栏模式芯片显示“大模型 · 模型名”；未配置模型时显示“离线演示”。
 
-Ollama 示例：
-
-```bash
-QWEN_BASE_URL=http://127.0.0.1:11434/v1
-QWEN_API_KEY=ollama
-QWEN_MODEL=qwen2.5:7b
-```
-
-重启后顶栏模式芯片显示“大模型 · 模型名”；未配置时显示“离线演示”。
-
-**注意**：公网端点（DashScope / DeepSeek）意味着上传的评审材料会离开内网；真实评审场景请使用内网模型或先完成数据合规审批。
+**注意**：公网端点（DashScope / DeepSeek / OpenAI）意味着上传的评审材料会离开内网；真实评审场景请使用内网模型或先完成数据合规审批。
 
 ---
 
@@ -429,7 +425,7 @@ QWEN_MODEL=qwen2.5:7b
 │   ├── package.json
 │   └── vite.config.ts
 ├── data/                   # 运行时生成：SQLite + 上传文件
-├── tests/                  # pytest 回归（92 项）
+├── tests/                  # pytest 回归（103 项）
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── .env.example
@@ -485,10 +481,10 @@ QWEN_MODEL=qwen2.5:7b
 - 查重匹配：同文档重复上传识别相似度 0.997；专家库 12 人，按可用/负载/回避过滤后推荐 8 人，排除 2 人；专家 CSV 导入通过。
 - 交付材料：`交付材料/` 下已提供考核指标对照表、软著说明书/源代码说明/申请信息表、本地验证报告初稿、研究报告初稿、论文提纲。
 - 登录与角色：未登录 401、viewer 删除 403、manager 正常 200、admin 用户管理页创建账号；浏览器实测三角色界面门控与登录/退出流转。
-- 健壮性回归：pytest 92 项通过，覆盖登录哈希/会话/端点、空库趋势、SPA 路径穿越、错误脱敏、top_k 边界、WAL、超长截断、DOCX 脚注解析与实体声明偏移绕过、登录入参上限、文献/专家导入去重、孤儿分块过滤、种子标记入库与旧标记迁移、分块失败清理上传文件、类型内容嗅探、接入推送幂等、接入令牌条件鉴权、接入契约完整性。
-- 公开政策语料：`tools/fetch_corpus.py` 抓取两部公开公文，清洗后保留全角标点、章名还原（`处 理`→`处理`）、7 章 24 条与 53 条完整；`--check` 校验 sha256 与关键标记；`python3 -m rag.corpus` 导入幂等（重复执行全部跳过、`--force` 重建）、空库可直接导入（先建表再写）；语料路径越界与 sha256 不符一律拒绝；分块 section 按「块首所属条」回填（`第一章 总则 · 第一条`），实测 25 块逐块核对无错标。预审「政策合规」由“政策库未接入”变为按「文件＋章＋条」引用真实条款，检索词取自本子本身（不同本子命中不同），且政策项不计入风险等级。回归测试 92 项。
+- 健壮性回归：pytest 103 项通过，覆盖登录哈希/会话/端点、空库趋势、SPA 路径穿越、错误脱敏、top_k 边界、WAL、超长截断、DOCX 脚注解析与实体声明偏移绕过、登录入参上限、文献/专家导入去重、孤儿分块过滤、种子标记入库与旧标记迁移、分块失败清理上传文件、类型内容嗅探、接入推送幂等、接入令牌条件鉴权、接入契约完整性。
+- 公开政策语料：`tools/fetch_corpus.py` 抓取两部公开公文，清洗后保留全角标点、章名还原（`处 理`→`处理`）、7 章 24 条与 53 条完整；`--check` 校验 sha256 与关键标记；`python3 -m rag.corpus` 导入幂等（重复执行全部跳过、`--force` 重建）、空库可直接导入（先建表再写）；语料路径越界与 sha256 不符一律拒绝；分块 section 按「块首所属条」回填（`第一章 总则 · 第一条`），实测 25 块逐块核对无错标。预审「政策合规」由“政策库未接入”变为按「文件＋章＋条」引用真实条款，检索词取自本子本身（不同本子命中不同），且政策项不计入风险等级。回归测试 103 项。
 - 向量检索：接入 OpenAI 兼容嵌入端点（`BAAI/bge-m3`，1024 维），`tools/eval_retrieval.py` 在 14 个政策问题上实测命中@3 由 71.4% 提升到 92.9%、MRR 0.631→0.762；降级路径全部实测——后端不可用、向量行数与分块数不符、查询向量化失败三种情况都回落到 TF-IDF 且接口不报错；公网端点未授权时状态为 `none`（`ALLOW_EXTERNAL_EMBED=0`）。失败面按类型分治并有用例锁定：401 只发 1 次、5xx 重试 3 次、307 重定向拒绝跟随、乱序响应按 `index` 落位、截断的缓存文件自动删除重建、换端点/换模型不串用旧向量。单测默认关闭嵌入（`tests/conftest.py`），不发真实请求。
-- 文档与代码一致性：`python3 -m tools.doc_check` 核对了 92 项测试数、25 条 API 路由、21 个模块、37 个环境变量与软著材料（清单 54 个文件 / 14,590 行），并把它接成 pytest 用例——文档落后于代码时测试直接失败。软著《源程序清单》改由 `tools/soft_copyright.py` 生成，不再手写。
+- 文档与代码一致性：`python3 -m tools.doc_check` 核对了 103 项测试数、25 条 API 路由、21 个模块、37 个环境变量与软著材料（清单 54 个文件 / 14,590 行），并把它接成 pytest 用例——文档落后于代码时测试直接失败。软著《源程序清单》改由 `tools/soft_copyright.py` 生成，不再手写。
 - 登录页与全站动效：headless Chrome 截图 + DOM 探针验证地形背景、状态动效与 `prefers-reduced-motion` 降级，无控制台错误。
 - 文案打磨：全站标题/空态/引导语改写后逐页截图核对，无换行孤字与溢出。
 

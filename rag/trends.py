@@ -264,6 +264,8 @@ def analyze_trends(query: str = "科研诚信", start_year: int | None = None, e
     mode = "qwen" if summary else "offline"
     if not summary:
         summary = _fallback_summary(query, years, counts, series, papers_out, sample)
+    if mode == "offline" and not no_match:
+        summary = summary.rstrip() + "\n- 口径：以上为规则统计与关键词摘要（离线模式），未做语义研判与文献质量评估。"
     if no_match:
         summary = (
             f"没有检索到与“{query}”相关的文献。当前文献库共 {len(all_papers)} 篇，"

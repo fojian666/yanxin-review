@@ -26,6 +26,13 @@ REQUIRED_SECTIONS = [
 
 INTEGRITY_TERMS = ["科研诚信", "学术不端", "科研伦理", "科技伦理", "数据安全", "保密", "知识产权", "利益冲突"]
 
+# 没有模型时，报告里必须写清「这些结论只到哪一步」，否则读者会把规则检查当成语义判断
+OFFLINE_LIMITATIONS = [
+    "当前未启用大模型（或调用失败）：以下判断来自规则与检索，不含语义归纳、前后矛盾识别与表述质量评估。",
+    "政策合规只提示可能相关的条款，不判断适用版本与时效，引用前须人工核对。",
+    "查重只比对字面重合，改写、翻译、调换语序的重复识别不出来。",
+]
+
 DISCLAIMER = "本报告由 AI 基于上传文档自动生成，仅作为形式检查与评审辅助参考，不构成立项、资助、处罚结论，须经专家和管理人员复核。"
 
 # 政策合规检索：本文主题词 + 领域兜底词；低于阈值的命中不入报告（宁缺勿滥）
@@ -444,6 +451,7 @@ def review_document(doc_id: str) -> dict:
         "questions": questions,
         "mode": mode,
         "warning": warning,
+        "limitations": [] if mode == "qwen" else list(OFFLINE_LIMITATIONS),
         "disclaimer": DISCLAIMER,
     }
 

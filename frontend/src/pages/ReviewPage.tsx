@@ -393,6 +393,13 @@ function ReportSummary({ report }: { report: ReviewReport }) {
   return (
     <div className="report-summary">
       {report.overall.summary}
+      {(report.limitations?.length ?? 0) > 0 && (
+        <ul className="report-limits">
+          {report.limitations!.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      )}
       <div className="report-meta">
         <span>文本 {report.doc.char_count} 字</span>
         <span>{report.doc.chunk_count} 个文本块</span>
