@@ -9,7 +9,7 @@
 ## 常用命令
 
 ```bash
-./run.sh                                                    # 一键运行 → http://127.0.0.1:8010
+./run.sh                                                    # 一键运行 → http://127.0.0.1:8010（自动探测 PYTHON/.venv/conda）
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
@@ -40,6 +40,7 @@ rag/
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）
   auth.py               账号密码认证（PBKDF2）+ 会话（SQLite）+ 四角色
   seed.py              演示数据种子（标记存 meta 表，与库同生命周期；旧 .seeded_* 文件自动迁移）
+  demo_proposals.py    10 份虚构演示本子（内置相似段落/同单位/负载满等演示设计）
 frontend/src/
   pages/               Login(动态地形背景) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL

@@ -65,12 +65,13 @@
 ```bash
 cd "课题申报：科研诚信驱动的自然资源科研全周期智慧治理与大模型协同关键技术研究"
 
-python3 -m pip install -r requirements.txt
 cp .env.example .env        # 可选：填入千问配置
-./run.sh
+./run.sh                    # 自动选择可用解释器，缺依赖时自动安装
 ```
 
 打开 <http://127.0.0.1:8010>；接口文档 <http://127.0.0.1:8010/docs>。
+
+依赖由 `run.sh` 在所选解释器上自动安装。如果本机没有可用环境（例如 Homebrew Python 受 PEP 668 限制），先 `python3 -m venv .venv` 再运行 `./run.sh`——它会优先使用项目 `.venv`。
 
 `run.sh` 做的事情：
 
