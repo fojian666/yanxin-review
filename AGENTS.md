@@ -45,7 +45,7 @@ frontend/src/
   pages/               Login(动态地形背景) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
   styles.css           全局尺度（正文 15px/控件 40px/侧栏 264）、登录页地形/网格/纸纹关键帧、状态动效类；
-                       动效只用 transform 入场，prefers-reduced-motion 全关
+                       动效只用 transform 入场，prefers-reduced-motion 全关；≤680px 抽屉导航与 skip link
 ```
 
 ## 数据事实

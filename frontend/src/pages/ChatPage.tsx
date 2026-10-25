@@ -92,7 +92,9 @@ export function ChatPage() {
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    // 空态不滚动，避免短视口一进来就把欢迎语顶出视野
+    if (!el || (!messages.length && !citations.length)) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages, citations]);
 
   useEffect(() => {

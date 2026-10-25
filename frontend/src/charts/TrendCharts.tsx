@@ -5,6 +5,27 @@ import { escapeHtml } from "../components/Markdown";
 import { prefersReducedMotion } from "../motion";
 import type { TrendData } from "../types";
 
+function annualSummary(data: TrendData): string {
+  const parts = data.years.map((year, index) => `${year} 年 ${data.counts[index] ?? 0} 篇`);
+  return `年度发文量柱状图：${parts.join("，")}。`;
+}
+
+function matrixSummary(data: TrendData, limit = data.keyword_series.length): string {
+  const series = data.keyword_series.slice(0, limit);
+  let topName = "";
+  let topValue = 0;
+  for (const item of series) {
+    for (const value of item.values) {
+      if (value > topValue) {
+        topName = item.name;
+        topValue = value;
+      }
+    }
+  }
+  const peak = topName ? `，最高为「${topName}」${topValue} 篇` : "";
+  return `主题热度矩阵：${series.length} 个主题 × ${data.years.length} 个年份${peak}。`;
+}
+
 const COLORS = ["#22b8a0", "#d6a75c", "#5b9bd5", "#d47b72", "#9bbf6a", "#b08ad4"];
 const AXIS = "#a9c3bc";
 const GRID = "rgba(255,255,255,.075)";
@@ -105,7 +126,7 @@ export function AnnualChart3D({ data }: { data: TrendData }) {
     };
   }, [data]);
 
-  return <EChart option={option} className="chart-3d" height={345} disableWheelZoom />;
+  return <EChart option={option} className="chart-3d" height={345} disableWheelZoom ariaLabel={annualSummary(data)} />;
 }
 
 export function TopicMatrix3D({ data }: { data: TrendData }) {
@@ -224,7 +245,7 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
     };
   }, [data]);
 
-  return <EChart option={option} className="chart-3d" height={345} disableWheelZoom />;
+  return <EChart option={option} className="chart-3d" height={345} disableWheelZoom ariaLabel={matrixSummary(data, 4)} />;
 }
 
 export function TrendLine2D({ data }: { data: TrendData }) {
@@ -274,7 +295,7 @@ export function TrendLine2D({ data }: { data: TrendData }) {
     }),
     [data]
   );
-  return <EChart option={option} className="chart-2d" height={345} />;
+  return <EChart option={option} className="chart-2d" height={345} ariaLabel={matrixSummary(data)} />;
 }
 
 export function TrendBar2D({ data }: { data: TrendData }) {
@@ -330,5 +351,5 @@ export function TrendBar2D({ data }: { data: TrendData }) {
     }),
     [data]
   );
-  return <EChart option={option} className="chart-2d" height={345} />;
+  return <EChart option={option} className="chart-2d" height={345} ariaLabel={annualSummary(data)} />;
 }

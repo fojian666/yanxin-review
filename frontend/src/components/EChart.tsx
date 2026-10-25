@@ -7,9 +7,10 @@ interface EChartProps {
   height?: number;
   className?: string;
   disableWheelZoom?: boolean;
+  ariaLabel?: string;
 }
 
-export function EChart({ option, height = 360, className = "", disableWheelZoom = false }: EChartProps) {
+export function EChart({ option, height = 360, className = "", disableWheelZoom = false, ariaLabel }: EChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
 
@@ -53,7 +54,15 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
     return () => el.removeEventListener("wheel", onWheel, { capture: true });
   }, [disableWheelZoom]);
 
-  return <div ref={containerRef} className={className} style={{ height }} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ height }}
+      role={ariaLabel ? "img" : undefined}
+      aria-label={ariaLabel}
+    />
+  );
 }
 
 export function hasWebGL(): boolean {

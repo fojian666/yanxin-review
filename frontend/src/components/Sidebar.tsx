@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { SPRING } from "../motion";
@@ -19,12 +20,64 @@ const NAV: NavItem[] = [
   { to: "/library", label: "文档库", icon: FolderOpen },
 ];
 
-export function Sidebar() {
+export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClose?: () => void }) {
   const { can, sidebarCollapsed, toggleSidebar } = useApp();
   const visible = NAV.filter((item) => !item.permission || can(item.permission));
   const nav: NavItem[] = can("admin")
     ? [...visible, { to: "/admin", label: "用户管理", icon: UserCog }]
     : visible;
+  const asideRef = useRef<HTMLElement>(null);
+  const wasOpen = useRef(false);
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  // 移动端抽屉：打开时聚焦首个导航项、Tab 循环、ESC 关闭，关闭后焦点还给菜单按钮
+  useEffect(() => {
+    if (!navOpen) {
+      if (wasOpen.current) {
+        wasOpen.current = false;
+        document.querySelector<HTMLElement>(".mobile-nav-btn")?.focus();
+      }
+      return;
+    }
+    wasOpen.current = true;
+    const aside = asideRef.current;
+    const items = () =>
+      Array.from(aside?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [])
+        .filter((el) => el.getClientRects().length > 0);
+    // 等抽屉的 visibility 切换生效后再接管焦点
+    const raf = requestAnimationFrame(() => items()[0]?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeRef.current?.();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const list = items();
+      if (!list.length) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!aside?.contains(active)) {
+        // 焦点落在遮罩/页面其他位置时拉回抽屉
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [navOpen]);
 
   // 部分 webview 的 CSS 宽度过渡会冻结布局，改用 rAF 逐帧内联样式补间（每帧强制重排，可靠）
   // 滑动只动 transform（合成器路径）；主区瞬时切换——逐帧改 margin 会让
@@ -62,7 +115,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="sidebar" onDragStart={(event) => event.preventDefault()}>
+    <aside className="sidebar" id="site-nav" ref={asideRef} onDragStart={(event) => event.preventDefault()}>
       <div className="brand">
         <div className="brand-mark">研</div>
         <div className="brand-text">
@@ -86,6 +139,7 @@ export function Sidebar() {
             to={to}
             draggable={false}
             title={sidebarCollapsed ? label : undefined}
+            onClick={() => onClose?.()}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
           >
             {({ isActive }) => (

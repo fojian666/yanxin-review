@@ -50,7 +50,8 @@ export function LoginPage() {
 
   useEffect(() => {
     document.title = "登录 · 研信智评";
-    nameRef.current?.focus();
+    // 小屏自动聚焦会把上方品牌区滚出视口，只在桌面端聚焦
+    if (!window.matchMedia("(max-width: 680px)").matches) nameRef.current?.focus();
   }, []);
 
   useEffect(() => {

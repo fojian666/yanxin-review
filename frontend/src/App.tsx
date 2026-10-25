@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "./AppContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -16,10 +16,17 @@ const MatchPage = lazy(() => import("./pages/MatchPage").then((m) => ({ default:
 const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 
-function ScrollToTop() {
+function RouteEffects() {
   const { pathname } = useLocation();
+  const lastPath = useRef<string | null>(null);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+    const previous = lastPath.current;
+    lastPath.current = pathname;
+    // 首屏、StrictMode 重复挂载与 "/" 的初始重定向都不抢焦点，保证 skip link 仍是第一个 Tab 目标
+    if (previous === null || previous === pathname) return;
+    if (previous === "/" && pathname === "/chat") return;
+    document.getElementById("main")?.focus({ preventScroll: true });
   }, [pathname]);
   return null;
 }
@@ -27,6 +34,33 @@ function ScrollToTop() {
 function Shell() {
   const location = useLocation();
   const { auth, authReady, sidebarCollapsed, can } = useApp();
+  const [navOpen, setNavOpen] = useState(false);
+
+  useEffect(() => setNavOpen(false), [location.pathname]);
+
+  // 会话失效时收起抽屉，避免登录页残留滚动锁与遮罩
+  useEffect(() => {
+    if (!auth) setNavOpen(false);
+  }, [auth]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const mq = window.matchMedia("(min-width: 681px)");
+    const onChange = () => { if (mq.matches) setNavOpen(false); };
+    mq.addEventListener("change", onChange);
+    // html 才是实际滚动容器（scrollbar-gutter），必须同时锁 html 与 body
+    const root = document.documentElement;
+    const body = document.body;
+    const prevRoot = root.style.overflow;
+    const prevBody = body.style.overflow;
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      mq.removeEventListener("change", onChange);
+      root.style.overflow = prevRoot;
+      body.style.overflow = prevBody;
+    };
+  }, [navOpen]);
 
   if (!authReady) {
     return (
@@ -42,11 +76,20 @@ function Shell() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-        <Sidebar />
-        <main className="main">
-          <Topbar />
-          <ScrollToTop />
+      <a className="skip-link" href="#main">跳到主要内容</a>
+      <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${navOpen ? "nav-open" : ""}`}>
+        <Sidebar navOpen={navOpen} onClose={() => setNavOpen(false)} />
+        {navOpen && (
+          <button
+            type="button"
+            className="nav-scrim"
+            aria-label="关闭导航"
+            onClick={() => setNavOpen(false)}
+          />
+        )}
+        <main className="main" id="main" tabIndex={-1}>
+          <Topbar onOpenNav={() => setNavOpen(true)} navOpen={navOpen} />
+          <RouteEffects />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}

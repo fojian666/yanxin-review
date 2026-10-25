@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { LogOut, Upload, UserRound } from "lucide-react";
+import { LogOut, Menu, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
@@ -15,7 +15,7 @@ const META: Record<string, { title: string; sub: string }> = {
   "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
 };
 
-export function Topbar() {
+export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void; navOpen?: boolean }) {
   const { pathname } = useLocation();
   const { health, auth, openUpload, can, logout } = useApp();
   const [userOpen, setUserOpen] = useState(false);
@@ -61,6 +61,17 @@ export function Topbar() {
         </motion.div>
       </AnimatePresence>
       <div className="topbar-actions">
+        <button
+          type="button"
+          className="icon-btn mobile-nav-btn"
+          onClick={onOpenNav}
+          aria-label="打开导航"
+          aria-controls="site-nav"
+          aria-expanded={navOpen}
+          title="导航"
+        >
+          <Menu size={18} />
+        </button>
         <span
           className={`mode-chip ${online ? "online" : ""}`}
           title={
@@ -86,11 +97,12 @@ export function Topbar() {
           <motion.button
             className="btn btn-primary"
             onClick={() => openUpload()}
+            aria-label="上传文档"
             whileTap={{ scale: 0.97 }}
             transition={{ duration: 0.34, ease: EASE }}
           >
             <Upload size={17} />
-            上传文档
+            <span className="btn-label">上传文档</span>
           </motion.button>
         )}
         {auth && (
