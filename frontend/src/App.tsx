@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "./AppContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -8,13 +8,14 @@ import { Topbar } from "./components/Topbar";
 import { UploadModal } from "./components/UploadModal";
 import { ChatPage } from "./pages/ChatPage";
 import { LoginPage } from "./pages/LoginPage";
-import { pageVariants } from "./motion";
+import { pageVariants, prefersReducedMotion } from "./motion";
 
 const TrendPage = lazy(() => import("./pages/TrendPage").then((m) => ({ default: m.TrendPage })));
 const ReviewPage = lazy(() => import("./pages/ReviewPage").then((m) => ({ default: m.ReviewPage })));
 const MatchPage = lazy(() => import("./pages/MatchPage").then((m) => ({ default: m.MatchPage })));
 const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const WelcomePage = lazy(() => import("./pages/WelcomePage").then((m) => ({ default: m.WelcomePage })));
 
 function RouteEffects() {
   const { pathname } = useLocation();
@@ -25,7 +26,7 @@ function RouteEffects() {
     lastPath.current = pathname;
     // 首屏、StrictMode 重复挂载与 "/" 的初始重定向都不抢焦点，保证 skip link 仍是第一个 Tab 目标
     if (previous === null || previous === pathname) return;
-    if (previous === "/" && pathname === "/chat") return;
+    if (previous === "/" && pathname === "/welcome") return;
     document.getElementById("main")?.focus({ preventScroll: true });
   }, [pathname]);
   return null;
@@ -35,6 +36,56 @@ function Shell() {
   const location = useLocation();
   const { auth, authReady, sidebarCollapsed, can } = useApp();
   const [navOpen, setNavOpen] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const hadVeil = useRef(false);
+
+  // 仅真实登录触发过渡：登录页写入一次性标记，会话恢复/刷新不出现。
+  // useLayoutEffect 保证在欢迎页首次绘制前就盖上过渡层，避免闪一帧。
+  useLayoutEffect(() => {
+    if (!auth) return;
+    let flag = "";
+    try {
+      flag = sessionStorage.getItem("yanxin.enter") || "";
+      if (flag === "1") sessionStorage.removeItem("yanxin.enter");
+    } catch {
+      // 忽略存储异常
+    }
+    if (flag !== "1") return;
+    document.documentElement.classList.add("entering");
+    setEntering(true);
+    return () => document.documentElement.classList.remove("entering");
+  }, [auth]);
+
+  // 至少停留 0.9s（reduced-motion 0.2s），并等欢迎页真正挂载后再撤幕
+  useEffect(() => {
+    if (!entering) return;
+    hadVeil.current = true;
+    const min = prefersReducedMotion() ? 200 : 900;
+    const start = performance.now();
+    let timer = 0;
+    const check = () => {
+      const elapsed = performance.now() - start;
+      const ready = Boolean(document.querySelector(".welcome-home"));
+      if ((elapsed >= min && ready) || elapsed >= 1800) {
+        document.documentElement.classList.remove("entering");
+        setEntering(false);
+      } else {
+        timer = window.setTimeout(check, 80);
+      }
+    };
+    timer = window.setTimeout(check, min);
+    return () => window.clearTimeout(timer);
+  }, [entering]);
+
+  // 撤幕且 inert 解除后再把焦点交给主区
+  useEffect(() => {
+    if (entering || !hadVeil.current) return;
+    hadVeil.current = false;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById("main")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [entering]);
 
   useEffect(() => setNavOpen(false), [location.pathname]);
 
@@ -76,8 +127,15 @@ function Shell() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <a className="skip-link" href="#main">跳到主要内容</a>
-      <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${navOpen ? "nav-open" : ""}`}>
+      <span className="sr-only" role="status" aria-live="polite">
+        {entering ? "正在进入评审工作台" : ""}
+      </span>
+      <div
+        className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${navOpen ? "nav-open" : ""}`}
+        inert={entering || undefined}
+        aria-hidden={entering || undefined}
+      >
+        <a className="skip-link" href="#main">跳到主要内容</a>
         <Sidebar navOpen={navOpen} onClose={() => setNavOpen(false)} />
         {navOpen && (
           <button
@@ -109,6 +167,7 @@ function Shell() {
                   }
                 >
                   <Routes location={location}>
+                    <Route path="/welcome" element={<WelcomePage />} />
                     <Route path="/chat" element={<ChatPage />} />
                     <Route path="/trend" element={<TrendPage />} />
                     <Route
@@ -124,6 +183,7 @@ function Shell() {
                       path="/admin"
                       element={can("admin") ? <AdminPage /> : <Navigate to="/chat" replace />}
                     />
+                    <Route path="/" element={<Navigate to="/welcome" replace />} />
                     <Route path="*" element={<Navigate to="/chat" replace />} />
                   </Routes>
                 </Suspense>
@@ -133,6 +193,25 @@ function Shell() {
         </main>
         <UploadModal />
       </div>
+      <AnimatePresence>
+        {entering && (
+          <motion.div
+            className="enter-veil"
+            aria-hidden="true"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion() ? 0.12 : 0.32, ease: "easeOut" }}
+          >
+            <div className="enter-veil-inner">
+              <span className="enter-seal" aria-hidden="true">研</span>
+              <strong>研信智评</strong>
+              <span className="enter-sub">正在进入评审工作台</span>
+              <span className="enter-line" aria-hidden="true" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </MotionConfig>
   );
 }

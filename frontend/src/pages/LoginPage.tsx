@@ -3,6 +3,7 @@ import {
   ScanSearch, ShieldCheck, TrendingUp, Users,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "../AppContext";
 import type { UserRole } from "../types";
 
@@ -39,6 +40,7 @@ const FLOW_PATHS = [
 
 export function LoginPage() {
   const { login } = useApp();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -91,6 +93,9 @@ export function LoginPage() {
     setError("");
     try {
       await login(username.trim(), password);
+      // 登录成功才置标记；刷新/会话恢复不会触发进入过渡
+      try { sessionStorage.setItem("yanxin.enter", "1"); } catch { /* 忽略存储异常 */ }
+      navigate("/welcome", { replace: true });
     } catch (err) {
       setError((err as Error).message || "登录失败");
     } finally {

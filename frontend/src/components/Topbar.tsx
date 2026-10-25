@@ -7,6 +7,7 @@ import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING } from "../motion";
 
 const META: Record<string, { title: string; sub: string }> = {
+  "/welcome": { title: "工作台", sub: "选一处入口，或直接从一句提问开始" },
   "/chat": { title: "智能问答", sub: "只以你上传的资料作答，逐条附原文与页码" },
   "/trend": { title: "文献趋势", sub: "在多年文献的起伏里，读热度、读阶段、读空白" },
   "/match": { title: "查重匹配", sub: "一次运行：段落查重与专家匹配并行，约束前置" },

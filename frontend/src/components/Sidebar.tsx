@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { SPRING } from "../motion";
 
@@ -47,8 +47,9 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
     const items = () =>
       Array.from(aside?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [])
         .filter((el) => el.getClientRects().length > 0);
-    // 等抽屉的 visibility 切换生效后再接管焦点
-    const raf = requestAnimationFrame(() => items()[0]?.focus());
+    // 等抽屉的 visibility 切换生效后再接管焦点；从首个导航项开始，而不是品牌链接
+    const firstNav = aside?.querySelector<HTMLElement>(".nav-item");
+    const raf = requestAnimationFrame(() => (firstNav ?? items()[0])?.focus());
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closeRef.current?.();
@@ -117,11 +118,13 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
   return (
     <aside className="sidebar" id="site-nav" ref={asideRef} onDragStart={(event) => event.preventDefault()}>
       <div className="brand">
-        <div className="brand-mark">研</div>
-        <div className="brand-text">
-          <div className="brand-name">研信智评</div>
-          <div className="brand-sub">科研诚信智能评审</div>
-        </div>
+        <Link className="brand-home" to="/welcome" title="返回欢迎页" aria-label="研信智评 · 返回工作台" onClick={() => onClose?.()}>
+          <div className="brand-mark" aria-hidden="true">研</div>
+          <div className="brand-text">
+            <div className="brand-name">研信智评</div>
+            <div className="brand-sub">科研诚信智能评审</div>
+          </div>
+        </Link>
         <button
           className="icon-btn sidebar-toggle"
           onClick={onToggle}
