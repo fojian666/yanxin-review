@@ -369,12 +369,12 @@ flowchart LR
 | 用途 | 建议 | 理由 |
 |---|---|---|
 | 生成 | Qwen3-32B-Instruct（AWQ/FP8）或 Qwen3-30B-A3B | 32B 质量稳，30B-A3B 吞吐高；私有化部署 |
-| 向量 | Qwen3-Embedding-4B（或 0.6B 降本） | 中文/多语言语义强，支持长文本 |
+| 向量 | bge-m3（已接入）/ Qwen3-Embedding-4B（可选） | 中文语义强、支持长文本；bge-m3 现成可用，Qwen3 待本地化评估 |
 | 重排 | Qwen3-Reranker-4B（或 0.6B） | 提升条款/段落级精度 |
 | 解析 | MinerU + PaddleOCR + python-docx | 覆盖 PDF/扫描件/DOCX/表格 |
 | 服务 | vLLM / SGLang | 高吞吐、OpenAI 兼容接口 |
 | 编排 | FastAPI + LangGraph（或轻量自研状态机） | 评审流程需要确定性编排和结构化输出 |
-| 向量库 | Milvus 2.5+（稠密+BM25 混合） | 少组件、支持元数据过滤 |
+| 向量库 | Milvus 2.5+（稠密+BM25 混合）｜**当前量级暂不引入** | 少组件、支持元数据过滤；几千块用内存点积更快 |
 | 图谱 | Neo4j / PostgreSQL（试点） | 关系查询与谱系 |
 | 前端 | React 19 + TypeScript + Vite + ECharts / ECharts GL + Framer Motion | 组件化、3D 趋势图、生态成熟 |
 
@@ -390,7 +390,7 @@ flowchart LR
 6. **生成**：严格基于证据，输出“结论 + 引用 + 不确定性”；
 7. **引用校验**：生成后校验每个引用是否真实存在、是否支持该结论；不通过则降级为“资料不足”。
 
-> **首期实现说明**：原型用 FastAPI + 轻量编排 + 字符 n-gram TF-IDF 检索，前端为 React 19 + Vite + ECharts GL（3D 柱状图/主题矩阵 + 2D 切换），保证在无 GPU、无外部向量库的环境也能跑通；检索层已做接口隔离，后续替换为 Qwen3-Embedding + Milvus + Reranker 不影响前端和业务 API。
+> **首期实现说明**：原型用 FastAPI + 轻量编排 + 字符 n-gram TF-IDF 检索（现已叠加向量后端，TF-IDF 保留为基线），前端为 React 19 + Vite + ECharts GL（3D 柱状图/主题矩阵 + 2D 切换），保证在无 GPU、无外部向量库的环境也能跑通；检索层已做接口隔离，后续替换为 Qwen3-Embedding + Milvus + Reranker 不影响前端和业务 API。
 
 ### 5.3 生成与结构化
 
@@ -595,7 +595,7 @@ flowchart LR
 - 安全加固（P3–P5 审查）：`/api/experts` 最小权限（viewer 不可读回避画像）；DOCX XML 实体声明直接拒绝；PDF 解析页数上限（`MAX_PDF_PAGES`，默认 2000）；`LLM_ENABLE_THINKING` 三态开关（Qwen3 兼容）；`COOKIE_SECURE` 会话加密传输；ASGI 真实权限矩阵回归（401/403/200）。
 - 界面与文案：登录页动态地形背景（等高线描边/视差/扫描带/纸纹）；全局尺度与状态动效（表格行增删、匹配切换、KPI 闪光、上传完成）；全站文案统一为"勘验阅卷"意象，按钮/状态/免责声明保持直白。
 - 检索升级（向量）：`rag/embeddings.py` 提供 local / api / none 三种后端，`auto` 按 本地 → API → 纯 TF-IDF 降级；向量接管 `search()`，TF-IDF 保留为基线与回落。公网嵌入端点受 `ALLOW_EXTERNAL_EMBED` 门禁（与 LLM 同口径）；向量按单条文本哈希缓存，新增文档不重算整库；后端不可用、行数不符、查询向量化失败三种情况均实测自动回落。`tools/eval_retrieval.py` 在 14 个政策问题上对比：命中@3 71.4%→92.9%、MRR 0.631→0.762。查重仍固定走 TF-IDF（字面重合才是查重口径）。暂不引入 Milvus：当前量级内存点积（37ms/次）已够，向量库要先起 etcd+MinIO，收益不抵运维成本。
-- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 85 项。
+- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 86 项。
 
 **下一轮 4 周（建议）**
 

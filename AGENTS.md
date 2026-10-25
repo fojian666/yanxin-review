@@ -13,8 +13,9 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（85 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（86 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
+python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
 python3 tools/fetch_corpus.py --check                       # 离线校验政策快照与溯源清单 sha256
 ```
@@ -51,6 +52,9 @@ rag/
 tools/
   fetch_corpus.py      抓取公开公文 → corpus/policy/*.txt + corpus/sources.json（唯一联网环节，--check 离线校验）
   eval_retrieval.py    14 个政策问题的 TF-IDF vs 向量召回对比（命中@k / MRR，答案按原文关键句定位）
+  doc_check.py         文档漂移检查：测试数/接口表/模块清单/环境变量/软著材料/过时表述，只读，退出码非 0 即有不一致
+  soft_copyright.py    生成软著《源程序清单》并打印规模表（--check 只校验）——
+                       **所有代码改完后最后跑**，否则清单又落后于刚改的文件
 corpus/                随仓库交付的真实公文快照：sources.json（URL/许可/抓取时间/sha256）+ policy/*.txt
 frontend/src/
   pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
