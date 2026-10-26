@@ -8,7 +8,7 @@ import { Topbar } from "./components/Topbar";
 import { UploadModal } from "./components/UploadModal";
 import { ChatPage } from "./pages/ChatPage";
 import { LoginPage } from "./pages/LoginPage";
-import { pageVariants, prefersReducedMotion } from "./motion";
+import { pageVariants, useMotionPreference } from "./motion";
 
 const TrendPage = lazy(() => import("./pages/TrendPage").then((m) => ({ default: m.TrendPage })));
 const ReviewPage = lazy(() => import("./pages/ReviewPage").then((m) => ({ default: m.ReviewPage })));
@@ -38,6 +38,7 @@ function Shell() {
   const [navOpen, setNavOpen] = useState(false);
   const [entering, setEntering] = useState(false);
   const hadVeil = useRef(false);
+  const reduce = useMotionPreference();
 
   // 仅真实登录触发过渡：登录页写入一次性标记，会话恢复/刷新不出现。
   // useLayoutEffect 保证在欢迎页首次绘制前就盖上过渡层，避免闪一帧。
@@ -56,11 +57,11 @@ function Shell() {
     return () => document.documentElement.classList.remove("entering");
   }, [auth]);
 
-  // 至少停留 0.9s（reduced-motion 0.2s），并等欢迎页真正挂载后再撤幕
+  // 品牌过渡短暂呈示，欢迎页就绪即撤幕；减少动态效果时不人为等待。
   useEffect(() => {
     if (!entering) return;
     hadVeil.current = true;
-    const min = prefersReducedMotion() ? 200 : 900;
+    const min = reduce ? 0 : 280;
     const start = performance.now();
     let timer = 0;
     const check = () => {
@@ -70,12 +71,12 @@ function Shell() {
         document.documentElement.classList.remove("entering");
         setEntering(false);
       } else {
-        timer = window.setTimeout(check, 80);
+        timer = window.setTimeout(check, 40);
       }
     };
     timer = window.setTimeout(check, min);
     return () => window.clearTimeout(timer);
-  }, [entering]);
+  }, [entering, reduce]);
 
   // 撤幕且 inert 解除后再把焦点交给主区
   useEffect(() => {
@@ -153,16 +154,18 @@ function Shell() {
               key={location.pathname}
               className="page"
               variants={pageVariants}
-              initial="initial"
+              initial={reduce ? false : "initial"}
               animate="animate"
-              exit="exit"
+              exit={reduce ? { opacity: 1, transition: { duration: 0 } } : "exit"}
             >
               <ErrorBoundary resetKey={location.pathname}>
                 <Suspense
                   fallback={
-                    <div className="page-loading">
-                      <span className="spinner" />
-                      加载视图…
+                    <div className="page-skeleton" role="status">
+                      <span className="sr-only">正在加载页面…</span>
+                      <div className="skeleton skeleton-title" aria-hidden="true" />
+                      <div className="skeleton" aria-hidden="true" />
+                      <div className="skeleton-grid" aria-hidden="true"><div className="skeleton" /><div className="skeleton" /></div>
                     </div>
                   }
                 >
@@ -201,7 +204,7 @@ function Shell() {
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: prefersReducedMotion() ? 0.12 : 0.32, ease: "easeOut" }}
+            transition={{ duration: reduce ? 0 : 0.18, ease: "easeOut" }}
           >
             <div className="enter-veil-inner">
               <span className="enter-seal" aria-hidden="true">研</span>

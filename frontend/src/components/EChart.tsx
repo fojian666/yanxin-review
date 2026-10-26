@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
 import "echarts-gl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useMotionPreference } from "../motion";
 
 interface EChartProps {
   option: Record<string, unknown>;
@@ -8,27 +9,67 @@ interface EChartProps {
   className?: string;
   disableWheelZoom?: boolean;
   ariaLabel?: string;
+  autoRotate?: boolean;
 }
 
-export function EChart({ option, height = 360, className = "", disableWheelZoom = false, ariaLabel }: EChartProps) {
+export function EChart({ option, height = 360, className = "", disableWheelZoom = false, ariaLabel, autoRotate }: EChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const reduce = useMotionPreference();
+  const [inView, setInView] = useState(false);
+  const [pageVisible, setPageVisible] = useState(() => !document.hidden);
+  const [interactionPaused, setInteractionPaused] = useState(false);
+  const moving = inView && pageVisible && !reduce;
 
   useEffect(() => {
     if (!containerRef.current) return;
     const chart = echarts.init(containerRef.current, undefined, { renderer: "canvas" });
     chartRef.current = chart;
     const observer = new ResizeObserver(() => {
-      // 容器尺寸变化时图表平滑形变而非跳变
-      chart.resize({ animation: { duration: 350, easing: "cubicOut" } } as never);
+      // resize 已由布局驱动；不再每帧叠加 350ms 补间，避免窄屏反复重排。
+      chart.resize({ animation: { duration: 0 } } as never);
     });
     observer.observe(containerRef.current);
+    const visibility = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    visibility.observe(containerRef.current);
+    const onVisibility = () => setPageVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       observer.disconnect();
+      visibility.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
       chart.dispose();
       chartRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    // 禁用库内不可取消的恢复计时器，拖拽结束后由组件管理 4 秒静置恢复。
+    setInteractionPaused(false);
+    if (!el || !moving || !autoRotate) return;
+    let timer = 0;
+    let pressed = false;
+    const onDown = () => {
+      pressed = true;
+      window.clearTimeout(timer);
+      setInteractionPaused(true);
+    };
+    const onUp = () => {
+      if (!pressed) return;
+      pressed = false;
+      timer = window.setTimeout(() => setInteractionPaused(false), 4000);
+    };
+    el.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.clearTimeout(timer);
+      el.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [moving, autoRotate]);
 
   useEffect(() => {
     chartRef.current?.setOption(option as echarts.EChartsOption, {
@@ -37,6 +78,14 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
       lazyUpdate: false,
     });
   }, [option]);
+
+  useEffect(() => {
+    // 单独更新运动开关，保留用户拖拽后的视角，不重建数据或图表实例。
+    chartRef.current?.setOption({
+      animation: moving,
+      ...(autoRotate !== undefined ? { grid3D: { viewControl: { autoRotate: moving && autoRotate && !interactionPaused } } } : {}),
+    } as echarts.EChartsOption);
+  }, [option, moving, autoRotate, interactionPaused]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -61,6 +110,7 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
       style={{ height }}
       role={ariaLabel ? "img" : undefined}
       aria-label={ariaLabel}
+      data-motion={reduce ? "reduced" : !inView || !pageVisible ? "offscreen" : autoRotate === false ? "paused" : "active"}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { ROLE_LABELS, type UserRole } from "../types";
-import { EASE, SPRING } from "../motion";
+import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
 
 const META: Record<string, { title: string; sub: string }> = {
   "/welcome": { title: "工作台", sub: "选一处入口，或直接从一句提问开始" },
@@ -18,6 +18,7 @@ const META: Record<string, { title: string; sub: string }> = {
 
 export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void; navOpen?: boolean }) {
   const { pathname } = useLocation();
+  const reduce = useMotionPreference();
   const { health, auth, openUpload, can, logout } = useApp();
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
@@ -58,7 +59,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.23, ease: EASE }}
+          transition={{ duration: reduce ? 0 : MOTION.feedback, ease: EASE }}
         >
           <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
           <h1>{meta.title}</h1>
@@ -92,7 +93,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
               initial={{ opacity: 0, y: 3 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -3 }}
-              transition={{ duration: 0.2, ease: EASE }}
+              transition={{ duration: reduce ? 0 : MOTION.feedback, ease: EASE }}
             >
               {online ? `大模型 · ${health?.llm.model}` : "离线演示"}
             </motion.span>
@@ -104,7 +105,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
             onClick={() => openUpload()}
             aria-label="上传文档"
             whileTap={{ scale: 0.97 }}
-            transition={{ duration: 0.34, ease: EASE }}
+            transition={{ duration: reduce ? 0 : MOTION.feedback, ease: EASE }}
           >
             <Upload size={17} />
             <span className="btn-label">上传文档</span>
@@ -134,7 +135,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                transition={SPRING}
+                transition={reduce ? { duration: 0 } : SPRING}
               >
                 <div className="user-dropdown-head">
                   <UserRound size={14} />

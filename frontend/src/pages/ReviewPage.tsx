@@ -12,7 +12,7 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
-import { EASE, SPRING, staggerContainer, staggerItem } from "../motion";
+import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
 import type { CheckStatus, ReviewReport } from "../types";
 
 const STEPS = ["解析文档结构", "检查形式完整性", "核对诚信与规范", "语义查重比对", "生成预审报告"];
@@ -25,6 +25,7 @@ const STATUS_LABELS: Record<CheckStatus, string> = {
 
 export function ReviewPage() {
   const { docs, toast } = useApp();
+  const reduce = useMotionPreference();
   const [params, setParams] = useSearchParams();
   const [docId, setDocId] = useState("");
   const [report, setReport] = useState<ReviewReport | null>(null);
@@ -158,7 +159,7 @@ export function ReviewPage() {
         <div className="eyebrow">AI PRE-REVIEW</div>
         <h2>本子预审</h2>
         <p className="hint">
-          选定一份申报书，形式、诚信、查重、政策四关依次勘验。AI 只呈检查项与证据——不打分、不排名、不替专家下结论。
+          选定申报书，逐项勘验，循证核对。
         </p>
         <label className="field-label" htmlFor="reviewDoc">待审文档</label>
         <select
@@ -187,12 +188,13 @@ export function ReviewPage() {
         <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
           {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始 AI 预审</>}
         </button>
-        <div className="review-steps">
+        <div className={`review-steps ${busy ? "is-running" : ""}`}>
           <div className="steps-track">
             <motion.div
               className="steps-fill"
-              animate={{ height: `${progress}%` }}
-              transition={{ duration: 0.52, ease: EASE }}
+              animate={{ scaleY: progress / 100 }}
+              style={{ originY: 0 }}
+              transition={{ duration: reduce ? 0 : 0.22, ease: EASE }}
             />
           </div>
           {STEPS.map((label, index) => (

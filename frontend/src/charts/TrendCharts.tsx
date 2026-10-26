@@ -2,7 +2,7 @@ import * as echarts from "echarts";
 import { useMemo } from "react";
 import { EChart } from "../components/EChart";
 import { escapeHtml } from "../components/Markdown";
-import { prefersReducedMotion } from "../motion";
+import { useMotionPreference } from "../motion";
 import type { TrendData } from "../types";
 
 function annualSummary(data: TrendData): string {
@@ -31,17 +31,17 @@ const AXIS = "#a9c3bc";
 const GRID = "rgba(255,255,255,.075)";
 const AXIS_LINE = "#31514b";
 
-export function AnnualChart3D({ data }: { data: TrendData }) {
+export function AnnualChart3D({ data, autoRotate = true }: { data: TrendData; autoRotate?: boolean }) {
+  const reduce = useMotionPreference();
   const option = useMemo(() => {
     const counts = data.counts ?? [];
     const years = data.years ?? [];
     const maxCount = Math.max(1, ...counts);
-    const reduce = prefersReducedMotion();
     return {
-      backgroundColor: "transparent",
+      backgroundColor: "#0b1a23",
       animation: !reduce,
-      animationDuration: reduce ? 0 : 1150,
-      animationDurationUpdate: 800,
+      animationDuration: reduce ? 0 : 480,
+      animationDurationUpdate: reduce ? 0 : 320,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         backgroundColor: "rgba(7,24,30,.94)",
@@ -85,9 +85,9 @@ export function AnnualChart3D({ data }: { data: TrendData }) {
         boxDepth: 38,
         boxHeight: 78,
         viewControl: {
-          autoRotate: !reduce,
-          autoRotateSpeed: 3.2,
-          autoRotateAfterStill: 4,
+          autoRotate: false,
+          autoRotateSpeed: 2,
+          autoRotateAfterStill: 0,
           distance: 172,
           alpha: 18,
           beta: 30,
@@ -101,42 +101,42 @@ export function AnnualChart3D({ data }: { data: TrendData }) {
           ambient: { intensity: 0.5 },
         },
         postEffect: {
-          enable: true,
+          enable: !reduce,
           bloom: { enable: true, bloomIntensity: 0.12 },
           SSAO: { enable: true, radius: 2, intensity: 1.0 },
         },
         axisLine: { lineStyle: { color: AXIS_LINE } },
         splitLine: { lineStyle: { color: GRID } },
-        environment: "transparent",
+        environment: "#0b1a23",
       },
       series: [
         {
           type: "bar3D",
           data: years.map((_, index) => [index, 0, counts[index] ?? 0]),
           shading: "lambert",
-          barSize: 1.0,
+          barSize: [Math.min(8, 100 / Math.max(1, years.length)), 8],
           bevelSize: 0.2,
           bevelSmoothness: 3,
           itemStyle: { opacity: 0.96 },
           emphasis: { itemStyle: { color: "#f3c877" } },
-          animationDuration: reduce ? 0 : 1400,
+          animationDuration: reduce ? 0 : 480,
           animationEasing: "cubicOut",
         },
       ],
     };
-  }, [data]);
+  }, [data, reduce]);
 
-  return <EChart option={option} className="chart-3d" height={345} disableWheelZoom ariaLabel={annualSummary(data)} />;
+  return <EChart option={option} autoRotate={autoRotate} className="chart-3d" height={345} disableWheelZoom ariaLabel={annualSummary(data)} />;
 }
 
-export function TopicMatrix3D({ data }: { data: TrendData }) {
+export function TopicMatrix3D({ data, autoRotate = true }: { data: TrendData; autoRotate?: boolean }) {
+  const reduce = useMotionPreference();
   const option = useMemo(() => {
     const series = (data.keyword_series ?? []).slice(0, 4);
     const years = data.years ?? [];
     const keywords = series.map((s) => s.name);
     const cells: [number, number, number][] = [];
     let maxCount = 1;
-    const reduce = prefersReducedMotion();
     series.forEach((s, yi) => {
       s.values.forEach((value, xi) => {
         if (value > 0) {
@@ -146,10 +146,10 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
       });
     });
     return {
-      backgroundColor: "transparent",
+      backgroundColor: "#0b1a23",
       animation: !reduce,
-      animationDuration: reduce ? 0 : 1150,
-      animationDurationUpdate: 800,
+      animationDuration: reduce ? 0 : 480,
+      animationDurationUpdate: reduce ? 0 : 320,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         backgroundColor: "rgba(7,24,30,.94)",
@@ -205,9 +205,9 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
         boxDepth: 62,
         boxHeight: 64,
         viewControl: {
-          autoRotate: !reduce,
-          autoRotateSpeed: 3.6,
-          autoRotateAfterStill: 4,
+          autoRotate: false,
+          autoRotateSpeed: 2,
+          autoRotateAfterStill: 0,
           distance: 188,
           alpha: 20,
           beta: 35,
@@ -220,41 +220,43 @@ export function TopicMatrix3D({ data }: { data: TrendData }) {
           ambient: { intensity: 0.52 },
         },
         postEffect: {
-          enable: true,
+          enable: !reduce,
           bloom: { enable: true, bloomIntensity: 0.1 },
           SSAO: { enable: true, radius: 2, intensity: 1.0 },
         },
         axisLine: { lineStyle: { color: AXIS_LINE } },
         splitLine: { lineStyle: { color: GRID } },
-        environment: "transparent",
+        environment: "#0b1a23",
       },
       series: [
         {
           type: "bar3D",
           data: cells,
           shading: "lambert",
-          barSize: 0.52,
+          barSize: [Math.min(6, 80 / Math.max(1, years.length)), Math.min(7, 40 / Math.max(1, keywords.length))],
           bevelSize: 0.15,
           bevelSmoothness: 3,
           itemStyle: { opacity: 0.95 },
           emphasis: { itemStyle: { color: "#ffffff" } },
-          animationDuration: reduce ? 0 : 1500,
+          animationDuration: reduce ? 0 : 480,
           animationEasing: "cubicOut",
         },
       ],
     };
-  }, [data]);
+  }, [data, reduce]);
 
-  return <EChart option={option} className="chart-3d" height={345} disableWheelZoom ariaLabel={matrixSummary(data, 4)} />;
+  return <EChart option={option} autoRotate={autoRotate} className="chart-3d" height={345} disableWheelZoom ariaLabel={matrixSummary(data, 4)} />;
 }
 
 export function TrendLine2D({ data }: { data: TrendData }) {
+  const reduce = useMotionPreference();
   const option = useMemo(
     () => ({
       backgroundColor: "transparent",
       color: COLORS,
-      animationDuration: 900,
-      animationDurationUpdate: 650,
+      animation: !reduce,
+      animationDuration: reduce ? 0 : 480,
+      animationDurationUpdate: reduce ? 0 : 320,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         trigger: "axis",
@@ -293,17 +295,19 @@ export function TrendLine2D({ data }: { data: TrendData }) {
         emphasis: { focus: "series" },
       })),
     }),
-    [data]
+    [data, reduce]
   );
   return <EChart option={option} className="chart-2d" height={345} ariaLabel={matrixSummary(data)} />;
 }
 
 export function TrendBar2D({ data }: { data: TrendData }) {
+  const reduce = useMotionPreference();
   const option = useMemo(
     () => ({
       backgroundColor: "transparent",
-      animationDuration: 900,
-      animationDurationUpdate: 650,
+      animation: !reduce,
+      animationDuration: reduce ? 0 : 480,
+      animationDurationUpdate: reduce ? 0 : 320,
       animationEasingUpdate: "cubicOut",
       tooltip: {
         trigger: "axis",
@@ -349,7 +353,7 @@ export function TrendBar2D({ data }: { data: TrendData }) {
         },
       ],
     }),
-    [data]
+    [data, reduce]
   );
   return <EChart option={option} className="chart-2d" height={345} ariaLabel={annualSummary(data)} />;
 }

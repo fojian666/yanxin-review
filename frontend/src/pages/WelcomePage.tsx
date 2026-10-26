@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
 import {
-  ArrowRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users,
+  ArrowRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, Upload, UserCog, Users,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApp } from "../AppContext";
-import { EASE, prefersReducedMotion, staggerContainer, staggerItem } from "../motion";
+import { EASE, MOTION, useMotionPreference, staggerContainer, staggerItem } from "../motion";
 import { ROLE_LABELS, type UserRole } from "../types";
 
 interface Entry {
@@ -35,9 +35,15 @@ function greeting(): string {
 }
 
 export function WelcomePage() {
-  const { auth, can } = useApp();
-  const reduce = prefersReducedMotion();
-  const entries = ENTRIES.filter((item) => !item.permission || can(item.permission));
+  const { auth, can, docs, loading, openUpload } = useApp();
+  const reduce = useMotionPreference();
+  const priority = can("review")
+    ? ["/review", "/match", "/chat", "/trend", "/library", "/admin"]
+    : ["/chat", "/trend", "/library"];
+  const entries = ENTRIES.filter((item) => !item.permission || can(item.permission))
+    .sort((a, b) => priority.indexOf(a.to) - priority.indexOf(b.to));
+  const proposalCount = docs.filter((doc) => doc.kind === "proposal").length;
+  const policyCount = docs.filter((doc) => doc.kind === "policy").length;
   const role = auth ? ROLE_LABELS[auth.role as UserRole] : "";
   const display = auth?.display_name || auth?.username || "";
   const named = Boolean(display) && display !== role;
@@ -48,31 +54,47 @@ export function WelcomePage() {
     <div className="welcome-home">
       <motion.section
         className="welcome-hero"
-        initial={reduce ? false : { opacity: 0, y: 10 }}
+        initial={reduce ? false : { opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.34, ease: EASE }}
+        transition={{ duration: reduce ? 0 : MOTION.enter, ease: EASE }}
       >
+        <div className="welcome-intro">
         <div className="welcome-greeting-row">
           <h2>{greeting()}，{name}</h2>
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
         <p>以诚信为尺，勘每一卷申报。</p>
         <div className="welcome-actions">
-          <Link className="btn btn-primary" to="/chat">
-            进入智能问答 <ArrowRight size={16} />
+          {can("upload") ? (
+            <button className="btn btn-primary" onClick={() => openUpload()}><Upload size={16} />上传文档</button>
+          ) : (
+            <Link className="btn btn-primary" to={can("review") ? "/review" : "/chat"}>
+              {can("review") ? "开始预审" : "进入智能问答"}<ArrowRight size={16} />
+            </Link>
+          )}
+          <Link className="btn btn-ghost" to={can("upload") ? "/review" : "/library"}>
+            {can("upload") ? "预审申报书" : "查看资料库"}<ArrowRight size={16} />
           </Link>
+        </div>
+        </div>
+        <div className="welcome-register" aria-label="资料库概况">
+          <FolderOpen size={20} aria-hidden="true" />
+          <strong>资料在册，随时可查</strong>
+          <span>{loading ? "正在读取资料库…" : `${docs.length} 份资料 · ${proposalCount} 份申报书 · ${policyCount} 份政策`}</span>
+          <Link to="/library">打开文档库<ArrowRight size={14} /></Link>
         </div>
       </motion.section>
 
-      <motion.div
+      <motion.nav
         className="welcome-entries"
+        aria-label="工作台功能"
         variants={staggerContainer}
         initial={reduce ? false : "initial"}
         animate="animate"
       >
-        {entries.map(({ to, title, desc, icon: Icon }) => (
+        {entries.map(({ to, title, desc, icon: Icon }, index) => (
           <motion.div key={to} variants={staggerItem}>
-            <Link className="welcome-card" to={to}>
+            <Link className={`welcome-card ${index < 2 ? "welcome-card-priority" : ""}`} to={to}>
               <span className="welcome-card-icon"><Icon size={19} /></span>
               <strong>{title}</strong>
               <small>{desc}</small>
@@ -80,7 +102,7 @@ export function WelcomePage() {
             </Link>
           </motion.div>
         ))}
-      </motion.div>
+      </motion.nav>
 
       <p className="welcome-disclaimer">
         AI 只提供检查项与证据，不打分、不排名、不替专家下结论；查重相似不等于抄袭，须人工复核。

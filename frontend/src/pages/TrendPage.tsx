@@ -3,6 +3,8 @@ import {
   Box,
   Info,
   LineChart,
+  Pause,
+  Play,
   Search,
   Trash2,
 } from "lucide-react";
@@ -13,7 +15,7 @@ import { AnnualChart3D, TopicMatrix3D, TrendBar2D, TrendLine2D } from "../charts
 import { KpiCard } from "../components/KpiCard";
 import { Markdown } from "../components/Markdown";
 import { hasWebGL } from "../components/EChart";
-import { EASE, SPRING, staggerContainer, staggerItem } from "../motion";
+import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
 import type { TrendData } from "../types";
 
 const CHIPS = ["科研诚信", "大模型", "语义查重", "知识图谱", "专家评审", "成果转化", "自然资源"];
@@ -34,6 +36,8 @@ export function TrendPage() {
   const [error, setError] = useState("");
   const [view, setView] = useState<"3d" | "2d">("3d");
   const webgl = useMemo(() => hasWebGL(), []);
+  const reduce = useMotionPreference();
+  const [rotationEnabled, setRotationEnabled] = useState(true);
   const initialized = useRef(false);
   const loadingRef = useRef(false);
 
@@ -108,14 +112,13 @@ export function TrendPage() {
         <div className="trend-hero-copy">
           <div className="eyebrow">HISTORICAL EVOLUTION</div>
           <h2>历史沿革 · 多年文献趋势</h2>
-          <p>
-            不限主题，不限年代。落下一枚方向词，便从多年文献里读出热度的起伏、阶段的更迭与尚待开垦的空白——每一步研判，皆有数据可依。
-          </p>
+          <p>落一枚方向词，读多年文献的热度与空白。</p>
         </div>
         <div className="trend-controls">
           <div className="search-box">
             <Search size={18} />
             <input
+              aria-label="分析主题"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -126,18 +129,18 @@ export function TrendPage() {
             />
           </div>
           <div className="year-row">
-            <select value={start} onChange={(event) => setStart(Number(event.target.value))}>
+            <select aria-label="起始年份" value={start} onChange={(event) => setStart(Number(event.target.value))}>
               {startOptions.map((year) => <option key={year} value={year}>{year}</option>)}
             </select>
             <span>—</span>
-            <select value={end} onChange={(event) => setEnd(Number(event.target.value))}>
+            <select aria-label="结束年份" value={end} onChange={(event) => setEnd(Number(event.target.value))}>
               {endOptions.map((year) => <option key={year} value={year}>{year}</option>)}
             </select>
             <motion.button
               className="btn btn-primary"
               onClick={() => void run(query, start, end)}
-              disabled={showLoading}
-              whileTap={showLoading ? undefined : { scale: 0.97 }}
+              disabled={loading}
+              whileTap={loading ? undefined : { scale: 0.97 }}
               transition={{ duration: 0.34, ease: EASE }}
             >
               {showLoading ? "分析中…" : "分析趋势"}
@@ -155,6 +158,7 @@ export function TrendPage() {
               setQuery(chip);
               void run(chip, start, end);
             }}
+            disabled={loading}
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.97 }}
             transition={{ duration: 0.23, ease: EASE }}
@@ -209,12 +213,14 @@ export function TrendPage() {
         />
         <KpiCard
           label="年份跨度"
+          format="range"
           value={stats ? `${stats.year_start}—${stats.year_end}` : "—"}
           sub="按发表年份统计"
           delay={0.05}
         />
         <KpiCard
           label="最热主题"
+          format="text"
           value={stats?.top_keyword || "—"}
           sub="出现频次最高的主题词"
           tone="gold"
@@ -232,8 +238,22 @@ export function TrendPage() {
         <div>
           <span className={`live-dot ${showLoading ? "loading" : ""}`} />
           趋势视图
-          <span className="muted"> · 3D 可拖拽旋转 · 滚轮滚动页面 / 2D 便于读数</span>
+          <span className="muted"> · 3D 可拖拽，2D 便于读数</span>
         </div>
+        <div className="trend-view-actions">
+        {effectiveView === "3d" && (
+          <button
+            className="btn btn-ghost btn-sm rotation-toggle"
+            onClick={() => setRotationEnabled((enabled) => !enabled)}
+            disabled={reduce}
+            aria-pressed={rotationEnabled && !reduce}
+            aria-label="自动旋转"
+            title={reduce ? "已遵循系统减少动态效果设置" : "同时控制两张 3D 图表；离屏与后台自动暂停"}
+          >
+            {rotationEnabled && !reduce ? <Pause size={14} /> : <Play size={14} />}
+            {reduce ? "旋转已关闭" : rotationEnabled ? "暂停旋转" : "继续旋转"}
+          </button>
+        )}
         <div className="view-toggle">
           <motion.span
             className="view-pill"
@@ -245,15 +265,18 @@ export function TrendPage() {
             onClick={() => webgl && setView("3d")}
             disabled={!webgl}
             title={webgl ? "3D 视图" : "当前浏览器不支持 WebGL"}
+            aria-pressed={effectiveView === "3d"}
           >
             <Box size={14} /><span>3D</span>
           </button>
           <button
             className={effectiveView === "2d" ? "active" : ""}
             onClick={() => setView("2d")}
+            aria-pressed={effectiveView === "2d"}
           >
             <LineChart size={14} /><span>2D</span>
           </button>
+        </div>
         </div>
       </div>
 
@@ -264,7 +287,7 @@ export function TrendPage() {
               <div className="panel-head">
                 <div>
                   <h2>年度发文量</h2>
-                  <p>{effectiveView === "3d" ? "3D 立体柱 · 自动旋转" : "相关文献按年排布，起伏即脉络"}</p>
+                  <p>{effectiveView === "3d" ? `3D 立体柱 · ${rotationEnabled && !reduce ? "自动旋转" : "已暂停，可拖拽"}` : "相关文献按年排布，起伏即脉络"}</p>
                 </div>
                 <span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>
                   {effectiveView === "3d" ? "LIVE 3D" : "2D"}
@@ -278,7 +301,7 @@ export function TrendPage() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.23, ease: EASE }}
                 >
-                  {effectiveView === "3d" ? <AnnualChart3D data={data} /> : <TrendBar2D data={data} />}
+                  {effectiveView === "3d" ? <AnnualChart3D data={data} autoRotate={rotationEnabled} /> : <TrendBar2D data={data} />}
                 </motion.div>
               </AnimatePresence>
               {showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}
@@ -301,7 +324,7 @@ export function TrendPage() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.23, ease: EASE }}
                 >
-                  {effectiveView === "3d" ? <TopicMatrix3D data={data} /> : <TrendLine2D data={data} />}
+                  {effectiveView === "3d" ? <TopicMatrix3D data={data} autoRotate={rotationEnabled} /> : <TrendLine2D data={data} />}
                 </motion.div>
               </AnimatePresence>
               {showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}

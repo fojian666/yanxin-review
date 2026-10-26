@@ -28,6 +28,8 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
     : visible;
   const asideRef = useRef<HTMLElement>(null);
   const wasOpen = useRef(false);
+  const animationRef = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(animationRef.current), []);
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -80,14 +82,16 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
     };
   }, [navOpen]);
 
-  // 部分 webview 的 CSS 宽度过渡会冻结布局，改用 rAF 逐帧内联样式补间（每帧强制重排，可靠）
   // 滑动只动 transform（合成器路径）；主区瞬时切换——逐帧改 margin 会让
   // 嵌入式 webview 的渲染冻结在中间态（主面板显示一半），不能碰布局属性
   const animateSidebar = (toCollapsed: boolean) => {
+    cancelAnimationFrame(animationRef.current);
+    const aside = asideRef.current;
+    if (aside) { aside.style.width = ""; aside.style.transform = ""; }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const sb = document.querySelector<HTMLElement>(".sidebar");
     if (!sb) return;
-    const DUR = 300;
+    const DUR = 220;
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
     sb.style.width = "264px"; // class 已切换，动画期间以 264 宽滑动
     if (!toCollapsed) {
@@ -100,14 +104,14 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
       const e = easeOutCubic(p);
       const shift = toCollapsed ? -180 * e : -180 * (1 - e);
       sb.style.transform = `translateX(${shift.toFixed(1)}px)`;
-      if (p < 1) requestAnimationFrame(tick);
+      if (p < 1) animationRef.current = requestAnimationFrame(tick);
       else {
         // 落位：清除内联，交给样式表（折叠 84 / 展开 264，均无位移）
         sb.style.width = "";
         sb.style.transform = "";
       }
     };
-    requestAnimationFrame(tick);
+    animationRef.current = requestAnimationFrame(tick);
   };
 
   const onToggle = () => {

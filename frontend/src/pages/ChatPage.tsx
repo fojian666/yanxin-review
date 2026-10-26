@@ -20,7 +20,7 @@ import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
-import { EASE, SPRING, staggerContainer, staggerItem } from "../motion";
+import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
 import type { ChatHistoryItem, ChatMessage, Citation } from "../types";
 
 const QUICK_CARDS = [
@@ -59,6 +59,7 @@ function uid() {
 }
 
 export function ChatPage() {
+  const reduce = useMotionPreference();
   const {
     docs,
     selectedDocs,
@@ -134,8 +135,8 @@ export function ChatPage() {
     if (focusedSource === null) return;
     document
       .getElementById(`source-${focusedSource}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [focusedSource, citations]);
+      ?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+  }, [focusedSource, citations, reduce]);
 
   useEffect(() => {
     return () => {
