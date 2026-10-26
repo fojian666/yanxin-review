@@ -110,11 +110,13 @@ export function ReviewPage() {
       `- 风险等级：${report.overall.risk_level}`,
       `- 生成时间：${report.overall.generated_at}`,
       `- 文本规模：${report.doc.char_count} 字 / ${report.doc.chunk_count} 个文本块`,
+      `- 执行模式：${report.mode === "qwen" ? "大模型生成，规则引擎校验" : "离线规则与检索（未启用大模型）"}`,
       "",
       "## 总体判断",
       report.overall.summary,
       "",
     ];
+    if (report.warning) lines.push(`> 运行提示：${report.warning}`, "");
     report.sections.forEach((section) => {
       lines.push(`## ${section.title}（${STATUS_LABELS[section.status]}）`);
       section.items.forEach((item) => {
@@ -136,6 +138,10 @@ export function ReviewPage() {
     }
     lines.push("## 建议核实的问题");
     report.questions.forEach((question, index) => lines.push(`${index + 1}. ${question}`));
+    // 网页上能看到的能力边界与运行警告必须跟着文件走，否则离线报告会被当成语义判断
+    if (report.limitations?.length) {
+      lines.push("", "## 能力边界", ...report.limitations.map((item, index) => `${index + 1}. ${item}`));
+    }
     lines.push("", "---", report.disclaimer);
     const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);

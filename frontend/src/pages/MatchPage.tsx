@@ -46,6 +46,7 @@ export function MatchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadingRef = useRef(false);
+  const checkIdRef = useRef(0);
   const csvRef = useRef<HTMLInputElement>(null);
 
   const sortedDocs = useMemo(() => {
@@ -88,15 +89,20 @@ export function MatchPage() {
     loadingRef.current = true;
     setLoading(true);
     setError("");
+    const token = ++checkIdRef.current;
     try {
       const data = await api.toolCheck(docId);
+      if (token !== checkIdRef.current) return;  // 期间已改选或重跑，丢弃过期结果
       setResult(data);
     } catch (err) {
+      if (token !== checkIdRef.current) return;
       setError((err as Error).message);
       toast(`一体化检查失败：${(err as Error).message}`, "error");
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
+      if (token === checkIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   };
 
@@ -203,10 +209,12 @@ export function MatchPage() {
             className="select"
             value={docId}
             onChange={(event) => {
+              checkIdRef.current += 1;  // 作废进行中的检查，避免旧结果落到新选的本子上
               setDocId(event.target.value);
               setResult(null);
               setError("");
             }}
+            disabled={loading}
           >
             {sortedDocs.length === 0 ? (
               <option value="">暂无文档，请先上传</option>

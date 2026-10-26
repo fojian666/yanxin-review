@@ -121,13 +121,21 @@ export function ChatPage() {
     el.style.height = `${Math.min(140, el.scrollHeight)}px`;
   }, [input]);
 
-  const focusSource = (index: number) => {
-    const el = document.getElementById(`source-${index}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const focusSource = (index: number, list?: Citation[]) => {
+    // 点旧问题的 [1] 要先把证据面板换回那一轮的回答，否则定位到最新一轮的第一条
+    if (list && list !== citations) setCitations(list);
     setFocusedSource(index);
     if (focusTimer.current) window.clearTimeout(focusTimer.current);
     focusTimer.current = window.setTimeout(() => setFocusedSource(null), 1300);
   };
+
+  // 换列表要等这一帧渲染完，DOM 里才是该轮的证据
+  useEffect(() => {
+    if (focusedSource === null) return;
+    document
+      .getElementById(`source-${focusedSource}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [focusedSource, citations]);
 
   useEffect(() => {
     return () => {
@@ -379,7 +387,11 @@ export function ChatPage() {
               >
                 <AnimatePresence initial={false}>
                   {messages.map((message) => (
-                    <MessageBubble key={message.id} message={message} onCite={focusSource} />
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      onCite={(index) => focusSource(index, message.citations)}
+                    />
                   ))}
                 </AnimatePresence>
               </motion.div>
