@@ -595,7 +595,7 @@ flowchart LR
 - 安全加固（P3–P5 审查）：`/api/experts` 最小权限（viewer 不可读回避画像）；DOCX XML 实体声明直接拒绝；PDF 解析页数上限（`MAX_PDF_PAGES`，默认 2000）；`LLM_ENABLE_THINKING` 三态开关（Qwen3 兼容）；`COOKIE_SECURE` 会话加密传输；ASGI 真实权限矩阵回归（401/403/200）。
 - 界面与文案：登录页动态地形背景（等高线描边/视差/扫描带/纸纹）；全局尺度与状态动效（表格行增删、匹配切换、KPI 闪光、上传完成）；全站文案统一为"勘验阅卷"意象，按钮/状态/免责声明保持直白。
 - 检索升级（向量）：`rag/embeddings.py` 提供 local / api / none 三种后端，`auto` 按 本地 → API → 纯 TF-IDF 降级；向量接管 `search()`，TF-IDF 保留为基线与回落。公网嵌入端点受 `ALLOW_EXTERNAL_EMBED` 门禁（与 LLM 同口径）；向量按单条文本哈希缓存，新增文档不重算整库；后端不可用、行数不符、查询向量化失败三种情况均实测自动回落。`tools/eval_retrieval.py` 在 14 个政策问题上对比：命中@3 71.4%→92.9%、MRR 0.631→0.762。查重仍固定走 TF-IDF（字面重合才是查重口径）。暂不引入 Milvus：当前量级内存点积（37ms/次）已够，向量库要先起 etcd+MinIO，收益不抵运维成本。
-- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 103 项。
+- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 109 项。
 
 **下一轮 4 周（建议）**
 

@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（103 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（109 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -77,7 +77,7 @@ frontend/src/
 
 1. **AI 不打分、不排名、不给立项/处罚结论**；预审/查重/匹配输出必须带免责声明，查重必须提示"相似≠抄袭、需人工复核"。
 2. **专家匹配不使用性别、年龄等敏感属性**；回避/负载约束过滤必须在语义排序之前。
-3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。
+3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。**两条出网面都拒绝跟随重定向**（307/308 会把原始 body 转到未校验地址），`auto` 嵌入降级到 API 前必须重跑门禁、不通过就退回纯 TF-IDF；改任何一处都要保住这条，用例已锁定。
 4. **隐私**：`3.科研课题申请书（终稿）.docx` 与 `交付材料/01-软件著作权/screenshots/` 含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
 
@@ -98,6 +98,7 @@ frontend/src/
 ## 改动与提交约定
 
 - 后端改动 → 跑 `pytest`；前端改动 → 跑 `npm run build`（含 tsc 类型检查）。
+- **FastAPI 路由按声明顺序匹配**：固定路径（`/api/documents/sample`）必须先于同前缀的参数路径（`/api/documents/{doc_id}`）声明，否则被参数路由吃掉返回 404（已踩过一次）。
 - Conventional Commits，中文描述（`fix:` / `feat:` / `refactor:` / `init:`）。
 - 文案基调（2026-10-24 定稿）：标题/副标题/空态/引导语用勘验阅卷意象（四字格、对仗，如"以诚信为尺，勘每一卷申报"）；按钮、表头、状态词与免责声明保持直白，不修辞。
 - 文档五处需同步：`README.md`（使用与 API）、`实施方案-RAG垂类模型与智能问答.md`（§8.2 已落地清单）、`DESIGN.md`（设计 token、组件、动效与无障碍契约）、`SECURITY.md`（安全行为描述与基线 commit，改认证/权限/防护/环境变量时必更）、`交付材料/`（若涉及软著功能描述与源程序清单——**注意源程序清单当前与代码有漂移，提交软著前需重新生成**）。
