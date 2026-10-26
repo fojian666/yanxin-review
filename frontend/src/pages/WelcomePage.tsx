@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApp } from "../AppContext";
-import { EASE, MOTION, useMotionPreference, staggerContainer, staggerItem } from "../motion";
+import { EASE, MOTION, useMotionPreference, useSessionEntrance, staggerContainer, staggerItem } from "../motion";
 import { ROLE_LABELS, type UserRole } from "../types";
 
 interface Entry {
@@ -37,6 +37,7 @@ function greeting(): string {
 export function WelcomePage() {
   const { auth, can, docs, loading, openUpload } = useApp();
   const reduce = useMotionPreference();
+  const unfold = useSessionEntrance("yanxin.dossier-entrance");
   const priority = can("review")
     ? ["/review", "/match", "/chat", "/trend", "/library", "/admin"]
     : ["/chat", "/trend", "/library"];
@@ -78,7 +79,18 @@ export function WelcomePage() {
         </div>
         </div>
         <div className="welcome-register" aria-label="资料库概况">
-          <FolderOpen size={20} aria-hidden="true" />
+          <div className={`dossier-art ${unfold ? "is-unfolding" : ""}`} aria-hidden="true">
+            <div className="dossier-leaf dossier-leaf-back" />
+            <div className="dossier-leaf dossier-leaf-mid" />
+            <div className="dossier-leaf dossier-leaf-front">
+              <span className="dossier-binding" />
+              <span className="dossier-caption">研信智评 · 科研卷宗</span>
+              <span className="dossier-title">以信立卷</span>
+              <span className="dossier-rules"><i /><i /><i /></span>
+              <span className="dossier-bookmark">卷</span>
+            </div>
+            <span className="dossier-shadow" />
+          </div>
           <strong>资料在册，随时可查</strong>
           <span>{loading ? "正在读取资料库…" : `${docs.length} 份资料 · ${proposalCount} 份申报书 · ${policyCount} 份政策`}</span>
           <Link to="/library">打开文档库<ArrowRight size={14} /></Link>

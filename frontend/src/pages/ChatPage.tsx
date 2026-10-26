@@ -18,6 +18,7 @@ import {
 } from "react";
 import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
+import { CitationTrace, type CitationSelection } from "../components/CitationTrace";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
 import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
@@ -78,6 +79,8 @@ export function ChatPage() {
   const [busy, setBusy] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [focusedSource, setFocusedSource] = useState<number | null>(null);
+  const [citationSelection, setCitationSelection] = useState<CitationSelection | null>(null);
+  const citationSequence = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -122,10 +125,11 @@ export function ChatPage() {
     el.style.height = `${Math.min(140, el.scrollHeight)}px`;
   }, [input]);
 
-  const focusSource = (index: number, list?: Citation[]) => {
+  const focusSource = (index: number, list: Citation[] | undefined, origin: HTMLElement) => {
     // 点旧问题的 [1] 要先把证据面板换回那一轮的回答，否则定位到最新一轮的第一条
     if (list && list !== citations) setCitations(list);
     setFocusedSource(index);
+    setCitationSelection({ index, origin, id: ++citationSequence.current });
     if (focusTimer.current) window.clearTimeout(focusTimer.current);
     focusTimer.current = window.setTimeout(() => setFocusedSource(null), 1300);
   };
@@ -136,7 +140,7 @@ export function ChatPage() {
     document
       .getElementById(`source-${focusedSource}`)
       ?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
-  }, [focusedSource, citations, reduce]);
+  }, [focusedSource, citationSelection, citations, reduce]);
 
   useEffect(() => {
     return () => {
@@ -391,7 +395,7 @@ export function ChatPage() {
                     <MessageBubble
                       key={message.id}
                       message={message}
-                      onCite={(index) => focusSource(index, message.citations)}
+                      onCite={(index, origin) => focusSource(index, message.citations, origin)}
                     />
                   ))}
                 </AnimatePresence>
@@ -425,12 +429,13 @@ export function ChatPage() {
         </div>
       </div>
 
-      <SourcesPanel citations={citations} focused={focusedSource} mode={retrievalMode} />
+      <SourcesPanel citations={citations} focused={focusedSource} pulse={citationSelection?.id ?? 0} mode={retrievalMode} />
+      <CitationTrace selection={citationSelection} />
     </div>
   );
 }
 
-function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (index: number) => void }) {
+function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (index: number, origin: HTMLElement) => void }) {
   return (
     <motion.div
       className={`msg ${message.role}`}
@@ -476,10 +481,12 @@ function scorePct(score: number | undefined, mode?: "tfidf" | "embedding") {
 function SourcesPanel({
   citations,
   focused,
+  pulse,
   mode,
 }: {
   citations: Citation[];
   focused: number | null;
+  pulse: number;
   mode?: "tfidf" | "embedding";
 }) {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
@@ -526,7 +533,10 @@ function SourcesPanel({
                     <div className="source-loc">{locationText(c)}</div>
                   </div>
                 </div>
-                <div className={`source-text ${expanded.has(c.index) ? "is-expanded" : ""}`}>{c.text}</div>
+                <div className={`source-text ${expanded.has(c.index) ? "is-expanded" : ""}`}>
+                  {focused === c.index && <span className="source-ink-wash" key={pulse} aria-hidden="true" />}
+                  {c.text}
+                </div>
                 {(c.text || "").length > 120 && (
                   <button
                     type="button"

@@ -242,10 +242,11 @@ export function ReviewPage() {
           ) : (
             <motion.div
               key={report.overall.generated_at}
-              initial={{ opacity: 0, y: 10 }}
+              className="report-unveiling"
+              initial={reduce ? false : { opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.31, ease: EASE }}
+              transition={{ duration: reduce ? 0 : 0.22, ease: EASE }}
             >
             <ReportHeader report={report} onExport={exportReport} />
             <ReportSummary report={report} />
@@ -254,9 +255,9 @@ export function ReviewPage() {
               <motion.div
                 className="section-block"
                 key={section.key}
-                initial={{ opacity: 0, y: 10 }}
+                initial={reduce ? false : { opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.31, ease: EASE, delay: Math.min(sectionIndex * 0.045, 0.2) }}
+                transition={{ duration: reduce ? 0 : 0.24, ease: EASE, delay: reduce ? 0 : Math.min(sectionIndex * 0.04, 0.16) }}
               >
                 <div className="section-head">
                   <h3>{section.title}</h3>
@@ -350,13 +351,21 @@ export function ReviewPage() {
 }
 
 function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: () => void }) {
+  const reduce = useMotionPreference();
   const risk = report.overall.risk_level;
   const riskClass = risk === "高" ? "risk-high" : risk === "低" ? "risk-low" : "risk-mid";
   return (
     <div className="report-head">
       <div>
         <div className="eyebrow">AI PRE-REVIEW REPORT</div>
-        <h2>预审报告</h2>
+        <div className="report-title-row">
+          <h2>预审报告</h2>
+          <motion.span className="report-seal"
+            initial={reduce ? false : { opacity: 0, scale: 1.18, rotate: -9, y: -6 }}
+            animate={{ opacity: 1, scale: 1, rotate: -3, y: 0 }}
+            transition={{ duration: reduce ? 0 : 0.3, delay: reduce ? 0 : 0.22, ease: EASE }}
+          >待人工复核</motion.span>
+        </div>
         <p>{report.doc.name}</p>
       </div>
       <div className="report-head-right">

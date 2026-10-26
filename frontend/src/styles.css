@@ -1912,3 +1912,72 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .welcome h2 { font-size: 25px; line-height: 1.45; }
   .welcome-mark { width: 46px; height: 46px; margin-bottom: 12px; }
 }
+
+/* 招牌动效：展卷、循证、呈卷；动态层均不拦截操作。 */
+.welcome-hero { grid-template-columns: minmax(0, 1fr) 280px; }
+.welcome-register { gap: 7px; }
+.welcome-intro { align-self: center; }
+.dossier-art { position: relative; width: 218px; height: 126px; margin: 2px auto 14px; perspective: 800px; pointer-events: none; }
+.dossier-leaf { position: absolute; width: 184px; height: 112px; top: 4px; left: 12px; border: 1px solid #d4c6ad; border-radius: 2px 5px 5px 2px; transform-origin: 12px 90%; }
+.dossier-leaf-back { background: #e7decd; transform: translate(13px, 5px) rotate(9deg); }
+.dossier-leaf-mid { background: #f1eadb; transform: translate(6px, 2px) rotate(3deg); }
+.dossier-leaf-front { background: #fffdf8; transform: rotate(-4deg); box-shadow: 0 3px 6px #10242e12; padding: 15px 20px 14px 26px; color: var(--ink); }
+.dossier-binding { position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #b5853c75; }
+.dossier-caption { display: block; color: var(--muted); font-size: 9px; letter-spacing: 1px; }
+.dossier-title { display: block; font-family: "Songti SC", "STSong", serif; font-size: 21px; letter-spacing: 3px; margin: 7px 0 8px; }
+.dossier-rules { display: grid; gap: 4px; }
+.dossier-rules i { display: block; height: 1px; background: #ded6c7; transform-origin: left; }
+.dossier-rules i:nth-child(2) { width: 80%; }
+.dossier-rules i:nth-child(3) { width: 56%; }
+.dossier-bookmark { position: absolute; top: -1px; right: 13px; width: 20px; height: 37px; padding-top: 9px; background: var(--teal-deep); color: #fffdf8; font: 12px "Songti SC", serif; text-align: center; border-radius: 0 0 9px 1px; transform-origin: top; }
+.dossier-shadow { position: absolute; left: 24px; bottom: -1px; width: 160px; height: 5px; border-radius: 50%; background: #10242e12; z-index: -1; }
+.is-unfolding .dossier-leaf-back { animation: dossierBack .7s cubic-bezier(.22,1,.36,1) both; }
+.is-unfolding .dossier-leaf-mid { animation: dossierMid .65s .035s cubic-bezier(.22,1,.36,1) both; }
+.is-unfolding .dossier-leaf-front { animation: dossierFront .65s .07s cubic-bezier(.22,1,.36,1) both; }
+.is-unfolding .dossier-bookmark { animation: dossierBookmark .34s .35s cubic-bezier(.22,1,.36,1) both; }
+.is-unfolding .dossier-rules i { animation: dossierRule .4s .25s cubic-bezier(.22,1,.36,1) both; }
+@keyframes dossierBack { from { transform: translate(-5px, 12px) rotate(-8deg); } to { transform: translate(13px, 5px) rotate(9deg); } }
+@keyframes dossierMid { from { transform: translate(-8px, 9px) rotate(-8deg); } to { transform: translate(6px, 2px) rotate(3deg); } }
+@keyframes dossierFront { from { transform: translate(-12px, 8px) rotate(-12deg); } to { transform: rotate(-4deg); } }
+@keyframes dossierBookmark { from { transform: scaleY(.12); } to { transform: scaleY(1); } }
+@keyframes dossierRule { from { transform: scaleX(.35); opacity: .3; } to { transform: scaleX(1); opacity: 1; } }
+.msg-content button.cite { border: 0; font-family: inherit; }
+.source-card.flash { animation: none; border-color: var(--teal); }
+.source-text { position: relative; isolation: isolate; }
+.source-ink-wash { position: absolute; inset: 0; z-index: -1; background: #bce3d26b; transform-origin: left; pointer-events: none; animation: sourceInk 1.2s cubic-bezier(.22,1,.36,1) both; }
+@keyframes sourceInk { 0% { transform: scaleX(0); opacity: .8; } 35%,70% { transform: scaleX(1); opacity: .8; } 100% { transform: scaleX(1); opacity: 0; } }
+.citation-trace { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.citation-trace-segment { position: absolute; height: 1px; transform-origin: left center; }
+.citation-trace-segment i { display: block; height: 100%; background: var(--teal); transform-origin: left; }
+.citation-trace-point { position: absolute; left: -2px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 5px #0e7c6b66; }
+.report-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.report-title-row h2 { margin-bottom: 0; }
+.report-seal { display: inline-block; padding: 5px 7px; border: 3px double #51766d; border-radius: 2px; color: #3a665a; font: 12px "Songti SC", "STSong", serif; letter-spacing: 2px; white-space: nowrap; }
+@media (max-width: 900px) {
+  .welcome-hero { grid-template-columns: 1fr; }
+  .welcome-register { grid-template-columns: 1fr auto; }
+  .dossier-art { grid-column: 2; grid-row: 1 / span 3; width: 184px; height: 118px; margin: 0; transform: scale(.9); transform-origin: right center; }
+  .dossier-leaf { left: 0; }
+  .welcome-register > strong, .welcome-register > span, .welcome-register > a { grid-column: 1; }
+}
+@media (max-width: 680px) {
+  .welcome-register { grid-template-columns: minmax(0, 1fr) 88px; gap: 7px 8px; }
+  .dossier-art { width: 88px; height: 72px; transform: none; align-self: center; overflow: visible; }
+  .dossier-leaf { width: 75px; height: 58px; top: 3px; }
+  .dossier-leaf-front { padding: 13px 6px 6px 15px; }
+  .dossier-caption, .dossier-rules, .dossier-shadow { display: none; }
+  .dossier-title { font-size: 11px; line-height: 1.7; letter-spacing: 1px; margin: 0; max-width: 30px; }
+  .dossier-bookmark { width: 12px; height: 25px; right: 5px; padding-top: 5px; font-size: 9px; }
+  .welcome-register > span { font-size: 12px; }
+  .report-title-row { gap: 8px; }
+  .report-seal { font-size: 11px; letter-spacing: 1px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-unfolding *, .source-ink-wash { animation: none !important; }
+  .source-ink-wash { opacity: .6; }
+  .citation-trace { display: none; }
+}
+@media print {
+  .dossier-art, .citation-trace, .source-ink-wash { display: none; }
+  .report-seal { transform: none !important; }
+}
