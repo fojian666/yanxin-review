@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-python3 -m pytest tests/ -q                                 # 回归测试（109 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（112 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -90,7 +90,7 @@ frontend/src/
 - 政策库只有两部公开公文。条款级比对只输出“可能相关条款 + 人工核对”，**不做版本时效判断**（`PolicyMeta` 的生效/失效/被替代字段已冻结、未建存储）。政策引用保留全角标点（`normalize_text` 用 NFC + 全角数字字母转半角，**不要改回 NFKC**，否则「（一）…；」会变「(一)…;」）。
 - **无模型不是故障**：未配 `LLM_PROVIDER` 或没有 key 时，问答走原文摘录、预审走规则引擎、趋势走规则统计；预审报告带 `limitations` 逐条说明规则做不到什么，前端显示在结论下方。不要把这些兜底结果当成语义判断。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
-- 专家同单位回避是**精确字符串匹配**，接真实专家库前需做单位名归一（已知待办）。
+- 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
 - 上传大小限制由 `/api/health` 的 `upload_limit_mb` 下发，前端同步展示；上传走 XHR 以显示真实进度。

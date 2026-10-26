@@ -9,7 +9,7 @@
     417 rag/db.py
     293 rag/demo_proposals.py
     362 rag/embeddings.py
-    329 rag/experts.py
+    364 rag/experts.py
      33 rag/ingest.py
     193 rag/llm.py
     298 rag/parsers.py
@@ -20,7 +20,7 @@
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   5311 total
+   5346 total
 前端（TypeScript/TSX/CSS）
     230 frontend/src/App.tsx
     286 frontend/src/AppContext.tsx
@@ -43,13 +43,13 @@
     561 frontend/src/pages/ChatPage.tsx
     304 frontend/src/pages/LibraryPage.tsx
     314 frontend/src/pages/LoginPage.tsx
-    512 frontend/src/pages/MatchPage.tsx
+    521 frontend/src/pages/MatchPage.tsx
     427 frontend/src/pages/ReviewPage.tsx
     437 frontend/src/pages/TrendPage.tsx
     124 frontend/src/pages/WelcomePage.tsx
-   1983 frontend/src/styles.css
-    268 frontend/src/types.ts
-   7422 total
+   1990 frontend/src/styles.css
+    272 frontend/src/types.ts
+   7442 total
 测试（Python）
      31 tests/conftest.py
     187 tests/test_corpus.py
@@ -57,8 +57,8 @@
      73 tests/test_llm_payload.py
     170 tests/test_llm_provider.py
     378 tests/test_retrieval_embedding.py
-    995 tests/test_robustness.py
-   1850 total
+   1048 tests/test_robustness.py
+   1903 total
 工具（Python）
     198 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -66,7 +66,7 @@
     169 tools/soft_copyright.py
     975 total
 合计
-  15558 total（57 个文件）
+  15666 total（57 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

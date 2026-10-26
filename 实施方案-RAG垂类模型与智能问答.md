@@ -588,7 +588,7 @@ flowchart LR
 - 文献 CSV 导入、演示文献/演示专家一键移除；
 - 千问/内网 OpenAI 兼容服务切换；未配置时离线检索式回答；
 - React 19 + Vite 前端；ECharts GL 3D 年度柱状图/主题矩阵，支持 2D 切换与 WebGL 降级；Playwright 桌面视口验证通过；
-- 查重+专家匹配一体化工具：`/match` 页面、专家 CSV 导入、回避/负载约束、可解释推荐、合并导出。
+- 查重+专家匹配一体化工具：`/match` 页面、专家 CSV 导入、回避/负载约束、可解释推荐、合并导出；同单位与配置回避单位采用保守排版归一（空白/全半角/括号），保留原名与命中依据。缺申报单位/负责人在页面独立提示，不推断简称、别名或上下级关系。
 - 外部数据接入预留：`/api/ingest/experts|papers` JSON 推送（幂等去重）+ `/api/ingest/schema` 自描述契约；项目/诚信记录/政策版本结构已冻结（`rag/schemas.py`），接收端点待真实数据源就绪后启用；`INGEST_TOKEN` 可选鉴权。
 - 登录与角色（原型）：账号密码（PBKDF2 加盐哈希）+ SQLite 会话 + HttpOnly Cookie；admin/manager/reviewer/viewer 四角色，后端中间件统一拦截、写操作按角色 403，前端按角色隐藏操作；`/admin` 用户管理；生产替换 SSO 时沿用角色模型。
 - 安全加固（P0/P1 审查）：真实申请书默认不入库；演示账号仅本机监听创建 + 自助改密；3D tooltip XSS 转义；DOCX 解压总量上限；回避约束未识别申报人时明确告警；SSE 流式生命周期与结果串档治理；中文输入法回车防误发。
@@ -596,7 +596,7 @@ flowchart LR
 - 安全加固（P3–P5 审查）：`/api/experts` 最小权限（viewer 不可读回避画像）；DOCX XML 实体声明直接拒绝；PDF 解析页数上限（`MAX_PDF_PAGES`，默认 2000）；`LLM_ENABLE_THINKING` 三态开关（Qwen3 兼容）；`COOKIE_SECURE` 会话加密传输；ASGI 真实权限矩阵回归（401/403/200）。
 - 界面与文案：登录页动态地形背景（等高线描边/视差/扫描带/纸纹）；全局尺度与状态动效（表格行增删、匹配切换、KPI 闪光、上传完成）；全站文案统一为"勘验阅卷"意象，按钮/状态/免责声明保持直白。
 - 检索升级（向量）：`rag/embeddings.py` 提供 local / api / none 三种后端，`auto` 按 本地 → API → 纯 TF-IDF 降级；向量接管 `search()`，TF-IDF 保留为基线与回落。公网嵌入端点受 `ALLOW_EXTERNAL_EMBED` 门禁（与 LLM 同口径）；向量按单条文本哈希缓存，新增文档不重算整库；后端不可用、行数不符、查询向量化失败三种情况均实测自动回落。`tools/eval_retrieval.py` 在 14 个政策问题上对比：命中@3 71.4%→92.9%、MRR 0.631→0.762。查重仍固定走 TF-IDF（字面重合才是查重口径）。暂不引入 Milvus：当前量级内存点积（37ms/次）已够，向量库要先起 etcd+MinIO，收益不抵运维成本。
-- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 109 项。
+- 文档与运行：`SECURITY.md`（威胁模型、权限矩阵、部署检查清单）；`run.sh` 自动探测 PYTHON / `.venv` / conda·Anaconda / 系统 python3；回归测试 112 项。
 
 **下一轮 4 周（建议）**
 

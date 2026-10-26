@@ -1981,3 +1981,10 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .dossier-art, .citation-trace, .source-ink-wash { display: none; }
   .report-seal { transform: none !important; }
 }
+
+/* 回避依据保留原名，窄屏长单位名允许换行。 */
+.match-method-note { color: var(--muted); font-size: 12px; line-height: 1.8; margin: 0 0 16px; overflow-wrap: anywhere; }
+.match-constraint-warning { display: flex; align-items: flex-start; gap: 8px; border-left: 3px solid var(--gold); background: #fbf4df; color: #74591f; padding: 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.7; }
+.match-constraint-warning svg { flex: 0 0 auto; margin-top: 3px; }
+.excluded-list > div { overflow-wrap: anywhere; }
+.exclusion-evidence { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }

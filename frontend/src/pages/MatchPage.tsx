@@ -161,9 +161,10 @@ export function MatchPage() {
     } else {
       lines.push("当前已入库文档范围内未发现相似文档。");
     }
-    lines.push("", "## 专家匹配", result.match.summary, "");
+    lines.push("", "## 专家匹配", result.match.summary, result.match.institution_match_note, "");
+    if (result.match.applicant_warning) lines.push(result.match.applicant_warning);
     lines.push(`- 申报单位：${result.match.applicant.institutions.join("、") || "未识别"}`);
-    lines.push(`- 申报人：${result.match.applicant.people.join("、") || "未识别"}`);
+    lines.push(`- 负责人：${result.match.applicant.people.join("、") || "未识别"}`);
     lines.push(`- 主题词：${result.match.proposal_keywords.join("、")}`);
     lines.push("");
     result.match.candidates.forEach((candidate, index) => {
@@ -176,7 +177,7 @@ export function MatchPage() {
     if (result.match.excluded.length) {
       lines.push("", "### 已排除");
       result.match.excluded.forEach((item) => {
-        lines.push(`- ${item.name}（${item.institution}）：${item.reason}`);
+        lines.push(`- ${item.name}（${item.institution}）：${item.reason}；${item.evidence}`);
       });
     }
     lines.push("", "---", result.disclaimer);
@@ -377,8 +378,15 @@ export function MatchPage() {
               <div className="match-callout">
                 <strong>申报单位：</strong>{match?.applicant.institutions.join("、") || "未识别"}
                 <br />
-                <strong>申报人：</strong>{match?.applicant.people.join("、") || "未识别"}
+                <strong>负责人：</strong>{match?.applicant.people.join("、") || "未识别"}
               </div>
+              {match?.applicant_warning && (
+                <div className="match-constraint-warning" role="status">
+                  <AlertTriangle size={16} aria-hidden="true" />
+                  <span>{match.applicant_warning}</span>
+                </div>
+              )}
+              <p className="match-method-note">{match?.institution_match_note}</p>
               <div className="keyword-chips">
                 {match?.proposal_keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}
               </div>
@@ -396,8 +404,9 @@ export function MatchPage() {
                   <summary><UserX size={14} />已排除 {match.excluded.length} 位（负载 / 回避 / 不可评审）</summary>
                   <div className="excluded-list">
                     {match.excluded.map((item) => (
-                      <div key={`${item.name}-${item.reason}`}>
+                      <div key={`${item.name}-${item.institution}-${item.reason}`}>
                         <strong>{item.name}</strong>（{item.institution}）：{item.reason}
+                        <p className="exclusion-evidence">{item.evidence}</p>
                       </div>
                     ))}
                   </div>

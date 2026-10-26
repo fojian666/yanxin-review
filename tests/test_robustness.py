@@ -993,3 +993,56 @@ def test_trends_summary_counts_all_relevant_papers(monkeypatch):
     assert len(result["papers"]) == 12  # 代表文献仍按相关度截断
     assert "15 篇" in result["summary"]
     assert "12 篇" not in result["summary"]
+
+
+@pytest.mark.parametrize("expert_unit,applicant_unit,excluded", [
+    ("江苏省资源研究院（南京）", "江苏省 资源研究院 ( 南京 )", True),
+    ("ＡＢ研究院", "AB研究院", True),
+    ("江苏省\u3000资源研究院", "江苏省资源研究院", True),
+    ("江苏省资源研究院", "苏资源院", False),
+    ("江苏省资源研究院", "江苏省资源研究院分院", False),
+    ("资源研究院（南京）", "资源研究院（苏州）", False),
+    ("A B Institute", "AB Institute", False),
+    ("A  B Institute", "A B Institute", True),
+    ("", "示例大学", False),
+])
+def test_institution_avoidance_normalization(monkeypatch, expert_unit, applicant_unit, excluded):
+    text = f"申报单位：{applicant_unit}\n负责人：张三\n科研诚信 数据治理 评审"
+    expert = _fake_expert(institution=expert_unit)
+    monkeypatch.setattr(expert_service, "_doc_text", lambda _: ({"id": "d", "name": "x"}, text))
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [expert])
+    result = expert_service.match_experts("d")
+    assert bool(result["excluded"]) is excluded
+    assert result["applicant"]["institutions"] == [applicant_unit]
+    assert expert["institution"] == expert_unit
+    assert "不推断简称" in result["institution_match_note"]
+    if excluded:
+        assert result["available_count"] == 0
+        assert expert_unit in result["excluded"][0]["evidence"]
+        assert applicant_unit in result["excluded"][0]["evidence"]
+    else:
+        assert result["available_count"] == 1
+
+
+@pytest.mark.parametrize("overrides,reason,evidence", [
+    ({"available": False, "workload": 8}, "当前不可评审", "不可评审"),
+    ({"workload": 5, "institution": "示例大学（南京）"}, "在研项目数已达上限", "当前在研 5 项"),
+    ({"avoid_institutions": "另一单位;示例大学（南京）"}, "命中专家回避单位", "排版归一后一致"),
+    ({"avoid_people": "李四;张三"}, "命中专家回避人员", "张三"),
+])
+def test_exclusion_evidence_and_precedence(monkeypatch, overrides, reason, evidence):
+    text = "申报单位：示例大学(南京)\n负责人：张三\n科研诚信 数据治理"
+    monkeypatch.setattr(expert_service, "_doc_text", lambda _: ({"id": "d", "name": "x"}, text))
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [_fake_expert(**overrides)])
+    result = expert_service.match_experts("d")
+    assert result["excluded"][0]["reason"] == reason
+    assert evidence in result["excluded"][0]["evidence"]
+
+
+def test_empty_expert_library_preserves_constraint_notice(monkeypatch):
+    monkeypatch.setattr(expert_service, "_doc_text", lambda _: ({"id": "d", "name": "x"}, "科研诚信正文"))
+    monkeypatch.setattr(expert_service.db, "list_experts", lambda: [])
+    result = expert_service.match_experts("d")
+    assert result["applicant_warning"]
+    assert result["institution_match_note"]
+    assert result["excluded"] == []

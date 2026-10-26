@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import re
+import unicodedata
 from datetime import datetime
 from typing import Any
 
@@ -146,21 +147,52 @@ def extract_applicant(text: str) -> dict[str, list[str]]:
     return {"institutions": institutions, "people": people}
 
 
-def _exclusion_reason(expert: dict, applicant: dict) -> str:
+INSTITUTION_MATCH_NOTE = (
+    "单位名仅统一排版空白、全半角字符与括号；保留英文词间空格及括号内容。"
+    "不推断简称、别名或上下级关系，仍需人工核对。"
+)
+
+
+def _institution_key(value: str) -> str:
+    # 仅用于比较，不改写入库原名；不用 NFKC，避免兼容字符的额外合并。
+    value = unicodedata.normalize("NFC", value)
+    value = "".join(
+        chr(ord(char) - 0xFEE0) if "\uff01" <= char <= "\uff5e" else char
+        for char in value
+    ).strip()
+    return re.sub(
+        r"\s+",
+        lambda match: " " if (
+            match.start() > 0 and match.end() < len(value)
+            and value[match.start() - 1].isascii()
+            and value[match.start() - 1].isalnum()
+            and value[match.end()].isascii()
+            and value[match.end()].isalnum()
+        ) else "",
+        value,
+    )
+
+
+def _exclusion_details(expert: dict, applicant: dict) -> tuple[str, str]:
     if not expert.get("available"):
-        return "当前不可评审"
-    if int(expert.get("workload") or 0) >= 5:
-        return "在研项目数已达上限"
-    institution = (expert.get("institution") or "").strip()
-    if institution and institution in applicant["institutions"]:
-        return "与申报单位存在同单位回避"
-    avoid_institutions = _split_list(expert.get("avoid_institutions", ""))
-    if any(unit and unit in applicant["institutions"] for unit in avoid_institutions):
-        return "命中专家回避单位"
-    avoid_people = _split_list(expert.get("avoid_people", ""))
-    if any(person and person in applicant["people"] for person in avoid_people):
-        return "命中专家回避人员"
-    return ""
+        return "当前不可评审", "专家库中的可评审状态为不可评审。"
+    workload = int(expert.get("workload") or 0)
+    if workload >= 5:
+        return "在研项目数已达上限", f"当前在研 {workload} 项；排除阈值为 5 项。"
+    for reason, units in (
+        ("与申报单位存在同单位回避", [expert.get("institution") or ""]),
+        ("命中专家回避单位", _split_list(expert.get("avoid_institutions", ""))),
+    ):
+        for unit in units:
+            key = _institution_key(unit)
+            for applicant_unit in applicant["institutions"]:
+                if key and key == _institution_key(applicant_unit):
+                    method = "原名一致" if unit == applicant_unit else "排版归一后一致"
+                    return reason, f"专家侧「{unit}」 ↔ 申报单位「{applicant_unit}」（{method}）。"
+    for person in _split_list(expert.get("avoid_people", "")):
+        if person in applicant["people"]:
+            return "命中专家回避人员", f"专家回避人员与申报负责人「{person}」原名一致。"
+    return "", ""
 
 
 def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
@@ -189,6 +221,7 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
             "applicant": applicant,
             "applicant_detected": applicant_detected,
             "applicant_warning": applicant_warning,
+            "institution_match_note": INSTITUTION_MATCH_NOTE,
             "candidates": [],
             "excluded": [],
             "total_experts": 0,
@@ -200,13 +233,14 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
     eligible: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
     for expert in experts:
-        reason = _exclusion_reason(expert, applicant)
+        reason, evidence = _exclusion_details(expert, applicant)
         if reason:
             excluded.append(
                 {
                     "name": expert["name"],
                     "institution": expert.get("institution", ""),
                     "reason": reason,
+                    "evidence": evidence,
                 }
             )
         else:
@@ -252,7 +286,7 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
         if applicant_warning:
             reasons.append(applicant_warning.rstrip("。"))
         else:
-            reasons.append("未发现回避冲突")
+            reasons.append("未命中已配置的回避条件，仍需人工核对")
         candidates.append(
             {
                 "expert": expert,
@@ -284,6 +318,7 @@ def match_experts(doc_id: str, top_k: int = 8) -> dict[str, Any]:
         "applicant": applicant,
         "applicant_detected": applicant_detected,
         "applicant_warning": applicant_warning,
+        "institution_match_note": INSTITUTION_MATCH_NOTE,
         "candidates": top,
         "excluded": excluded,
         "total_experts": len(experts),

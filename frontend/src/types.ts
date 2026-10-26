@@ -226,12 +226,16 @@ export interface ExpertCandidate {
 }
 
 export interface ExcludedExpert {
+  evidence: string;
   name: string;
   institution: string;
   reason: string;
 }
 
 export interface ExpertMatchResult {
+  applicant_detected: boolean;
+  applicant_warning: string;
+  institution_match_note: string;
   doc: { id: string; name: string };
   proposal_keywords: string[];
   applicant: { institutions: string[]; people: string[] };
