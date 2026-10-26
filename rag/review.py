@@ -35,6 +35,9 @@ OFFLINE_LIMITATIONS = [
 
 DISCLAIMER = "本报告由 AI 基于上传文档自动生成，仅作为形式检查与评审辅助参考，不构成立项、资助、处罚结论，须经专家和管理人员复核。"
 
+# 政策合规的口径说明：离线与模型两条路径都必须带上，否则同一份报告两种说法
+POLICY_NOTE = " 政策合规项为提示性质，不计入风险等级，引用前须人工核对适用版本与条款。"
+
 # 政策合规检索：本文主题词 + 领域兜底词；低于阈值的命中不入报告（宁缺勿滥）
 POLICY_QUERY_TERMS = ["科研诚信", "项目管理", "评审", "合规", "经费", "数据安全", "知识产权"]
 POLICY_GENERIC_TERMS = {
@@ -371,8 +374,7 @@ def review_document(doc_id: str) -> dict:
     sections, questions = _heuristic_sections(
         text, doc, duplicate_matches, policy_cites, bool(policy_docs)
     )
-    summary = _summary(doc, text, sections, questions)
-    summary += " 政策合规项为提示性质，不计入风险等级，引用前须人工核对适用版本与条款。"
+    summary = _summary(doc, text, sections, questions) + POLICY_NOTE
     # 政策合规只作提示：无论是否入库都不参与风险等级，否则任何本子恒 ≥「中」
     risk_sections = [s for s in sections if s.get("key") != "policy"]
     risk = _risk_level(risk_sections)
@@ -420,7 +422,10 @@ def review_document(doc_id: str) -> dict:
                         llm_sections.append(duplicate_section)
                     sections = llm_sections
                     summary = str(parsed.get("summary") or summary).strip()
-                    section_risk = _risk_level(sections)
+                    if "不计入风险等级" not in summary:
+                        summary += POLICY_NOTE
+                    # 与离线路径同一口径：政策合规只作提示，不参与风险等级
+                    section_risk = _risk_level([s for s in sections if s.get("key") != "policy"])
                     risk = _max_risk(_map_risk(parsed.get("risk_level"), section_risk), section_risk)
                     llm_questions = [str(q).strip() for q in (parsed.get("questions") or []) if str(q).strip()]
                     if llm_questions:

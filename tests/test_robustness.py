@@ -825,3 +825,171 @@ def test_delete_sample_documents(tmp_path, monkeypatch):
                                     "warning": None, "created_at": db.list_documents()[0]["created_at"]}][:1] or True
     names = [d["name"] for d in db.list_documents()]
     assert names == ["真实文档"]
+
+
+# ---------- 2026-10-26 审查：出口门禁、路由顺序与统计口径 ----------
+
+
+def test_embedding_auto_fallback_cannot_bypass_external_gate(monkeypatch):
+    """本地模型失败改走 API 时，必须重跑公网出口门禁。"""
+    from rag import embeddings
+
+    emb = embeddings.Embedder()
+    monkeypatch.setattr(config, "EMBED_BASE_URL", "https://api.siliconflow.cn/v1")
+    monkeypatch.setattr(config, "EMBED_API_KEY", "sk-test")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_EMBED", False)
+    calls: list = []
+    monkeypatch.setattr(emb, "_api", lambda texts: calls.append(texts) or [[]])
+
+    def boom(_texts):
+        raise RuntimeError("显存不足")
+
+    monkeypatch.setattr(emb, "_local", boom)
+    emb._auto, emb._backend = True, "local"
+    with pytest.raises(embeddings.EmbeddingUnavailable) as exc:
+        emb._call("local", ["待检索文本"])
+    assert calls == []  # 一个嵌入请求都没发出去
+    assert "TF-IDF" in str(exc.value)
+    assert emb._backend == "none"  # 退回纯 TF-IDF，而不是悄悄换成公网 API
+
+
+def test_embedding_api_gate_is_enforced_at_call_time(monkeypatch):
+    """门禁不能只在配置探测里生效：直接调用 _api 也要被拦住。"""
+    from rag import embeddings
+
+    emb = embeddings.Embedder()
+    monkeypatch.setattr(config, "EMBED_BASE_URL", "https://api.siliconflow.cn/v1")
+    monkeypatch.setattr(config, "EMBED_API_KEY", "sk-test")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_EMBED", False)
+    with pytest.raises(embeddings.EmbeddingUnavailable) as exc:
+        emb._api(["x"])
+    assert "ALLOW_EXTERNAL_EMBED" in str(exc.value)
+
+
+def test_llm_refuses_redirects(monkeypatch):
+    """已放行的内网端点返回 307 时，不能把原始消息体转发到未校验地址。"""
+    import rag.llm as llm_module
+    from rag.llm import LLMError, llm as llm_client
+
+    seen: dict = {}
+
+    class Resp:
+        status_code = 307
+        text = ""
+
+    def fake_post(url, **kwargs):
+        seen.clear()
+        seen.update(kwargs)
+        seen["url"] = url
+        return Resp()
+
+    monkeypatch.setattr(llm_module.requests, "post", fake_post)
+    monkeypatch.setattr(llm_client, "configured", True)
+    monkeypatch.setattr(llm_client, "base_url", "http://127.0.0.1:18080/v1")
+    monkeypatch.setattr(llm_client, "model", "m")
+    messages = [{"role": "user", "content": "hi"}]
+
+    with pytest.raises(LLMError) as exc:
+        llm_client.chat(messages)
+    assert "重定向" in str(exc.value)
+    assert seen.get("allow_redirects") is False
+
+    with pytest.raises(LLMError) as exc:
+        list(llm_client.stream_chat(messages))
+    assert "重定向" in str(exc.value)
+    assert seen.get("allow_redirects") is False
+
+
+def test_remove_sample_documents_route_is_reachable(tmp_path, monkeypatch):
+    """固定路径 sample 不能被 /documents/{doc_id} 抢先匹配（此前返回 404）。"""
+    _tmp_db(tmp_path, monkeypatch)
+    from rag import auth
+    from starlette.testclient import TestClient
+
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+    monkeypatch.setattr(app_module.retriever, "rebuild", lambda: None)
+    monkeypatch.setattr(auth, "_login_failures", {})
+    auth.create_user("admin", "secret1", "admin")
+    db.insert_document(
+        {
+            "id": "d-demo", "name": "演示本子", "kind": "proposal", "source": "demo",
+            "path": "", "text_len": 5, "page_count": 0, "chunk_count": 1, "status": "ready",
+        },
+        [{"idx": 0, "page": 1, "section": "", "text": "hello"}],
+    )
+    with TestClient(app_module.app) as client:
+        client.post("/api/auth/login", json={"username": "admin", "password": "secret1"})
+        resp = client.delete("/api/documents/sample")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["removed"] >= 1
+        ids = [d["id"] for d in client.get("/api/documents").json()["documents"]]
+        assert "d-demo" not in ids
+        # 参数路由仍然要能按 id 删文档
+        assert client.delete("/api/documents/nope").status_code == 404
+
+
+def test_review_risk_excludes_policy_on_both_paths(monkeypatch):
+    """同一份内容：离线与模型两条路径的风险等级必须一致（政策提示不计入风险）。"""
+    doc = {"id": "d1", "name": "演示本子", "kind": "proposal", "year": 2026, "path": ""}
+    # 文档完整性要求 ≥1500 字，否则规则路径本身就会判「风险」，测不到政策口径
+    text = (
+        "立项背景 研究目标 研究内容 技术路线 创新点 考核指标 经费预算 研究基础 科研诚信 参考文献 [1]\n"
+        + "本项目围绕耕地保护与科研诚信开展研究，数据来源包括遥感影像与统计年鉴。\n" * 60
+    )
+    chunks = [{"idx": 0, "page": 1, "section": "", "text": text}]
+    monkeypatch.setattr(review_service.db, "get_document", lambda _id: doc)
+    monkeypatch.setattr(review_service.db, "get_chunks", lambda _id: chunks)
+    monkeypatch.setattr(review_service.db, "list_documents", lambda: [])  # 无政策库 → 政策项 warn
+    monkeypatch.setattr(review_service.retriever, "similarity_between_docs", lambda *a, **k: [])
+    monkeypatch.setattr(review_service.retriever, "search", lambda *a, **k: [])
+
+    offline = review_service.review_document("d1")
+    assert offline["mode"] == "offline"
+    assert [s for s in offline["sections"] if s["key"] == "policy"][0]["status"] == "warn"
+
+    payload = {
+        "sections": [
+            {
+                "key": s["key"], "title": s["title"], "status": s["status"],
+                "items": [
+                    {"label": i["label"], "status": i["status"], "detail": i["detail"], "evidence": ""}
+                    for i in s["items"]
+                ],
+            }
+            for s in offline["sections"]
+        ],
+        "summary": "模型给出的总体判断",
+        "questions": ["请补充政策依据"],
+    }
+
+    class FakeLLM:
+        configured = True
+
+        def chat(self, *_a, **_k):
+            import json as _json
+
+            return _json.dumps(payload, ensure_ascii=False)
+
+    monkeypatch.setattr(review_service, "llm", FakeLLM())
+    online = review_service.review_document("d1")
+    assert online["mode"] == "qwen"
+    assert online["overall"]["risk_level"] == offline["overall"]["risk_level"] == "低"
+    assert "不计入风险等级" in online["overall"]["summary"]
+
+
+def test_trends_summary_counts_all_relevant_papers(monkeypatch):
+    """摘要篇数必须用全集计数，不能用截断后的代表文献（上限 12）。"""
+    papers = [
+        {
+            "id": f"P{i}", "title": f"耕地保护政策研究 {i}", "year": 2019 + (i % 7),
+            "authors": "张三", "venue": "测试期刊", "keywords": "耕地保护",
+            "abstract": "关于耕地保护与政策的研究", "is_sample": 0, "source": "csv",
+        }
+        for i in range(15)
+    ]
+    monkeypatch.setattr(trends.db, "list_papers", lambda: papers)
+    result = trends.analyze_trends("耕地保护", 2019, 2025)
+    assert result["stats"]["total"] == 15
+    assert len(result["papers"]) == 12  # 代表文献仍按相关度截断
+    assert "15 篇" in result["summary"]
+    assert "12 篇" not in result["summary"]

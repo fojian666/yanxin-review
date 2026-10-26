@@ -90,9 +90,12 @@ class LLMClient:
                 headers=self._headers(),
                 json=payload,
                 timeout=(10, config.LLM_TIMEOUT),
+                allow_redirects=False,  # 出口门禁只校验初始地址，跟随重定向等于绕过它
             )
         except requests.RequestException as exc:
             raise LLMError(f"大模型服务连接失败：{exc}") from exc
+        if 300 <= resp.status_code < 400:
+            raise LLMError(f"大模型端点返回重定向（HTTP {resp.status_code}），已拒绝跟随")
         if resp.status_code >= 400:
             detail = resp.text[:500]
             raise LLMError(f"大模型服务返回 {resp.status_code}：{detail}")
@@ -139,9 +142,12 @@ class LLMClient:
                 json=payload,
                 timeout=(10, config.LLM_TIMEOUT),
                 stream=True,
+                allow_redirects=False,  # 同上：307/308 会把原始消息体重放到未校验地址
             )
         except requests.RequestException as exc:
             raise LLMError(f"大模型服务连接失败：{exc}") from exc
+        if 300 <= resp.status_code < 400:
+            raise LLMError(f"大模型端点返回重定向（HTTP {resp.status_code}），已拒绝跟随")
         if resp.status_code >= 400:
             detail = resp.text[:500]
             raise LLMError(f"大模型服务返回 {resp.status_code}：{detail}")

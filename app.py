@@ -427,6 +427,15 @@ async def upload_document(
     return {"document": document, "warning": warning}
 
 
+# FastAPI 按声明顺序匹配路径：固定段 sample 必须先于 {doc_id} 声明，
+# 否则 DELETE /api/documents/sample 会被参数路由吃掉并返回 404
+@app.delete("/api/documents/sample")
+def remove_sample_documents(_user: dict = Depends(require_role("manager", "admin"))):
+    removed = db.delete_sample_documents()
+    retriever.rebuild()
+    return {"ok": True, "removed": removed}
+
+
 @app.delete("/api/documents/{doc_id}")
 def remove_document(doc_id: str, _user: dict = Depends(require_role("manager", "admin"))):
     doc = db.delete_document(doc_id)
@@ -646,13 +655,6 @@ def ingest_schema():
             },
         },
     }
-
-
-@app.delete("/api/documents/sample")
-def remove_sample_documents(_user: dict = Depends(require_role("manager", "admin"))):
-    removed = db.delete_sample_documents()
-    retriever.rebuild()
-    return {"ok": True, "removed": removed}
 
 
 @app.delete("/api/papers/sample")

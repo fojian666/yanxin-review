@@ -177,6 +177,14 @@ class Embedder:
         except Exception as exc:  # 本地模型可能因缺文件/显存不足失败
             if not self._auto:
                 raise EmbeddingUnavailable(f"本地嵌入模型不可用：{exc}") from exc
+            ok, why = self._probe("api")
+            if not ok:
+                # 降级不得绕过出口门禁：API 未配置或被公网门禁拦住时整体退回 none
+                with self._lock:
+                    self._backend = "none"
+                    self._reason = f"本地模型不可用且 API 不可用（{why}），检索退回纯 TF-IDF"
+                    self._store, self._store_ns = None, ""
+                raise EmbeddingUnavailable(self._reason) from exc
             log.warning("本地嵌入模型不可用，改走 API：%s", exc)
             with self._lock:
                 self._backend, self._reason = "api", ""
@@ -195,6 +203,11 @@ class Embedder:
         return np.asarray(vectors, dtype=np.float32).tolist()
 
     def _api(self, texts: list[str]) -> list[list[float]]:
+        # 出口门禁的唯一强制点：配置期 _probe 之外，任何运行期路径（含 auto 降级）都要再过一次
+        if _is_public(config.EMBED_BASE_URL) and not config.ALLOW_EXTERNAL_EMBED:
+            raise EmbeddingUnavailable("公网嵌入端点已阻止（需 ALLOW_EXTERNAL_EMBED=1）")
+        if not config.EMBED_API_KEY:
+            raise EmbeddingUnavailable("未配置 EMBED_API_KEY")
         out: list[list[float]] = []
         for start in range(0, len(texts), config.EMBED_BATCH):
             out.extend(self._api_batch(texts[start : start + config.EMBED_BATCH]))

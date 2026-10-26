@@ -107,13 +107,13 @@ def _rising_keyword(series: list[dict]) -> tuple[str, int]:
     return best_name, best_delta
 
 
-def _fallback_summary(query: str, years: list[int], counts: list[int], series: list[dict], papers: list[dict], sample: bool) -> str:
+def _fallback_summary(query: str, years: list[int], counts: list[int], series: list[dict], papers: list[dict], sample: bool, total: int) -> str:
     if not papers:
         return (
             f"没有检索到与“{query or '全部主题'}”相关的文献。\n\n"
             "建议：在“文档库—文献数据”中导入包含标题、年份、摘要、关键词的 CSV，或换用更宽泛的主题词。"
         )
-    total = len(papers)
+    # papers 只是按相关度截断的代表文献，篇数必须用全集计数，否则 15 篇会写成「共 12 篇」
     first = counts[0] if counts else 0
     last = counts[-1] if counts else 0
     trend = _trend_word(counts)
@@ -139,12 +139,13 @@ def _fallback_summary(query: str, years: list[int], counts: list[int], series: l
     return "\n".join(lines)
 
 
-def _llm_summary(query: str, years: list[int], counts: list[int], series: list[dict], papers: list[dict], sample: bool) -> tuple[str, str]:
+def _llm_summary(query: str, years: list[int], counts: list[int], series: list[dict], papers: list[dict], sample: bool, total: int) -> tuple[str, str]:
     if not llm.configured or not papers:
         return "", ""
     stats = (
         f"查询主题：{query or '全部文献'}\n"
         f"年份范围：{years[0] if years else ''}-{years[-1] if years else ''}\n"
+        f"相关文献总篇数：{total}（下列为代表文献，不是全集）\n"
         f"年度发文量：{dict(zip(years, counts))}\n"
         f"主题年度分布："
         + "；".join(f"{s['name']}:{s['values']}" for s in series[:6])
@@ -260,10 +261,10 @@ def analyze_trends(query: str = "科研诚信", start_year: int | None = None, e
         "real_count": sum(1 for p in relevant if not p.get("is_sample")),
     }
 
-    summary, warning = _llm_summary(query, years, counts, series, papers_out, sample)
+    summary, warning = _llm_summary(query, years, counts, series, papers_out, sample, stats["total"])
     mode = "qwen" if summary else "offline"
     if not summary:
-        summary = _fallback_summary(query, years, counts, series, papers_out, sample)
+        summary = _fallback_summary(query, years, counts, series, papers_out, sample, stats["total"])
     if mode == "offline" and not no_match:
         summary = summary.rstrip() + "\n- 口径：以上为规则统计与关键词摘要（离线模式），未做语义研判与文献质量评估。"
     if no_match:
