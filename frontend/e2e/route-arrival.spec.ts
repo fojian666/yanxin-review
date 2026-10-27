@@ -1,7 +1,7 @@
 import { test, expect, navigate } from './fixtures';
 
 // 全程自然播放并逐帧采样，不能用暂停帧替代连续动效验证。
-type MotionAudit = { routeArrivals: string[]; pageOpacities: number[]; drawerRights: number[]; paperSamples: { opacity: number; scaleX: number; scaleY: number }[]; sampling: boolean };
+type MotionAudit = { routeArrivals: string[]; pageOpacities: number[]; drawerRights: number[]; backgroundCounts: number[]; sampling: boolean };
 test.use({ video: 'on' });
 for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812]] as const) {
   test(`${label}翻卷入页每次进入重播，同页状态不重播且尊重动态偏好`, async ({ app: page }, testInfo) => {
@@ -10,21 +10,16 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await expect.poll(() => page.locator('.route-arrival').evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)).toBe(0);
     await page.evaluate(() => {
       const state = window as typeof window & MotionAudit;
-      state.routeArrivals = []; state.pageOpacities = []; state.drawerRights = []; state.paperSamples = []; state.sampling = true;
+      state.routeArrivals = []; state.pageOpacities = []; state.drawerRights = []; state.backgroundCounts = []; state.sampling = true;
       const sample = () => {
         const page = document.querySelector('.page');
         state.pageOpacities.push(page ? Number(getComputedStyle(page).opacity) : 0);
-        const paper = document.querySelector('.route-arrival-paper-front');
-        if (paper) {
-          const style = getComputedStyle(paper);
-          const matrix = new DOMMatrixReadOnly(style.transform === 'none' ? undefined : style.transform);
-          state.paperSamples.push({ opacity: Number(style.opacity), scaleX: matrix.m11, scaleY: matrix.m22 });
-        }
+        state.backgroundCounts.push(document.querySelectorAll('.route-arrival-paper').length);
         if (state.sampling) requestAnimationFrame(sample);
       };
       requestAnimationFrame(sample);
       document.addEventListener('animationstart', event => {
-        if (event.animationName !== 'route-paper-open') return;
+        if (event.animationName !== 'route-tab-arrive') return;
         state.routeArrivals.push(location.pathname);
         if (innerWidth <= 680) {
           state.drawerRights.push(document.getElementById('site-nav')!.getBoundingClientRect().right);
@@ -59,7 +54,7 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await expect.poll(() => marker.evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)).toBe(0);
     await expect(page.locator('.route-arrival-tab')).toHaveText('文档库');
     await expect(page.locator('.route-arrival-tab')).toHaveCSS('opacity', '1');
-    await expect(page.locator('.route-arrival-paper-front')).toHaveCSS('opacity', '0');
+    await expect(page.locator('.route-arrival-paper')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
     const screenshot = testInfo.outputPath(`route-arrival-${width}.png`);
     await page.screenshot({ path: screenshot });
@@ -67,24 +62,17 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     // 运行期切换立即停止；再进入路由也只有静态标记。
     await navigate(page, '智能问答');
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(page.locator('.route-arrival-paper-front')).toHaveCSS('animation-name', 'none');
     await expect(page.locator('.route-arrival-tab')).toHaveCSS('animation-name', 'none');
     await navigate(page, '文档库');
-    await expect(page.locator('.route-arrival-paper-front')).toHaveCSS('animation-name', 'none');
-    await expect(page.locator('.route-arrival-paper-front')).toHaveCSS('transform', 'none');
+    await expect(page.locator('.route-arrival-tab')).toHaveCSS('transform', 'none');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const audit = await page.evaluate(() => {
       const state = window as typeof window & MotionAudit; state.sampling = false;
-      return { pageOpacities: state.pageOpacities, drawerRights: state.drawerRights, paperSamples: state.paperSamples };
+      return { pageOpacities: state.pageOpacities, drawerRights: state.drawerRights, backgroundCounts: state.backgroundCounts };
     });
     expect(audit.pageOpacities.length).toBeGreaterThan(10);
     expect(Math.min(...audit.pageOpacities), '正文不得先淡到透明或出现空帧').toBe(1);
-    expect(audit.paperSamples.some(sample => sample.opacity > 0.05), '采样必须覆盖背景实际入场').toBeTruthy();
-    expect(Math.max(...audit.paperSamples.map(sample => sample.opacity)), '纸影不得高亮闪现').toBeLessThanOrEqual(0.3);
-    for (const sample of audit.paperSamples) {
-      expect(sample.scaleX, '背景保持固定宽度，不突然拉伸').toBeCloseTo(1, 4);
-      expect(sample.scaleY, '背景保持固定高度，不翻折压扁').toBeCloseTo(1, 4);
-    }
+    expect(Math.max(...audit.backgroundCounts), '卷标入场及终态都不得渲染背景box').toBe(0);
     if (width <= 680) {
       expect(audit.drawerRights.length).toBeGreaterThan(0);
       expect(Math.max(...audit.drawerRights), '翻卷开始前抽屉必须完全退场').toBeLessThanOrEqual(1);

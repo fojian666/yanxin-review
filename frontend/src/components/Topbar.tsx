@@ -31,8 +31,6 @@ function RouteArrival({ title, navOpen }: { title: string; navOpen: boolean }) {
   }, [waiting, navOpen]);
   return (
     <div className="route-arrival" data-waiting={waiting || undefined} aria-hidden="true">
-      <span className="route-arrival-paper route-arrival-paper-back" />
-      <span className="route-arrival-paper route-arrival-paper-front" />
       <span className="route-arrival-tab">{title}</span>
     </div>
   );
