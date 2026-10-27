@@ -52,14 +52,10 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
 
   return (
     <header className="topbar" onDragStart={(event) => event.preventDefault()}>
-      <div className="topbar-title" key={pathname}>
+      <div className="topbar-title" key={`title:${pathname}`}>
         <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
         <h1>{meta.title}</h1>
         <p>{meta.sub}</p>
-        <span className="route-arrival" aria-hidden="true">
-          <span className="route-arrival-rule" />
-          <span className="route-arrival-tab" />
-        </span>
       </div>
       <div className="topbar-actions">
         <button
@@ -151,6 +147,11 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
             )}
           </div>
         )}
+      </div>
+      <div className="route-arrival" key={`arrival:${pathname}`} aria-hidden="true">
+        <span className="route-arrival-paper route-arrival-paper-back" />
+        <span className="route-arrival-paper route-arrival-paper-front" />
+        <span className="route-arrival-tab">{meta.title}</span>
       </div>
     </header>
   );

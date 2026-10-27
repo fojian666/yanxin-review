@@ -106,4 +106,4 @@ frontend/src/
 
 浏览器回归位于 `frontend/e2e/`，详见其中 README；`E2E_PYTHON` 可指定 Python。每例临时数据库、随机回环端口，禁用模型出口；不得改为复用开发数据库。前端大改运行全套并保留实际页面审查；报告目录已忽略，不得提交测试会话附件。GitHub Actions 随 push/PR 检查。
 
-路由动效“阅卷落位”按 pathname 重播，查询参数和普通状态更新不得重播；装饰不阻挡交互，减少动态效果即时静态。对应 `frontend/e2e/route-arrival.spec.ts` 覆盖桌面/手机。
+路由动效“翻卷入页”按 pathname 重播，查询参数和普通状态更新不得重播；纸边450ms内收拢、仅栏目卷标静态保留，装饰不阻挡交互，减少动态效果即时静态。对应 `frontend/e2e/route-arrival.spec.ts` 覆盖桌面/手机。
