@@ -6,9 +6,9 @@ export const SPRING: Transition = { type: "spring", stiffness: 330, damping: 30,
 export const MOTION = { feedback: 0.15, enter: 0.22, exit: 0.1, number: 480 } as const;
 
 export const pageVariants: Variants = {
-  initial: { opacity: 0, y: 6 },
+  initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0, transition: { duration: MOTION.enter, ease: EASE } },
-  exit: { opacity: 0, transition: { duration: MOTION.exit, ease: EASE } },
+  exit: { opacity: 0, transition: { duration: 0.06, ease: EASE } },
 };
 
 export const staggerContainer: Variants = {

@@ -52,20 +52,15 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
 
   return (
     <header className="topbar" onDragStart={(event) => event.preventDefault()}>
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          className="topbar-title"
-          key={pathname}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: reduce ? 0 : MOTION.feedback, ease: EASE }}
-        >
-          <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
-          <h1>{meta.title}</h1>
-          <p>{meta.sub}</p>
-        </motion.div>
-      </AnimatePresence>
+      <div className="topbar-title" key={pathname}>
+        <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
+        <h1>{meta.title}</h1>
+        <p>{meta.sub}</p>
+        <span className="route-arrival" aria-hidden="true">
+          <span className="route-arrival-rule" />
+          <span className="route-arrival-tab" />
+        </span>
+      </div>
       <div className="topbar-actions">
         <button
           type="button"

@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 34 项浏览器回归（首次需安装 Chromium）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 36 项浏览器回归（首次需安装 Chromium）
 python3 -m pytest tests/ -q                                 # 回归测试（112 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -105,3 +105,5 @@ frontend/src/
 - 文档五处需同步：`README.md`（使用与 API）、`实施方案-RAG垂类模型与智能问答.md`（§8.2 已落地清单）、`DESIGN.md`（设计 token、组件、动效与无障碍契约）、`SECURITY.md`（安全行为描述与基线 commit，改认证/权限/防护/环境变量时必更）、`交付材料/`（若涉及软著功能描述与源程序清单——**注意源程序清单当前与代码有漂移，提交软著前需重新生成**）。
 
 浏览器回归位于 `frontend/e2e/`，详见其中 README；`E2E_PYTHON` 可指定 Python。每例临时数据库、随机回环端口，禁用模型出口；不得改为复用开发数据库。前端大改运行全套并保留实际页面审查；报告目录已忽略，不得提交测试会话附件。GitHub Actions 随 push/PR 检查。
+
+路由动效“阅卷落位”按 pathname 重播，查询参数和普通状态更新不得重播；装饰不阻挡交互，减少动态效果即时静态。对应 `frontend/e2e/route-arrival.spec.ts` 覆盖桌面/手机。
