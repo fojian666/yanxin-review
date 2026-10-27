@@ -18,6 +18,7 @@ import {
 } from "react";
 import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
+import { generationLabel } from "../generation";
 import { CitationTrace, type CitationSelection } from "../components/CitationTrace";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
@@ -203,6 +204,10 @@ export function ChatPage() {
               )
             );
           },
+          onGeneration: (generation) => {
+            if (!isCurrent()) return;
+            setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, generation } : m));
+          },
           onToken: (token) => {
             if (!isCurrent()) return;
             setMessages((prev) =>
@@ -221,10 +226,10 @@ export function ChatPage() {
               )
             );
           },
-          onDone: () => {
+          onDone: (generation) => {
             if (!isCurrent()) return;
             setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m))
+              prev.map((m) => (m.id === assistantId ? { ...m, streaming: false, generation: generation ?? m.generation } : m))
             );
           },
         },
@@ -233,14 +238,14 @@ export function ChatPage() {
     } catch (err) {
       if (controller.signal.aborted || !isCurrent()) {
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m))
+          prev.map((m) => (m.id === assistantId ? { ...m, streaming: false, generation: m.generation ? { ...m.generation, status: "interrupted" } : undefined } : m))
         );
         return;
       }
       const message = (err as Error).message;
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantId ? { ...m, streaming: false, error: message } : m
+          m.id === assistantId ? { ...m, streaming: false, error: message, generation: m.generation ? { ...m.generation, status: "interrupted" } : undefined } : m
         )
       );
       toast(`回答生成失败：${message}`, "error");
@@ -449,6 +454,9 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (ind
         <div className="msg-meta">
           <span>{message.role === "user" ? "你" : "研信智评"}</span>
           <span>{message.time ?? now()}</span>
+          {message.role === "assistant" && (
+            <span className="generation-source">{message.streaming ? (message.generation ? `${generationLabel(message.generation)} · 生成中…` : "生成中…") : generationLabel(message.generation)}</span>
+          )}
         </div>
         {message.role === "user" ? (
           <div className="msg-content" style={{ whiteSpace: "pre-wrap" }}>

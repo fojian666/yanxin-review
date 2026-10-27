@@ -200,3 +200,15 @@ class LLMClient:
 
 
 llm = LLMClient()
+
+
+
+def generation_info(client, used_model: bool = False, status: str = "complete") -> dict:
+    """结果来源快照，仅保留展示字段，不携带密钥或端点。"""
+    info = getattr(client, "info", {})
+    return {
+        "provider": info.get("provider", "custom") if used_model else "offline",
+        "label": info.get("label", "大模型") if used_model else "离线检索",
+        "model": getattr(client, "model", "") if used_model else "",
+        "status": status,
+    }

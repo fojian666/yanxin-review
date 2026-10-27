@@ -272,7 +272,14 @@ def llm_provider() -> dict:
         if _is_public_host(QWEN_BASE_URL) and not ALLOW_EXTERNAL_LLM:
             return _blocked_external("公网模型地址")
         style = "deepseek" if "deepseek" in QWEN_BASE_URL.lower() else "qwen"
-        return _configured("qwen", "大模型（OpenAI 兼容）", QWEN_BASE_URL, QWEN_MODEL, QWEN_API_KEY, style)
+        # 旧 QWEN_* 接口仍可接其他服务；只给已识别的官方端点标供应商。
+        host = (urlparse(QWEN_BASE_URL).hostname or "").lower()
+        provider, label = "custom", "大模型（OpenAI 兼容）"
+        if host == "api.deepseek.com":
+            provider, label = "deepseek", "DeepSeek"
+        elif host == "dashscope.aliyuncs.com":
+            provider, label = "qwen", "千问 / DashScope"
+        return _configured(provider, label, QWEN_BASE_URL, QWEN_MODEL, QWEN_API_KEY, style)
     if OPENAI_API_KEY:
         if _is_public_host(OPENAI_BASE_URL) and not ALLOW_EXTERNAL_LLM:
             return _blocked_external("OpenAI 兼容公网地址")

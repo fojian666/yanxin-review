@@ -141,6 +141,7 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
     entry.evidence_full && entry.evidence_full.length > entry.evidence.length);
   expect(item, '真实政策命中应有可展开原文').toBeTruthy();
   report.mode = 'qwen';
+  report.generation = { provider: 'deepseek', label: 'DeepSeek', model: 'deepseek-flash', status: 'complete' };
   report.limitations = [];
   await page.route('**/api/review', route => route.fulfill({ json: report }));
   await page.goto(`/review?doc=${documents[0].id}`);
@@ -153,6 +154,8 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   await row.getByRole('button', { name: '收起原文' }).click();
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
+  expect(text).toContain('生成来源：DeepSeek · deepseek-flash');
+  await expect(page.locator('.report-meta .generation-source')).toContainText('DeepSeek · deepseek-flash');
   expect(text).toContain(item.label);
   expect(text).toContain(item.evidence);
   expect(text).toContain('人工核对');

@@ -3,6 +3,7 @@ import { LogOut, Menu, Upload, UserRound } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { modelLabel } from "../generation";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
 
@@ -76,6 +77,9 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
         <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
         <h1>{meta.title}</h1>
         <p>{meta.sub}</p>
+        <div className="mobile-model-status" aria-label="当前模型配置">
+          当前配置：{online && health ? modelLabel(health.llm) : "离线演示"}
+        </div>
       </div>
       <div className="topbar-actions">
         <button
@@ -93,7 +97,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
           className={`mode-chip ${online ? "online" : ""}`}
           title={
             online
-              ? `模型：${health?.llm.model}；接口：${health?.llm.base_url}`
+              ? `当前配置：${health ? modelLabel(health.llm) : ""}；实际生成来源见每次结果`
               : `${health?.llm.label || "离线演示"}：设置内网 QWEN_BASE_URL 后启用；公网端点需显式 ALLOW_EXTERNAL_LLM=1。`
           }
         >
@@ -106,7 +110,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
               exit={{ opacity: 0, y: -3 }}
               transition={{ duration: reduce ? 0 : MOTION.feedback, ease: EASE }}
             >
-              {online ? `大模型 · ${health?.llm.model}` : "离线演示"}
+              {online && health ? modelLabel(health.llm) : "离线演示"}
             </motion.span>
           </AnimatePresence>
         </span>

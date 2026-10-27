@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from rag import auth, config, db, qa, review, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
-from rag.llm import LLMError, llm
+from rag.llm import LLMError, generation_info, llm
 from rag.experts import parse_experts_csv
 from rag.parsers import ParseError, parse_papers_csv, parse_upload
 from rag.retrieval import retriever
@@ -469,35 +469,45 @@ def chat_stream(payload: ChatRequest):
         raise HTTPException(status_code=400, detail="问题不能为空")
     prepared = qa.prepare(question, payload.history, payload.scope or None)
     citations = _cite_payload(prepared["citations"])
+    use_model = prepared["mode"] == "qwen" and bool(prepared["messages"])
+    model_generation = generation_info(llm, used_model=True)
 
     def generate():
         yield _sse(
             {
                 "type": "meta",
                 "citations": citations,
-                "mode": prepared["mode"],
+                "mode": "qwen" if use_model else "offline",
                 "warning": prepared["warning"],
                 "provider": llm.status(),
             }
         )
         emitted = False
-        if prepared["mode"] == "qwen" and prepared["messages"]:
+        status = "complete"
+        if use_model:
             try:
                 for token in llm.stream_chat(prepared["messages"]):
+                    if not emitted:
+                        yield _sse({"type": "generation", "generation": model_generation})
                     emitted = True
                     yield _sse({"type": "token", "text": token})
             except LLMError as exc:
                 if not emitted:
+                    status = "fallback"
+                    yield _sse({"type": "generation", "generation": generation_info(llm, status=status)})
                     for piece in _pieces(prepared["fallback"]):
                         yield _sse({"type": "token", "text": piece})
-                    yield _sse({"type": "warning", "message": f"千问调用失败，已回退到离线检索：{exc}"})
+                    yield _sse({"type": "warning", "message": f"大模型调用失败，已回退到离线检索：{exc}"})
                 else:
+                    status = "interrupted"
                     yield _sse({"type": "warning", "message": f"生成中断：{exc}"})
         else:
+            yield _sse({"type": "generation", "generation": generation_info(llm)})
             for piece in _pieces(prepared["fallback"]):
                 yield _sse({"type": "token", "text": piece})
                 time.sleep(0.008)
-        yield _sse({"type": "done"})
+        source = {**model_generation, "status": status} if emitted else generation_info(llm, status=status)
+        yield _sse({"type": "done", "mode": "qwen" if emitted else "offline", "generation": source})
 
     return StreamingResponse(
         generate(),

@@ -7,6 +7,8 @@
 """
 from types import SimpleNamespace
 
+import pytest
+
 from rag import config, qa as qa_service, review as review_service
 
 LLM_ENV = (
@@ -201,8 +203,12 @@ def test_model_review_preserves_system_policy_and_duplicate_evidence(monkeypatch
     ]
     monkeypatch.setattr(review_service, "llm", SimpleNamespace(
         configured=True, chat=lambda *a, **k: json.dumps(payload)))
+    review_service.llm.info = {"provider": "deepseek", "label": "DeepSeek"}
+    review_service.llm.model = "deepseek-flash"
     online = review_service.review_document("d1")
     assert online["mode"] == "qwen"
+    assert online["generation"]["model"] == "deepseek-flash"
+    assert online["generation"]["provider"] == "deepseek"
     for key in ("policy", "duplicate"):
         before = next(s for s in offline["sections"] if s["key"] == key)
         after = [s for s in online["sections"] if s["key"] == key]
@@ -221,3 +227,93 @@ def test_model_review_preserves_system_policy_and_duplicate_evidence(monkeypatch
     no_hits = review_service.review_document("d1")
     item = next(s for s in no_hits["sections"] if s["key"] == "policy")["items"][0]
     assert item["label"] == "未检索到明显相关政策条款"
+    review_service.llm.info = {"provider": "qwen", "label": "千问 / DashScope"}
+    review_service.llm.model = "qwen-plus"
+    assert review_service.review_document("d1")["generation"]["provider"] == "qwen"
+    def fail(*a, **k):
+        from rag.llm import LLMError
+        raise LLMError("受控失败")
+    review_service.llm.chat = fail
+    assert review_service.review_document("d1")["generation"]["status"] == "fallback"
+    # 解析中途出错后恢复整份规则结果，不能保留模型章节却标离线。
+    payload["questions"] = 1
+    review_service.llm.chat = lambda *a, **k: json.dumps(payload)
+    malformed = review_service.review_document("d1")
+    assert malformed["generation"]["provider"] == "offline"
+    assert malformed["generation"]["status"] == "fallback"
+    assert malformed["sections"][0]["items"][0]["label"] != "模型检查项"
+    assert len(malformed["sections"][0]["items"]) > 1
+
+
+@pytest.mark.parametrize("provider,label,model", [("deepseek", "DeepSeek", "deepseek-flash"), ("qwen", "千问 / DashScope", "qwen-plus")])
+def test_answer_records_actual_model_or_offline(monkeypatch, provider, label, model):
+    from rag.llm import LLMError
+    prepared = {"mode": "qwen", "messages": [{"role": "user", "content": "测试"}],
+                "fallback": "原文摘录", "citations": [], "warning": ""}
+    client = SimpleNamespace(configured=True, model=model,
+        info={"provider": provider, "label": label, "api_key": "must-not-leak", "base_url": "http://internal"},
+        chat=lambda *_: "模型回答")
+    monkeypatch.setattr(qa_service, "prepare", lambda *a, **k: prepared)
+    monkeypatch.setattr(qa_service, "llm", client)
+    result = qa_service.answer("测试")
+    assert result["generation"] == {"provider": provider, "label": label, "model": model, "status": "complete"}
+    client.info["label"] = "切换后的模型"
+    assert result["generation"]["label"] == label  # 历史结果是快照
+    def fail(*args):
+        raise LLMError("受控失败")
+    client.chat = fail
+    fallback = qa_service.answer("测试")
+    assert fallback["generation"]["provider"] == "offline"
+    assert fallback["generation"]["status"] == "fallback"
+    assert fallback["generation"]["model"] == ""
+    prepared["messages"] = []  # 有配置但没有证据，实际不能调用模型
+    assert qa_service.answer("测试")["generation"]["status"] == "complete"
+
+
+@pytest.mark.parametrize("provider,label,model", [("deepseek", "DeepSeek", "deepseek-flash"), ("qwen", "千问 / DashScope", "qwen-plus")])
+def test_stream_records_actual_source_after_fallback_or_interruption(monkeypatch, provider, label, model):
+    import asyncio
+    import json
+    import app as application
+    from rag.llm import LLMError
+    prepared = {"mode": "qwen", "messages": [{"role": "user", "content": "测试"}],
+                "fallback": "离线原文", "citations": [], "warning": ""}
+    client = SimpleNamespace(info={"provider": provider, "label": label}, model=model)
+    client.status = lambda: {**client.info, "model": model, "configured": True}
+    monkeypatch.setattr(application.qa, "prepare", lambda *a, **k: prepared)
+    monkeypatch.setattr(application, "llm", client)
+    async def events():
+        response = application.chat_stream(application.ChatRequest(question="测试"))
+        return [json.loads(chunk.removeprefix("data: ").strip()) async for chunk in response.body_iterator]
+    for outcome in ("success", "fallback", "interrupted"):
+        def stream(*args):
+            if outcome != "fallback":
+                yield "模型正文"
+            if outcome != "success":
+                raise LLMError("受控中断")
+        client.stream_chat = stream
+        frames = asyncio.run(events())
+        first_source = next(i for i, frame in enumerate(frames) if frame["type"] == "generation")
+        first_token = next(i for i, frame in enumerate(frames) if frame["type"] == "token")
+        assert first_source < first_token
+        actual = frames[-1]["generation"]
+        assert actual["status"] == ("complete" if outcome == "success" else outcome)
+        assert actual["provider"] == ("offline" if outcome == "fallback" else provider)
+        assert actual["model"] == ("" if outcome == "fallback" else model)
+        assert "千问调用失败" not in str(frames)
+    prepared["messages"] = []
+    assert asyncio.run(events())[-1]["generation"]["provider"] == "offline"
+
+
+
+def test_legacy_qwen_interface_labels_only_known_providers(monkeypatch):
+    _clean(monkeypatch)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    monkeypatch.setattr(config, "QWEN_API_KEY", "fake-legacy-key")
+    for base, provider, label in [("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen", "千问 / DashScope"),
+                                  ("https://api.deepseek.com/v1", "deepseek", "DeepSeek"),
+                                  ("http://qwen.internal/v1", "custom", "大模型（OpenAI 兼容）")]:
+        monkeypatch.setattr(config, "QWEN_BASE_URL", base)
+        info = config.llm_provider()
+        assert info["label"] == label and info["provider"] == provider
+        assert info["configured"]

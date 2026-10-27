@@ -4,6 +4,7 @@ import type {
   Citation,
   DocItem,
   Health,
+  GenerationInfo,
   Paper,
   Expert,
   ReviewReport,
@@ -225,6 +226,8 @@ export async function streamChat(
         mode: String(event.mode ?? "offline"),
         warning: String(event.warning ?? ""),
       });
+    } else if (event.type === "generation" && event.generation) {
+      handlers.onGeneration?.(event.generation as GenerationInfo);
     } else if (event.type === "token") {
       handlers.onToken(String(event.text ?? ""));
     } else if (event.type === "warning") {
@@ -234,7 +237,7 @@ export async function streamChat(
     } else if (event.type === "done") {
       if (!done) {
         done = true;
-        handlers.onDone();
+        handlers.onDone(event.generation as GenerationInfo | undefined);
       }
     }
   };
@@ -253,7 +256,7 @@ export async function streamChat(
   } finally {
     void reader.cancel().catch(() => undefined);
   }
-  if (!done && !signal?.aborted) handlers.onDone();
+  if (!done && !signal?.aborted) throw new Error("连接提前结束，未收到完成确认");
 }
 
 export function locationText(c: Citation): string {

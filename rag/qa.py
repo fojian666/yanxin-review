@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from . import config
-from .llm import LLMError, llm
+from .llm import LLMError, generation_info, llm
 from .retrieval import retriever
 from .text import extract_terms, truncate
 
@@ -176,13 +176,17 @@ def answer(question: str, history: list[dict] | None = None, scope: list[str] | 
         "citations": prepared["citations"],
         "mode": "offline",
         "warning": prepared["warning"],
+        "generation": generation_info(llm),
     }
     if prepared["mode"] == "qwen" and prepared["messages"]:
+        model_generation = generation_info(llm, used_model=True)
         try:
             text = llm.chat(prepared["messages"])
             if text:
                 result["answer"] = text
                 result["mode"] = "qwen"
+                result["generation"] = model_generation
         except LLMError as exc:
+            result["generation"] = generation_info(llm, status="fallback")
             result["warning"] = (prepared["warning"] + " " if prepared["warning"] else "") + f"大模型调用失败，已回退到离线检索：{exc}"
     return result

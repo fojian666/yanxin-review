@@ -138,3 +138,40 @@ test('趋势失败可重试，真实空文献库正常显示', async ({ app: pag
   await expect(page.locator('.kpi').first()).toContainText('0');
   await page.screenshot({ path: test.info().outputPath('empty-library-after.png'), fullPage: true });
 });
+
+test('受控DeepSeek与千问来源逐次保存，回退不冒认当前模型', async ({ app: page, context }, testInfo) => {
+  const health = await (await context.request.get('/api/health')).json();
+  health.llm = { configured: true, provider: 'deepseek', label: 'DeepSeek', model: 'deepseek-flash', base_url: '' };
+  await page.route('**/api/health', route => route.fulfill({ json: health }));
+  await page.reload();
+  await navigate(page, '智能问答');
+  await expect(page.locator('.mode-chip')).toContainText('DeepSeek · deepseek-flash');
+  let turn = 0;
+  const generations = [
+    { provider: 'deepseek', label: 'DeepSeek', model: 'deepseek-flash', status: 'complete' },
+    { provider: 'qwen', label: '千问 / DashScope', model: 'qwen-plus', status: 'complete' },
+    { provider: 'offline', label: '离线检索', model: '', status: 'fallback' },
+    { provider: 'qwen', label: '千问 / DashScope', model: 'qwen-plus', status: 'complete' },
+  ];
+  await page.route('**/api/chat/stream', route => {
+    const generation = generations[turn++];
+    return route.fulfill({ contentType: 'text/event-stream', body: sse([
+      { type: 'meta', citations: [], mode: 'qwen', warning: '' },
+      { type: 'generation', generation },
+      { type: 'token', text: `受控第${turn}轮回答` },
+      ...(turn === 4 ? [] : [{ type: 'done', generation }]),
+    ]) });
+  });
+  for (let i = 0; i < 4; i++) {
+    await page.locator('textarea').fill(`来源核对${i}`);
+    await page.getByRole('button', { name: '发送', exact: true }).click();
+    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled();
+    await expect(page.locator('.msg.assistant')).toHaveCount(i + 1);
+  }
+  await expect(page.locator('.msg.assistant .generation-source')).toHaveText([
+    'DeepSeek · deepseek-flash', '千问 / DashScope · qwen-plus', '已回退离线摘录', '千问 / DashScope · qwen-plus（生成中断）',
+  ]);
+  await navigate(page, '文档库'); await navigate(page, '智能问答');
+  await expect(page.locator('.msg.assistant .generation-source').first()).toHaveText('DeepSeek · deepseek-flash');
+  await page.screenshot({ path: testInfo.outputPath('generation-desktop.png'), fullPage: true });
+});

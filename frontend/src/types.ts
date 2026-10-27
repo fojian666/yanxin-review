@@ -67,6 +67,13 @@ export interface Citation {
 
 export type Role = "user" | "assistant";
 
+export interface GenerationInfo {
+  provider: string;
+  label: string;
+  model: string;
+  status: "complete" | "fallback" | "interrupted";
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -76,6 +83,7 @@ export interface ChatMessage {
   warning?: string;
   error?: string;
   streaming?: boolean;
+  generation?: GenerationInfo;
 }
 
 export interface TrendSeries {
@@ -166,6 +174,7 @@ export interface ReviewReport {
   duplicate: { matches: ReviewMatch[] };
   questions: string[];
   mode: string;
+  generation?: GenerationInfo;
   warning: string;
   /** 未启用大模型时的能力边界说明，空数组表示由模型生成 */
   limitations?: string[];
@@ -192,9 +201,10 @@ export interface ChatHistoryItem {
 
 export interface StreamHandlers {
   onMeta: (payload: { citations: Citation[]; mode: string; warning: string }) => void;
+  onGeneration?: (generation: GenerationInfo) => void;
   onToken: (text: string) => void;
   onWarning: (message: string) => void;
-  onDone: () => void;
+  onDone: (generation?: GenerationInfo) => void;
 }
 
 

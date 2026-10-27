@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from . import db
-from .llm import LLMError, llm
+from .llm import LLMError, generation_info, llm
 from .retrieval import retriever
 from .text import extract_terms, truncate
 
@@ -380,7 +380,9 @@ def review_document(doc_id: str) -> dict:
     risk = _risk_level(risk_sections)
     mode = "offline"
     warning = ""
+    rule_state = (sections, questions, summary, risk)
 
+    model_generation = generation_info(llm, used_model=True)
     if llm.configured:
         try:
             raw = llm.chat(
@@ -432,8 +434,12 @@ def review_document(doc_id: str) -> dict:
                         questions = llm_questions[:8]
                     mode = "qwen"
         except LLMError as exc:
+            sections, questions, summary, risk = rule_state
+            mode = "offline"
             warning = f"大模型调用失败，已使用规则预审：{exc}"
         except Exception as exc:
+            sections, questions, summary, risk = rule_state
+            mode = "offline"
             warning = f"大模型结果解析失败，已使用规则预审：{exc}"
 
     return {
@@ -455,6 +461,9 @@ def review_document(doc_id: str) -> dict:
         "duplicate": {"matches": duplicate_matches[:3]},
         "questions": questions,
         "mode": mode,
+        "generation": model_generation if mode == "qwen" else generation_info(
+            llm, status="fallback" if llm.configured else "complete"
+        ),
         "warning": warning,
         "limitations": [] if mode == "qwen" else list(OFFLINE_LIMITATIONS),
         "disclaimer": DISCLAIMER,

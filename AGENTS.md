@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 37 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（124 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 39 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（127 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -114,3 +114,5 @@ frontend/src/
 路由动效“栏目卷标入场”按 pathname 重播，查询参数和普通状态更新不得重播；不渲染背景box或纸影，仅绿色栏目卷标滑入并静态保留，装饰不阻挡交互，正文不淡出、仅4px/280ms归位，手机端等待抽屉真实退场后播放；减少动态效果即时静态。连续播放逐帧验证正文不透明、卷标入场时抽屉已退场，不以暂停帧代替验收。对应 `frontend/e2e/route-arrival.spec.ts` 覆盖桌面/手机。
 
 右上角上传按钮：≤680px统一44px图标按钮并隐藏文字、padding为0；不要让图标按钮宽度与文字隐藏使用不同断点。移动端回归覆盖420/421和680/681边界。
+
+模型标识契约：顶栏仅显示当前配置；回答与预审及其 Markdown 导出使用独立 `generation` 快照（provider/label/model/status），回退标离线、中断保留实际来源，缺记录不猜测。SSE 首 token 前发来源事件、done 给最终状态；旧 mode=qwen 仅作兼容，不能据此称供应商为千问。旧 QWEN_* 自动接口仅对已知官方端点显示具体供应商。

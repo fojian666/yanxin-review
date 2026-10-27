@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
+import { generationLabel } from "../generation";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
 import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
@@ -112,6 +113,7 @@ export function ReviewPage() {
       `- 生成时间：${report.overall.generated_at}`,
       `- 文本规模：${report.doc.char_count} 字 / ${report.doc.chunk_count} 个文本块`,
       `- 执行模式：${report.mode === "qwen" ? "大模型生成，规则引擎校验" : "离线规则与检索（未启用大模型）"}`,
+      `- 生成来源：${generationLabel(report.generation, "规则预审")}`,
       "",
       "## 总体判断",
       report.overall.summary,
@@ -380,6 +382,7 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
           <span className={`risk-badge ${riskClass}`}>风险等级：{risk}</span>
           <div className="report-meta">
             <span>{report.mode === "qwen" ? "大模型预审" : "规则预审"}</span>
+            <span className="generation-source">{generationLabel(report.generation, "规则预审")}</span>
             <span>{report.overall.generated_at.replace("T", " ")}</span>
           </div>
         </div>

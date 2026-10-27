@@ -57,3 +57,21 @@ test('正常动效登录撤幕与运行时减少动态效果', async ({ page }) 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect.poll(() => page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBeTruthy();
 });
+
+test('手机明确显示DeepSeek与千问配置且不挤压上传按钮', async ({ app: page, context }, testInfo) => {
+  const health = await (await context.request.get('/api/health')).json();
+  await page.route('**/api/health', route => route.fulfill({ json: health }));
+  for (const [provider, label, model] of [['deepseek', 'DeepSeek', 'deepseek-flash'], ['qwen', '千问 / DashScope', 'qwen-plus']]) {
+    health.llm = { configured: true, provider, label, model, base_url: '' };
+    for (const width of [320, 375, 680]) {
+      await page.setViewportSize({ width, height: 812 });
+      await page.reload();
+      await expect(page.getByLabel('当前模型配置')).toHaveText(`当前配置：${label} · ${model}`);
+      await expect(page.getByLabel('当前模型配置')).toBeVisible();
+      await expect(page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true })).toHaveCSS('width', '44px');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+    }
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.locator('.welcome-home')).toBeVisible(); await page.screenshot({ path: testInfo.outputPath('generation-mobile.png'), fullPage: true });
+});
