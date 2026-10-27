@@ -26,7 +26,7 @@ from pathlib import Path
 
 from . import config, db
 from .retrieval import retriever
-from .text import chunk_document
+from .text import chunk_document, normalize_text
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CORPUS_DIR = BASE_DIR / "corpus"
@@ -58,11 +58,13 @@ def load_manifest(path: Path | None = None) -> dict:
 def policy_entries(manifest: dict | None = None, root: Path | None = None) -> list[dict]:
     """清单里的政策条目，附带已解析的快照路径与文本。
 
-    `root` 是允许读取的根目录（默认项目根）；越界路径与 sha256 不符一律拒绝——
+    `root` 显式指定受信快照目录；默认只允许项目 corpus/ 内的相对路径。
+    越界路径、缺失或不符的 sha256 一律拒绝——
     清单随仓库分发、启动时自动导入，不能成为任意本地文件的读取入口。
     """
     manifest = manifest or load_manifest()
     base = Path(root).resolve() if root else BASE_DIR.resolve()
+    allowed = base if root is not None else CORPUS_DIR.resolve()
     out: list[dict] = []
     for entry in manifest.get("sources", []):
         if entry.get("kind") != "policy":
@@ -71,11 +73,13 @@ def policy_entries(manifest: dict | None = None, root: Path | None = None) -> li
         if not raw:
             raise CorpusError(f"清单条目缺少 text_path：{entry.get('id')}")
         text_path = (base / raw).resolve()
-        if not text_path.is_relative_to(base) or not text_path.is_file():
+        if (root is None and Path(raw).is_absolute()) or not text_path.is_relative_to(allowed) or not text_path.is_file():
             raise CorpusError(f"语料路径越界或不存在：{raw}")
+        expected = str(entry.get("text_sha256") or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise CorpusError(f"语料缺少有效 sha256：{raw}")
         payload = text_path.read_bytes()
-        expected = str(entry.get("text_sha256") or "").strip()
-        if expected and hashlib.sha256(payload).hexdigest() != expected:
+        if hashlib.sha256(payload).hexdigest() != expected:
             raise CorpusError(f"语料 sha256 与清单不一致：{raw}（快照可能被改动或截断）")
         out.append({**entry, "_path": text_path, "_text": payload.decode("utf-8")})
     return out
@@ -94,14 +98,21 @@ def _label_articles(chunks: list[dict], source: str) -> None:
     标签会指向块内下一个条号，与证据原文对不上。改为在全文里定位块首偏移，
     取它之前最近的那个条号。
     """
-    marks = [(m.start(), m.group(1)) for m in ARTICLE_LINE_RE.finditer(source)]
+    # 分块会合并段落换行、归一数字；全文和块首使用相同的定位口径。
+    source = normalize_text(source)
+    def compact(value: str) -> str:
+        return re.sub(r"\s+", "", value)
+
+    marks = [(len(compact(source[:m.start()])), m.group(1))
+             for m in ARTICLE_LINE_RE.finditer(source)]
+    source = compact(source)
     cursor = 0
     for chunk in chunks:
         text = chunk.get("text") or ""
         section = (chunk.get("section") or "").strip()
         body = text[len(section):].lstrip("\n") if section and text.startswith(section) else text
         article = ""
-        probe = body[:30]
+        probe = compact(normalize_text(body))[:60]
         pos = source.find(probe, cursor) if probe else -1
         if pos < 0 and probe:
             pos = source.find(probe)
@@ -112,10 +123,6 @@ def _label_articles(chunks: list[dict], source: str) -> None:
                     article = name
                 else:
                     break
-        elif pos < 0:
-            # 定位不到块首时退回旧行为，宁可粗一点也不要空标签
-            match = ARTICLE_RE.search(text)
-            article = match.group(0) if match else ""
         if not article or article in section:
             continue
         chunk["section"] = f"{section} · {article}".strip(" ·")
@@ -139,13 +146,14 @@ def _doc_meta(entry: dict) -> dict:
 def load_policies(
     force: bool = False, manifest: dict | None = None, root: Path | None = None
 ) -> dict:
-    """把清单里的政策写入文档库；返回 {loaded, skipped, chunks, documents}。"""
+    """把清单里的政策写入文档库；返回 {loaded, skipped, chunks, documents, relabeled}。"""
     entries = policy_entries(manifest, root=root)
     db.init_db()  # 幂等：新库/空目录时表还不存在（run.sh 在 uvicorn lifespan 之前调用）
     existing = db.public_policy_docs()
     loaded: list[dict] = []
     skipped: list[dict] = []
     chunk_total = 0
+    relabeled = 0
 
     for entry in entries:
         source_id = str(entry.get("id") or "").strip()
@@ -153,6 +161,25 @@ def load_policies(
             raise CorpusError(f"清单条目缺少 id：{entry.get('title')}")
         if source_id in existing:
             if not force:
+                doc_id = existing[source_id]
+                doc = db.get_document(doc_id)
+                # 快照一致才修正章节元数据；不删文档、不改正文或引用 ID。
+                if (doc and doc["kind"] == "policy" and
+                        doc.get("meta", {}).get("text_sha256") == entry["text_sha256"]):
+                    stored = db.get_chunks(doc_id)
+                    corrected = []
+                    for chunk in stored:
+                        item = dict(chunk)
+                        item["section"] = re.sub(r" · 第[一二三四五六七八九十百零〇\d]+条$", "", item["section"] or "")
+                        corrected.append(item)
+                    _label_articles(corrected, entry["_text"])
+                    changes = [(new["section"], old["id"], doc_id)
+                               for old, new in zip(stored, corrected)
+                               if new["section"] != old["section"] and ARTICLE_RE.search(new["section"])]
+                    if changes:
+                        with db.connect() as conn:
+                            conn.executemany("UPDATE chunks SET section = ? WHERE id = ? AND doc_id = ?", changes)
+                        relabeled += len(changes)
                 skipped.append({"id": source_id, "reason": "已入库"})
                 continue
             db.delete_document(existing[source_id])
@@ -179,7 +206,7 @@ def load_policies(
         chunk_total += len(chunks)
         loaded.append({"id": source_id, "name": doc["name"], "chunks": len(chunks)})
 
-    if loaded:
+    if loaded or relabeled:
         retriever.rebuild()
 
     return {
@@ -187,6 +214,7 @@ def load_policies(
         "skipped": skipped,
         "chunks": chunk_total,
         "documents": len(entries),
+        "relabeled": relabeled,
     }
 
 
@@ -233,6 +261,8 @@ def main(argv: list[str] | None = None) -> int:
         f"[完成] 清单 {result['documents']} 条：导入 {len(result['loaded'])}，"
         f"跳过 {len(result['skipped'])}，新增 {result['chunks']} 块"
     )
+    if result["relabeled"]:
+        print(f"[修正] {result['relabeled']} 块政策条号（保留文档与分块 ID）")
     if not result["loaded"]:
         print("提示：加 --force 可重建已入库的政策语料。")
     return 0

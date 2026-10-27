@@ -185,3 +185,64 @@ def test_review_policy_cites_are_deduped_and_keep_disclaimer():
     for item in items:
         assert "人工核对" in item["detail"]
         assert "score" not in item and "level" not in item
+
+
+def test_default_manifest_cannot_read_project_files(tmp_path, monkeypatch):
+    manifest = _manifest(tmp_path)
+    monkeypatch.setattr(corpus, "BASE_DIR", tmp_path)
+    allowed = tmp_path / "corpus"
+    allowed.mkdir()
+    monkeypatch.setattr(corpus, "CORPUS_DIR", allowed)
+    for path in ("policy.txt", str(tmp_path / "policy.txt"), "corpus/../policy.txt"):
+        manifest["sources"][0]["text_path"] = path
+        with pytest.raises(corpus.CorpusError):
+            corpus.policy_entries(manifest)
+    (allowed / "escape.txt").symlink_to(tmp_path / "policy.txt")
+    manifest["sources"][0]["text_path"] = "corpus/escape.txt"
+    with pytest.raises(corpus.CorpusError):
+        corpus.policy_entries(manifest)
+
+
+def test_manifest_requires_valid_sha(tmp_path):
+    manifest = _manifest(tmp_path)
+    for bad in (None, "", "xyz", "g" * 64):
+        manifest["sources"][0]["text_sha256"] = bad
+        with pytest.raises(corpus.CorpusError, match="sha256"):
+            corpus.policy_entries(manifest, root=tmp_path)
+
+
+def test_article_alignment_survives_paragraph_joining():
+    source = "第一章 总则\n\n第二十条 上一段正文结束。\n\n紧接正文。\n\n第二十一条 下一条正文。"
+    chunks = [{"section": "第一章 总则", "text": "第一章 总则\n上一段正文结束。\n紧接正文。\n第二十一条 下一条正文。"}]
+    corpus._label_articles(chunks, source)
+    assert chunks[0]["section"] == "第一章 总则 · 第二十条"
+    unknown = [{"section": "第一章 总则", "text": "无法定位的片段。第二十一条 下一条正文。"}]
+    corpus._label_articles(unknown, source)
+    assert unknown[0]["section"] == "第一章 总则"
+    entry = next(e for e in corpus.policy_entries() if e["id"] == "most_research_misconduct")
+    from rag.text import chunk_document
+    actual = chunk_document([{"page": None, "text": entry["_text"]}], 700, 100)
+    corpus._label_articles(actual, entry["_text"])
+    assert actual[6]["section"] == "第二节 调查 · 第二十条"
+    assert actual[9]["section"] == "第四章 处理 · 第三十条"
+
+
+def test_existing_policy_relabels_without_changing_citations(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    _stub_retriever(monkeypatch)
+    manifest = _manifest(tmp_path)
+    corpus.load_policies(manifest=manifest, root=tmp_path)
+    doc_id = db.public_policy_docs()["unit_test_policy"]
+    original = db.get_chunks(doc_id)
+    with db.connect() as conn:
+        conn.execute("UPDATE chunks SET section = '第一章 总则 · 第二条' WHERE doc_id = ?", (doc_id,))
+    result = corpus.load_policies(manifest=manifest, root=tmp_path)
+    assert result["relabeled"] == len(original)
+    assert db.get_chunks(doc_id) == original
+    assert corpus.load_policies(manifest=manifest, root=tmp_path)["relabeled"] == 0
+    # 已存快照不一致时保留旧元数据，不能用另一版本快照重新解释旧引用。
+    with db.connect() as conn:
+        conn.execute("UPDATE documents SET meta_json = '{}' WHERE id = ?", (doc_id,))
+        conn.execute("UPDATE chunks SET section = '旧版本章名' WHERE doc_id = ?", (doc_id,))
+    assert corpus.load_policies(manifest=manifest, root=tmp_path)["relabeled"] == 0
+    assert all(c["section"] == "旧版本章名" for c in db.get_chunks(doc_id))

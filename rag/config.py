@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -131,8 +132,14 @@ DOC_KINDS = {"auto", "proposal", "policy", "paper", "other"}
 
 def _is_public_host(url: str) -> bool:
     """判断 LLM 端点是否在公网；无法确认时按公网处理（保守）。"""
-    host = (urlparse(url).hostname or "").strip().lower()
-    if not host:
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").encode("idna").decode("ascii").lower()
+        # HTTP 客户端会解码百分号或接受非标准数字 IP；不能当作内网 DNS。
+        if parsed.scheme not in {"http", "https"} or not host or "%" in host or "\\" in parsed.netloc:
+            return True
+        _ = parsed.port  # 非法端口也按无法确认处理
+    except (ValueError, UnicodeError):
         return True
     if host in {"localhost", "::1"}:
         return False
@@ -141,6 +148,8 @@ def _is_public_host(url: str) -> bool:
         return ip.is_global
     except ValueError:
         pass
+    if re.fullmatch(r"(?:0x[0-9a-f]+|[0-9]+)", host):
+        return True
     if host.endswith((".local", ".internal", ".intra", ".lan", ".corp")):
         return False
     # 无点号的裸主机名按内网 DNS 处理；其余域名按公网处理
@@ -176,7 +185,7 @@ _LLM_PRESETS: dict[str, dict] = {
         "label": "DeepSeek",
         "base_url": "https://api.deepseek.com/v1",
         "model": "deepseek-flash",
-        "key_env": ("DEEPSEEK_API_KEY", "QWEN_API_KEY"),
+        "key_env": ("DEEPSEEK_API_KEY",),
         "style": "deepseek",
     },
     "openai": {

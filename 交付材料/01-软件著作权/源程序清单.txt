@@ -4,8 +4,8 @@
     706 app.py
       1 rag/__init__.py
     207 rag/auth.py
-    270 rag/config.py
-    242 rag/corpus.py
+    279 rag/config.py
+    272 rag/corpus.py
     417 rag/db.py
     293 rag/demo_proposals.py
     362 rag/embeddings.py
@@ -14,13 +14,13 @@
     193 rag/llm.py
     298 rag/parsers.py
     188 rag/qa.py
-    223 rag/retrieval.py
+    225 rag/retrieval.py
     477 rag/review.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   5346 total
+   5387 total
 前端（TypeScript/TSX/CSS）
     230 frontend/src/App.tsx
     286 frontend/src/AppContext.tsx
@@ -52,13 +52,13 @@
    7471 total
 测试（Python）
      31 tests/conftest.py
-    187 tests/test_corpus.py
+    248 tests/test_corpus.py
      16 tests/test_docs.py
      73 tests/test_llm_payload.py
-    170 tests/test_llm_provider.py
-    378 tests/test_retrieval_embedding.py
-   1048 tests/test_robustness.py
-   1903 total
+    180 tests/test_llm_provider.py
+    397 tests/test_retrieval_embedding.py
+   1075 tests/test_robustness.py
+   2020 total
 工具（Python）
     198 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -78,7 +78,7 @@
      27 frontend/playwright.config.ts
     855 total
 合计
-  16551 total（67 个文件）
+  16709 total（67 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

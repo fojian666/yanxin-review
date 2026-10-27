@@ -376,3 +376,22 @@ def test_similarity_between_docs_stays_on_tfidf(seeded_db, monkeypatch):
 
     with_embedding.embed_matrix = None
     assert with_embedding.similarity_between_docs("d1", top_k=5) == baseline
+
+
+def test_policy_is_searchable_but_excluded_before_duplicate_top_n(monkeypatch):
+    text = "科研诚信声明：申请材料真实完整，遵守科研诚信相关规定。"
+    docs = [{"id": "target", "name": "申报材料", "kind": "proposal"},
+            {"id": "peer", "name": "另一申报材料", "kind": "proposal"},
+            {"id": "policy", "name": "公开政策", "kind": "policy"}]
+    chunks = [{"id": "target", "doc_id": "target", "text": text, "section": ""}]
+    # 超过 top-80 的政策块不能挤掉真正的跨本子重复。
+    chunks += [{"id": str(i), "doc_id": "policy", "text": text, "section": ""} for i in range(90)]
+    chunks += [{"id": "peer", "doc_id": "peer", "text": text + "本项目", "section": ""}]
+    monkeypatch.setattr(db, "list_documents", lambda: docs)
+    monkeypatch.setattr(db, "get_chunks", lambda: chunks)
+    monkeypatch.setattr(config, "EMBED_BACKEND", "none")
+    retriever = Retriever()
+    retriever.rebuild()
+    matches = retriever.similarity_between_docs("target")
+    assert [m["matched_doc_id"] for m in matches] == ["peer"]
+    assert retriever.search(text, scope=["policy"])[0]["doc_id"] == "policy"

@@ -168,3 +168,13 @@ def test_offline_answer_says_what_it_did_not_do():
     )
     assert "原文摘录" in body
     assert "未做归纳" in body
+
+
+def test_deepseek_never_reuses_qwen_key(monkeypatch):
+    _clean(monkeypatch)
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("QWEN_API_KEY", "fake-qwen")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    assert config.llm_provider()["configured"] is False
+    monkeypatch.setenv("LLM_API_KEY", "fake-generic")
+    assert config.llm_provider()["api_key"] == "fake-generic"

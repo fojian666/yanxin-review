@@ -192,12 +192,14 @@ class Retriever:
                 return []
             target_matrix = self.matrix[idxs]
             sims = cosine_similarity(target_matrix, self.matrix)
+            excluded = [i for i, c in enumerate(self.chunks)
+                        if c["doc_id"] == doc_id or c.get("doc_kind") == "policy"]
             best: dict[str, dict] = {}
             for row_i, local_idx in enumerate(idxs):
                 target_chunk = self.chunks[local_idx]
-                # 先遮蔽同文档 chunk，避免长文档占满 top-N 导致跨文档漏报
+                # 同文档与政策先遮蔽，避免挤占 top-N；政策仍参与问答检索。
                 row = sims[row_i].copy()
-                row[idxs] = -1.0
+                row[excluded] = -1.0
                 for j in np.argsort(-row)[:80]:
                     other = self.chunks[int(j)]
                     score = float(row[int(j)])

@@ -1046,3 +1046,30 @@ def test_empty_expert_library_preserves_constraint_notice(monkeypatch):
     assert result["applicant_warning"]
     assert result["institution_match_note"]
     assert result["excluded"] == []
+
+
+def test_ambiguous_hosts_cannot_bypass_model_gate(monkeypatch):
+    from rag.embeddings import Embedder, EmbeddingUnavailable
+
+    def unexpected_request(*args, **kwargs):
+        pytest.fail("门禁不得发送网络请求")
+
+    monkeypatch.setattr("rag.embeddings.requests.post", unexpected_request)
+    monkeypatch.setattr(config, "EMBED_API_KEY", "fake-embed-key")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", False)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_EMBED", False)
+    monkeypatch.setenv("LLM_PROVIDER", "custom")
+    for authority in ("8%2e8%2e8%2e8", "134744072", "0x08080808", "01004010010",
+                      "８。８。８。８", "8.8.8", "[invalid", "localhost:bad"):
+        url = f"http://{authority}/v1"
+        assert config._is_public_host(url), authority
+        monkeypatch.setenv("LLM_BASE_URL", url)
+        assert config.llm_provider()["configured"] is False
+        monkeypatch.setattr(config, "EMBED_BASE_URL", url)
+        monkeypatch.setattr(config, "EMBED_BACKEND", "api")
+        status = Embedder().status()
+        assert status["enabled"] is False and "公网" in status["reason"]
+        with pytest.raises(EmbeddingUnavailable, match="公网"):
+            Embedder()._api(["不应发出的测试文本"])
+    for authority in ("127.0.0.1", "10.1.2.3", "100.64.0.1", "[::1]", "qwen.internal", "intranet"):
+        assert not config._is_public_host(f"http://{authority}/v1"), authority

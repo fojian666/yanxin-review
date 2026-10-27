@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 36 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（112 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（119 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -86,10 +86,13 @@ frontend/src/
 
 - 检索有向量后端，但**不是向量库**：矩阵在内存里做点积（几千条量级，numpy 比 HTTP 往返快），不需要 Milvus。未配置或端点在公网且未授权时自动退回纯 TF-IDF。
 - 两种打分尺度不同，阈值必须分开：结果下限 `EMBED_MIN_SCORE=0.45`（向量）、政策引用 `0.58` / TF-IDF `0.08`；证据面板的相似度条也按后端分档。改任何一个前先跑 `tools/eval_retrieval.py`，并在真实本子上确认政策引用非空。
+- **查重候选排除政策**：仅影响查重，问答和合规引用保留政策；候选截断前过滤，防止政策块挤占真正的重复本子。
 - **查重不走向量**：字面重合查重才是对的，向量会把“主题相近但无重复”判成高相似。
 - 单测默认 `EMBED_BACKEND=none`（`tests/conftest.py`），不要为了“测得更真实”去放开——单测不该发外部请求。
 - 政策库只有两部公开公文。条款级比对只输出“可能相关条款 + 人工核对”，**不做版本时效判断**（`PolicyMeta` 的生效/失效/被替代字段已冻结、未建存储）。政策引用保留全角标点（`normalize_text` 用 NFC + 全角数字字母转半角，**不要改回 NFKC**，否则「（一）…；」会变「(一)…;」）。
 - **无模型不是故障**：未配 `LLM_PROVIDER` 或没有 key 时，问答走原文摘录、预审走规则引擎、趋势走规则统计；预审报告带 `limitations` 逐条说明规则做不到什么，前端显示在结论下方。不要把这些兜底结果当成语义判断。
+- 出口门禁拒绝百分号主机名及非标准数字 IP（十进制、十六进制、八进制），Unicode 主机名先做 IDNA 归一；仍支持标准内网 IP 与内网 DNS。DeepSeek 预设不回落使用千问密钥。
+- 政策默认导入仅允许 `corpus/` 内相对路径并强制校验有效 SHA256；重复导入仅在快照一致时原位修正条号，不改文档/分块 ID 或正文。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
