@@ -13,7 +13,21 @@ test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }) 
 });
 
 test('手机上传弹窗焦点不逃出，关闭恢复焦点', async ({ app: page }) => {
-  const open = page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }); await open.click();
+  const open = page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true });
+  for (const width of [320, 375, 420, 421, 500, 680, 681, 900]) {
+    await page.setViewportSize({ width, height: 812 });
+    const label = open.locator('.btn-label');
+    if (width <= 680) {
+      await expect(label, `${width}px 应为纯图标按钮`).toBeHidden();
+      await expect(open).toHaveCSS('width', '44px');
+    } else {
+      await expect(label).toBeVisible();
+    }
+    expect(await open.locator('svg').evaluate(element => element.getBoundingClientRect().width), `${width}px 上传图标不可被文字挤扁`).toBeGreaterThanOrEqual(16);
+    expect(await open.evaluate(element => element.scrollWidth <= element.clientWidth), `${width}px 按钮不可溢出`).toBeTruthy();
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  await open.click();
   const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
   for (let i = 0; i < 10; i++) {
     await page.keyboard.press('Tab');
