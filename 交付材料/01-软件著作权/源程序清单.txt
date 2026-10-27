@@ -34,7 +34,7 @@
      84 frontend/src/components/Markdown.tsx
     178 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
-    158 frontend/src/components/Topbar.tsx
+    176 frontend/src/components/Topbar.tsx
     291 frontend/src/components/UploadModal.tsx
       1 frontend/src/echarts-gl.d.ts
      10 frontend/src/main.tsx
@@ -47,9 +47,9 @@
     427 frontend/src/pages/ReviewPage.tsx
     437 frontend/src/pages/TrendPage.tsx
     124 frontend/src/pages/WelcomePage.tsx
-   2022 frontend/src/styles.css
+   2023 frontend/src/styles.css
     272 frontend/src/types.ts
-   7474 total
+   7493 total
 测试（Python）
      31 tests/conftest.py
     187 tests/test_corpus.py
@@ -73,12 +73,12 @@
     109 frontend/e2e/library.spec.ts
      45 frontend/e2e/mobile.spec.ts
     132 frontend/e2e/review-match.spec.ts
-     67 frontend/e2e/route-arrival.spec.ts
+     81 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      27 frontend/playwright.config.ts
-    827 total
+    841 total
 合计
-  16526 total（67 个文件）
+  16559 total（67 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

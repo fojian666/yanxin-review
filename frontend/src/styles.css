@@ -1997,13 +1997,14 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .route-arrival-paper-front { box-shadow: 0 3px 6px rgba(26,46,40,.08); }
 .route-arrival-tab { position: absolute; left: 24px; top: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 108px; height: 28px; padding: 0 20px 0 16px; background: var(--teal-deep); color: #fff; font-size: 12px; letter-spacing: .16em; clip-path: polygon(0 0, 100% 0, calc(100% - 7px) 50%, 100% 100%, 0 100%); }
 @media (prefers-reduced-motion: no-preference) {
-  .route-arrival-paper-back { animation: route-paper-back 420ms cubic-bezier(.22,1,.36,1); }
-  .route-arrival-paper-front { animation: route-paper-open 450ms cubic-bezier(.22,1,.36,1); }
-  .route-arrival-tab { animation: route-tab-arrive 350ms 70ms cubic-bezier(.22,1,.36,1) backwards; }
+  .route-arrival[data-waiting] .route-arrival-tab { opacity: 0; }
+  .route-arrival:not([data-waiting]) .route-arrival-paper-back { animation: route-paper-back 420ms cubic-bezier(.22,1,.36,1); }
+  .route-arrival:not([data-waiting]) .route-arrival-paper-front { animation: route-paper-open 450ms cubic-bezier(.22,1,.36,1); }
+  .route-arrival:not([data-waiting]) .route-arrival-tab { animation: route-tab-arrive 350ms 70ms cubic-bezier(.22,1,.36,1) backwards; }
 }
 @keyframes route-paper-open {
   0% { transform: perspective(500px) rotateX(var(--route-paper-angle, 65deg)) translateY(var(--route-paper-y, -12px)) scaleX(.35); opacity: .1; }
-  42% { transform: perspective(500px) rotateX(-8deg) translateY(-3px) scaleX(1); opacity: .95; }
+  42% { transform: perspective(500px) rotateX(12deg) translateY(-3px) scaleX(1); opacity: .95; }
   70% { transform: perspective(500px) rotateX(0) translateY(0) scaleX(1); opacity: .7; }
   100% { transform: perspective(500px) rotateX(0) scaleY(.15); opacity: 0; }
 }

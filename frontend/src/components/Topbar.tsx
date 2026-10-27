@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { LogOut, Menu, Upload, UserRound } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { ROLE_LABELS, type UserRole } from "../types";
@@ -15,6 +15,28 @@ const META: Record<string, { title: string; sub: string }> = {
   "/library": { title: "文档库", sub: "资料入库、索引在册、文献成集" },
   "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
 };
+
+// 窄屏先核验真实抽屉动画：关闭与导航会批处理，不能只读取 navOpen 初值。
+function RouteArrival({ title, navOpen }: { title: string; navOpen: boolean }) {
+  const [waiting, setWaiting] = useState(() => window.matchMedia("(max-width: 680px)").matches);
+  useLayoutEffect(() => {
+    if (!waiting || navOpen) return;
+    const animations = document.getElementById("site-nav")?.getAnimations() ?? [];
+    if (!animations.length) { setWaiting(false); return; }
+    let active = true;
+    void Promise.allSettled(animations.map(animation => animation.finished)).then(() => {
+      if (active) setWaiting(false);
+    });
+    return () => { active = false; };
+  }, [waiting, navOpen]);
+  return (
+    <div className="route-arrival" data-waiting={waiting || undefined} aria-hidden="true">
+      <span className="route-arrival-paper route-arrival-paper-back" />
+      <span className="route-arrival-paper route-arrival-paper-front" />
+      <span className="route-arrival-tab">{title}</span>
+    </div>
+  );
+}
 
 export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void; navOpen?: boolean }) {
   const { pathname } = useLocation();
@@ -148,11 +170,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
           </div>
         )}
       </div>
-      <div className="route-arrival" key={`arrival:${pathname}`} aria-hidden="true">
-        <span className="route-arrival-paper route-arrival-paper-back" />
-        <span className="route-arrival-paper route-arrival-paper-front" />
-        <span className="route-arrival-tab">{meta.title}</span>
-      </div>
+      <RouteArrival key={`arrival:${pathname}`} title={meta.title} navOpen={navOpen} />
     </header>
   );
 }
