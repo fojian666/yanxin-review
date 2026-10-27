@@ -187,7 +187,11 @@ export function TopicMatrix3D({ data, autoRotate = true }: { data: TrendData; au
           color: AXIS,
           fontSize: 9,
           interval: 0,
-          formatter: (value: string) => (value.length > 6 ? `${value.slice(0, 6)}…` : value),
+          formatter: (value: string | null | undefined) => {
+            // 空文献库的类目轴可能传入 undefined，不能直接读取 length。
+            const label = String(value ?? "");
+            return label.length > 6 ? `${label.slice(0, 6)}…` : label;
+          },
         },
         axisLine: { lineStyle: { color: AXIS_LINE } },
         axisTick: { show: false },

@@ -16,3 +16,8 @@ frontend/dist/
 # 含真实个人信息，不入版本库（公开仓库）
 3.科研课题申请书（终稿）.docx
 交付材料/01-软件著作权/screenshots/
+
+# 浏览器回归生成物（含测试会话/报告/截图，禁止提交）
+frontend/test-results/
+frontend/playwright-report/
+output/playwright/

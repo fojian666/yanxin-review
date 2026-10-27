@@ -1,0 +1,61 @@
+name: Browser regression
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_PYTHON: python3
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install backend dependencies
+        # jieba 0.42.x 仍导入 pkg_resources，干净的 Python 环境需兼容的 setuptools。
+        run: python3 -m pip install -r requirements.txt pytest httpx 'setuptools<81'
+      - name: Install frontend and Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Backend and document regression
+        run: |
+          python3 -m pytest tests/ -q
+          python3 -m tools.doc_check
+          python3 -m tools.soft_copyright --check
+      - name: Type-check browser tests
+        working-directory: frontend
+        run: npm run test:e2e:types
+      - name: Browser regression
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Keep failure evidence and test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regression-${{ github.run_id }}
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

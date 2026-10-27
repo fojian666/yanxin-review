@@ -25,6 +25,7 @@ SECTIONS = [
     ("前端（TypeScript/TSX/CSS）", [], ["frontend/src"]),
     ("测试（Python）", [], ["tests"]),
     ("工具（Python）", [], ["tools"]),
+    ("浏览器回归（TypeScript/Python）", ["frontend/playwright.config.ts"], ["frontend/e2e"]),
 ]
 
 SKIP_DIRS = {"__pycache__", "node_modules", "dist", ".git"}
