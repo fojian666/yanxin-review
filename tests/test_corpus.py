@@ -246,3 +246,47 @@ def test_existing_policy_relabels_without_changing_citations(tmp_path, monkeypat
         conn.execute("UPDATE chunks SET section = '旧版本章名' WHERE doc_id = ?", (doc_id,))
     assert corpus.load_policies(manifest=manifest, root=tmp_path)["relabeled"] == 0
     assert all(c["section"] == "旧版本章名" for c in db.get_chunks(doc_id))
+
+
+
+def test_force_rebuild_preserves_policies_removed_from_manifest(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    _stub_retriever(monkeypatch)
+    manifest = _manifest(tmp_path)
+    corpus.load_policies(manifest=manifest, root=tmp_path)
+    old_id = db.public_policy_docs()["unit_test_policy"]
+    manifest["sources"][0]["id"] = "replacement_policy"
+    corpus.load_policies(force=True, manifest=manifest, root=tmp_path)
+    assert db.public_policy_docs()["unit_test_policy"] == old_id
+    assert db.get_chunks(old_id)
+
+
+def test_policy_fetch_requires_https_and_refuses_redirects(monkeypatch):
+    import urllib.error
+    import urllib.request
+    from tools import fetch_corpus as fetch
+
+    calls = []
+
+    class FakeOpener:
+        def open(self, request, **kwargs):
+            calls.append(request.full_url)
+            raise urllib.error.HTTPError(request.full_url, 307, "redirect", {}, None)
+
+    def build_opener(handler):
+        assert isinstance(handler, fetch._NoRedirect)
+        return FakeOpener()
+
+    monkeypatch.setattr(urllib.request, "build_opener", build_opener)
+    url = fetch.SOURCES[0]["url"]
+    for invalid in (url.replace("https:", "http:"), "https://example.com/policy"):
+        with pytest.raises(RuntimeError, match="HTTPS"):
+            fetch._http_get(invalid)
+    assert calls == []
+    with pytest.raises(RuntimeError, match="307"):
+        fetch._http_get(url)
+    assert calls == [url]  # 重定向既不跟随，也不重试
+    request = urllib.request.Request(url)
+    for target in ("https://evil.example/policy", url, url.replace("https:", "http:")):
+        with pytest.raises(urllib.error.HTTPError):
+            fetch._NoRedirect().redirect_request(request, None, 307, "redirect", {}, target)

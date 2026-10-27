@@ -104,7 +104,8 @@ LLM_ENABLE_THINKING: bool | None = (
     None if not _thinking else _thinking not in {"0", "false", "no"}
 )
 # 思考模式参数的「方言」：不同家叫法不一样，乱传会被 400 或静默忽略
-#   auto（默认）按端点推断：含 deepseek → thinking.type；其余按千问的 enable_thinking
+#   显式配置优先于预设；auto 使用预设方言，自定义地址含 deepseek → thinking.type、
+#   api.openai.com → 不发扩展参数，其余按千问的 enable_thinking
 #   qwen / deepseek 可强制指定，none 表示不发送任何思考相关参数
 LLM_THINKING_STYLE = (os.getenv("LLM_THINKING_STYLE") or "auto").strip().lower()
 
@@ -194,7 +195,7 @@ _LLM_PRESETS: dict[str, dict] = {
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-4o-mini",
         "key_env": ("OPENAI_API_KEY",),
-        "style": "qwen",
+        "style": "none",
     },
 }
 
@@ -229,7 +230,7 @@ def llm_provider() -> dict:
     """解析当前用哪个模型端点。
 
     `LLM_PROVIDER` 可选 qwen / deepseek / openai / custom / auto（默认）。
-    - 预设：只需给 key，base_url 与模型名用预设值，`QWEN_*` 仍可覆盖（兼容旧配置）；
+    - 预设：只需给 key，base_url 与模型名用预设值，可用 `LLM_BASE_URL` / `LLM_MODEL` 覆盖；
     - custom：完全按 `QWEN_BASE_URL` / `OPENAI_BASE_URL` 走，适合内网 vLLM / Ollama；
     - auto：维持历史行为，按已配置的 key 依次判断。
     """
@@ -263,7 +264,7 @@ def llm_provider() -> dict:
             return _offline()
         if _is_public_host(base) and not ALLOW_EXTERNAL_LLM:
             return _blocked_external("公网模型地址")
-        return _configured("custom", "内网 / 自建模型", base, model, key, "qwen")
+        return _configured("custom", "内网 / 自建模型", base, model, key, "auto")
 
     # auto：保持历史行为（只认模块级变量，兼容旧写法）
     custom_qwen_base = bool(QWEN_BASE_URL and QWEN_BASE_URL != DASHSCOPE_BASE_URL)
@@ -275,5 +276,5 @@ def llm_provider() -> dict:
     if OPENAI_API_KEY:
         if _is_public_host(OPENAI_BASE_URL) and not ALLOW_EXTERNAL_LLM:
             return _blocked_external("OpenAI 兼容公网地址")
-        return _configured("openai", "OpenAI 兼容接口", OPENAI_BASE_URL, OPENAI_MODEL, OPENAI_API_KEY, "qwen")
+        return _configured("openai", "OpenAI 兼容接口", OPENAI_BASE_URL, OPENAI_MODEL, OPENAI_API_KEY, "auto")
     return _offline()

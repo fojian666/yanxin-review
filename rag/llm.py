@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Generator, Iterable
+from urllib.parse import urlparse
 
 import requests
 
@@ -55,10 +56,18 @@ class LLMClient:
             "max_tokens": max_tokens,
             "stream": stream,
         }
-        # 供应商预设已经声明了方言；自定义端点再按地址推断
-        style = self.info.get("style") or config.LLM_THINKING_STYLE
+        # 显式配置优先于预设；none 必须能关闭所有供应商扩展参数。
+        style = config.LLM_THINKING_STYLE
         if style in {"", "auto"}:
-            style = "deepseek" if "deepseek" in self.base_url.lower() else "qwen"
+            style = self.info.get("style") or "auto"
+        if style == "auto":
+            host = (urlparse(self.base_url).hostname or "").lower()
+            if "deepseek" in host:
+                style = "deepseek"
+            elif host == "api.openai.com":
+                style = "none"
+            else:
+                style = "qwen"
         if style == "qwen":
             if config.LLM_ENABLE_THINKING is not None:
                 payload["enable_thinking"] = config.LLM_ENABLE_THINKING

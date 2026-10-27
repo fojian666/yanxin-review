@@ -4,14 +4,14 @@
     706 app.py
       1 rag/__init__.py
     207 rag/auth.py
-    279 rag/config.py
+    280 rag/config.py
     272 rag/corpus.py
     417 rag/db.py
     293 rag/demo_proposals.py
     362 rag/embeddings.py
     364 rag/experts.py
      33 rag/ingest.py
-    193 rag/llm.py
+    202 rag/llm.py
     298 rag/parsers.py
     188 rag/qa.py
     225 rag/retrieval.py
@@ -20,7 +20,7 @@
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   5387 total
+   5397 total
 前端（TypeScript/TSX/CSS）
     230 frontend/src/App.tsx
     286 frontend/src/AppContext.tsx
@@ -52,19 +52,19 @@
    7471 total
 测试（Python）
      31 tests/conftest.py
-    248 tests/test_corpus.py
-     16 tests/test_docs.py
-     73 tests/test_llm_payload.py
-    180 tests/test_llm_provider.py
-    397 tests/test_retrieval_embedding.py
+    292 tests/test_corpus.py
+     23 tests/test_docs.py
+     93 tests/test_llm_payload.py
+    223 tests/test_llm_provider.py
+    401 tests/test_retrieval_embedding.py
    1075 tests/test_robustness.py
-   2020 total
+   2138 total
 工具（Python）
-    198 tools/doc_check.py
+    205 tools/doc_check.py
     122 tools/eval_retrieval.py
-    486 tools/fetch_corpus.py
+    506 tools/fetch_corpus.py
     170 tools/soft_copyright.py
-    976 total
+   1003 total
 浏览器回归（TypeScript/Python）
     104 frontend/e2e/auth.spec.ts
     140 frontend/e2e/chat-trend.spec.ts
@@ -72,13 +72,13 @@
      10 frontend/e2e/infrastructure.spec.ts
     109 frontend/e2e/library.spec.ts
      59 frontend/e2e/mobile.spec.ts
-    132 frontend/e2e/review-match.spec.ts
+    160 frontend/e2e/review-match.spec.ts
      81 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      27 frontend/playwright.config.ts
-    855 total
+    883 total
 合计
-  16709 total（67 个文件）
+  16892 total（67 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

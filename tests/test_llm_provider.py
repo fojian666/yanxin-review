@@ -178,3 +178,46 @@ def test_deepseek_never_reuses_qwen_key(monkeypatch):
     assert config.llm_provider()["configured"] is False
     monkeypatch.setenv("LLM_API_KEY", "fake-generic")
     assert config.llm_provider()["api_key"] == "fake-generic"
+
+
+
+def test_model_review_preserves_system_policy_and_duplicate_evidence(monkeypatch):
+    import json
+
+    _fake_db(monkeypatch)
+    policy = {"id": "p1", "name": "公开规则", "kind": "policy"}
+    cite = {"doc_id": "p1", "doc_name": "公开规则", "section": "第一章 总则 · 第五条",
+            "text": "第五条 科研诚信原文。" * 30, "score": 0.9}
+    monkeypatch.setattr(review_service.db, "list_documents", lambda: [policy])
+    monkeypatch.setattr(review_service.retriever, "search", lambda *a, **k: [cite])
+    monkeypatch.setattr(review_service.retriever, "embed_matrix", None)
+    monkeypatch.setattr(review_service, "llm", SimpleNamespace(configured=False))
+    offline = review_service.review_document("d1")
+    payload = json.loads(LLM_JSON)
+    payload["sections"] += [
+        {"key": key, "title": "模型覆盖", "status": "pass", "items": [
+            {"label": "模型声称无需复核", "status": "pass", "evidence": "模型杜撰条款"}]}
+        for key in ("policy", "duplicate")
+    ]
+    monkeypatch.setattr(review_service, "llm", SimpleNamespace(
+        configured=True, chat=lambda *a, **k: json.dumps(payload)))
+    online = review_service.review_document("d1")
+    assert online["mode"] == "qwen"
+    for key in ("policy", "duplicate"):
+        before = next(s for s in offline["sections"] if s["key"] == key)
+        after = [s for s in online["sections"] if s["key"] == key]
+        assert after == [before]
+    item = next(s for s in online["sections"] if s["key"] == "policy")["items"][0]
+    assert item["evidence_full"] == cite["text"]
+    assert "公开规则" in item["label"] and "第五条" in item["label"]
+    assert "人工核对" in item["detail"]
+    # 模型漏掉 policy 时也必须保留系统证据。
+    payload["sections"] = [s for s in payload["sections"] if s["key"] not in {"policy", "duplicate"}]
+    missing = review_service.review_document("d1")
+    assert next(s for s in missing["sections"] if s["key"] == "policy") == next(
+        s for s in offline["sections"] if s["key"] == "policy")
+    # 查无条款不能被模型编造。
+    monkeypatch.setattr(review_service.retriever, "search", lambda *a, **k: [])
+    no_hits = review_service.review_document("d1")
+    item = next(s for s in no_hits["sections"] if s["key"] == "policy")["items"][0]
+    assert item["label"] == "未检索到明显相关政策条款"

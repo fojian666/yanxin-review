@@ -29,6 +29,7 @@ import time
 import unicodedata
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -71,7 +72,7 @@ SOURCES: list[dict] = [
         "doc_no": "苏科技规〔2022〕3号",
         "published_at": "2022-11-29",
         "year": 2022,
-        "url": "http://kjj.lyg.gov.cn/lygskxjsj/upload/cd8b5057-058e-4042-ab30-d0b40e27a865.pdf",
+        "url": "https://kjj.lyg.gov.cn/lygskxjsj/upload/cd8b5057-058e-4042-ab30-d0b40e27a865.pdf",
         "format": "pdf",
         "anchors": ["江苏省科技计划项目信用管理办法", "第一条", "信用管理"],
         "license": "政府公开信息（行政规范性文件）",
@@ -156,7 +157,7 @@ def _decode(raw: bytes, declared: str | None = None) -> str:
 
 def _normalize(text: str) -> str:
     # 用 NFC 而非 NFKC：公文快照要保留全角标点（（）；：），NFKC 会把它转成半角。
-    # 入库分块时 rag.text.normalize_text 仍会做 NFKC 归一，检索口径不变。
+    # 入库分块时同样保留全角标点，仅归一全角数字字母，检索口径不变。
     text = unicodedata.normalize("NFC", text or "")
     text = text.replace("\u3000", " ").replace("\xa0", " ")
     text = re.sub(r"[\u2002\u2003\u2009\u200a]", " ", text)
@@ -284,13 +285,32 @@ def clean_policy_text(text: str, fmt: str) -> str:
     return "\n\n".join(merged).strip()
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "拒绝跟随政策来源重定向", headers, fp)
+
+
 def _http_get(url: str) -> tuple[bytes, int]:
+    allowed_hosts = {urlparse(source["url"]).hostname for source in SOURCES}
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts or parsed.username or parsed.password:
+        raise RuntimeError("政策抓取仅允许固定政府来源的 HTTPS 地址")
+    opener = urllib.request.build_opener(_NoRedirect())  # 保留默认 TLS 证书校验
     last_error: Exception | None = None
     for attempt in range(RETRIES + 1):
         request = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
         try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT) as resp:
+            with opener.open(request, timeout=TIMEOUT) as resp:
+                if not 200 <= resp.status < 300:
+                    raise RuntimeError(f"政策来源返回非成功状态：{resp.status}")
                 return resp.read(), int(resp.status)
+        except urllib.error.HTTPError as exc:
+            # 重定向和 4xx 不是瞬态故障，不能重试或更换到未核验地址。
+            if exc.code < 500:
+                raise RuntimeError(f"政策来源拒绝（HTTP {exc.code}，不跟随重定向）") from exc
+            last_error = exc
+            if attempt < RETRIES:
+                time.sleep(1.2 * (attempt + 1))
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             last_error = exc
             if attempt < RETRIES:

@@ -394,6 +394,9 @@ def review_document(doc_id: str) -> dict:
                 for sec in parsed["sections"]:
                     if not isinstance(sec, dict):
                         continue
+                    # 政策证据和查重来自系统，不能被模型概述或编造结果覆盖。
+                    if sec.get("key") in {"policy", "duplicate"}:
+                        continue
                     items = []
                     for item in sec.get("items") or []:
                         if not isinstance(item, dict):
@@ -416,10 +419,7 @@ def review_document(doc_id: str) -> dict:
                             }
                         )
                 if llm_sections:
-                    existing = {s["key"] for s in llm_sections}
-                    duplicate_section = next((s for s in sections if s["key"] == "duplicate"), None)
-                    if duplicate_section and "duplicate" not in existing:
-                        llm_sections.append(duplicate_section)
+                    llm_sections.extend(s for s in sections if s["key"] in {"policy", "duplicate"})
                     sections = llm_sections
                     summary = str(parsed.get("summary") or summary).strip()
                     if "不计入风险等级" not in summary:

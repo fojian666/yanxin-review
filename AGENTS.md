@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 36 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（119 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 37 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（124 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -93,6 +93,8 @@ frontend/src/
 - **无模型不是故障**：未配 `LLM_PROVIDER` 或没有 key 时，问答走原文摘录、预审走规则引擎、趋势走规则统计；预审报告带 `limitations` 逐条说明规则做不到什么，前端显示在结论下方。不要把这些兜底结果当成语义判断。
 - 出口门禁拒绝百分号主机名及非标准数字 IP（十进制、十六进制、八进制），Unicode 主机名先做 IDNA 归一；仍支持标准内网 IP 与内网 DNS。DeepSeek 预设不回落使用千问密钥。
 - 政策默认导入仅允许 `corpus/` 内相对路径并强制校验有效 SHA256；重复导入仅在快照一致时原位修正条号，不改文档/分块 ID 或正文。
+- 模型预审不得覆盖系统的政策引用（含完整证据与章条标签）和查重章节。OpenAI 预设不发千问扩展参数，显式 `LLM_THINKING_STYLE` 优先于预设。
+- 手动政策抓取仅固定政府来源 HTTPS、默认校验证书且不跟随重定向；失败保留快照，不得回退 HTTP 或关闭 TLS 校验。SHA256 只校验完整性，不证明来源真实性。`--force` 仅重建清单同来源，不自动清理历史政策。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。

@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import pathlib
 import re
 import sys
@@ -90,6 +91,12 @@ def env_vars() -> list[str]:
     src = _read("rag/config.py")
     found = set(re.findall(r'os\.getenv\(\s*"([A-Z_]+)"', src))
     found |= set(re.findall(r'_env_flag\("([A-Z_]+)"', src))
+    # 供应商密钥通过 key_env 间接读取，不会出现在字面量 getenv 调用里。
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, ast.Dict):
+            for key, value in zip(node.keys, node.values):
+                if isinstance(key, ast.Constant) and key.value == "key_env":
+                    found.update(name for name in ast.literal_eval(value) if isinstance(name, str))
     return sorted(found)
 
 

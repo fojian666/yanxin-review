@@ -130,3 +130,31 @@ test('真实空专家库仍展示回避边界与可解释空态', async ({ app: 
   await expect(page.locator('.expert-card')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '导出结果' })).toBeEnabled();
 });
+
+test('受控模型模式保留真实政策原文展开与导出引用', async ({ app: page, documents, context }, testInfo) => {
+  // 原文来自隔离后端的真实政策检索；仅切换展示模式，不调用外部模型。
+  const response = await context.request.post('/api/review', { data: { doc_id: documents[0].id } });
+  expect(response.ok()).toBeTruthy();
+  const report = await response.json();
+  const policy = report.sections.find((section: { key: string }) => section.key === 'policy');
+  const item = policy.items.find((entry: { evidence: string; evidence_full?: string }) =>
+    entry.evidence_full && entry.evidence_full.length > entry.evidence.length);
+  expect(item, '真实政策命中应有可展开原文').toBeTruthy();
+  report.mode = 'qwen';
+  report.limitations = [];
+  await page.route('**/api/review', route => route.fulfill({ json: report }));
+  await page.goto(`/review?doc=${documents[0].id}`);
+  await page.getByRole('button', { name: '开始 AI 预审' }).click();
+  const row = page.locator('.check-item').filter({ hasText: item.label });
+  await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
+  await row.getByRole('button', { name: /展开全文/ }).click();
+  await expect(row.locator('.check-evidence')).toHaveText(item.evidence_full);
+  await expect(row.getByRole('button', { name: '收起原文' })).toHaveAttribute('aria-expanded', 'true');
+  await row.getByRole('button', { name: '收起原文' }).click();
+  await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
+  const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
+  expect(text).toContain(item.label);
+  expect(text).toContain(item.evidence);
+  expect(text).toContain('人工核对');
+  await page.screenshot({ path: testInfo.outputPath('model-policy-evidence.png'), fullPage: true });
+});

@@ -271,9 +271,13 @@ def test_api_rejects_redirect(tmp_path, monkeypatch):
     import rag.embeddings as embeddings
 
     calls = []
-    monkeypatch.setattr(
-        embeddings.requests, "post", lambda *a, **k: calls.append(1) or _Resp(307)
-    )
+
+    def fake_post(*args, **kwargs):
+        assert kwargs.get("allow_redirects") is False
+        calls.append(1)
+        return _Resp(307)
+
+    monkeypatch.setattr(embeddings.requests, "post", fake_post)
     embedder = _api_embedder(tmp_path, monkeypatch)
     with pytest.raises(EmbeddingUnavailable):
         embedder.embed(["甲"])

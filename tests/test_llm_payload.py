@@ -61,6 +61,7 @@ def test_qwen_uses_enable_thinking_only_when_set(monkeypatch):
 
 def test_style_can_force_none(monkeypatch):
     client = _client("https://api.deepseek.com/v1", monkeypatch)
+    client.info["style"] = "deepseek"  # 必须覆盖真实预设，不能只测无预设的假客户端
     payload = _payload(client, monkeypatch, False, style="none")
     assert "thinking" not in payload
     assert "enable_thinking" not in payload
@@ -71,3 +72,22 @@ def test_style_mismatch_is_not_sent_to_wrong_endpoint(monkeypatch):
     client = _client("https://dashscope.aliyuncs.com/compatible-mode/v1", monkeypatch)
     payload = _payload(client, monkeypatch, False, style="deepseek")
     assert payload["thinking"] == {"type": "disabled"}
+
+
+
+def test_openai_preset_omits_vendor_thinking_parameters(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-openai")
+    monkeypatch.setenv("LLM_BASE_URL", "")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    monkeypatch.setattr(config, "LLM_THINKING_STYLE", "auto")
+    client = llm_module.LLMClient()
+    assert client.configured
+    for thinking in (None, False, True):
+        monkeypatch.setattr(config, "LLM_ENABLE_THINKING", thinking)
+        for stream in (False, True):
+            payload = client._payload([], stream, 0.1, 100)
+            assert "enable_thinking" not in payload and "thinking" not in payload
+    # 自定义/auto 端点也能按地址识别 OpenAI。
+    client.info["style"] = "auto"
+    assert "enable_thinking" not in client._payload([], False, 0.1, 100)

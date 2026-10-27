@@ -14,3 +14,10 @@ def test_docs_match_code():
         + "\n\n改完再跑 `python3 -m tools.doc_check` 确认；"
         "清单类文件用 `python3 -m tools.soft_copyright` 重新生成。"
     )
+
+
+
+def test_env_inventory_covers_indirect_provider_keys(monkeypatch):
+    assert "DEEPSEEK_API_KEY" in doc_check.env_vars()
+    monkeypatch.setattr(doc_check, "_read", lambda _: 'PRESETS = {"future": {"key_env": ("FUTURE_API_KEY",)}}')
+    assert doc_check.env_vars() == ["FUTURE_API_KEY"]
