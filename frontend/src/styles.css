@@ -2155,7 +2155,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .workspace-register {
   align-self: center;
   display: grid;
-  grid-template-columns: 48px repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(3, minmax(64px, 1fr));
   align-items: center;
   gap: 0;
   min-width: 310px;
@@ -2163,17 +2163,6 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   border: 1px solid var(--line);
   border-radius: 4px;
   background: rgba(255, 253, 248, .62);
-}
-.workspace-seal {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #afc9bf;
-  border-radius: 50% 50% 50% 7px;
-  color: var(--teal-deep);
-  font-family: "Songti SC", "STSong", serif;
-  font-size: 15px;
 }
 .workspace-register > div {
   min-width: 0;
@@ -2350,13 +2339,8 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     gap: 6px;
   }
   .workspace-register {
-    grid-template-columns: 38px repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     padding: 8px 10px;
-  }
-  .workspace-seal {
-    width: 29px;
-    height: 29px;
-    font-size: 13px;
   }
   .workspace-register > div {
     padding: 0 6px;

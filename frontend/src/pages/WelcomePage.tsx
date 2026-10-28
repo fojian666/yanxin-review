@@ -105,7 +105,6 @@ export function WelcomePage() {
         </div>
         </div>
         <div className="workspace-register" role="group" aria-label="资料库概况">
-          <span className="workspace-seal" aria-hidden="true">卷</span>
           <div>
             <strong>{loading ? "读取中" : docs.length}</strong>
             <span>在册资料</span>
