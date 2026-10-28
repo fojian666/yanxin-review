@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from rag import auth, config, db, qa, review, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
-from rag.llm import LLMError, generation_info, llm
+from rag.llm import LLMError, chat_options, generation_info, llm, resolve_chat_client
 from rag.experts import parse_experts_csv
 from rag.parsers import ParseError, parse_papers_csv, parse_upload
 from rag.retrieval import retriever
@@ -101,6 +101,8 @@ class ChatRequest(BaseModel):
     question: str = ""
     history: list[dict[str, Any]] = Field(default_factory=list)
     scope: list[str] = Field(default_factory=list)
+    model: str = Field(default="default", max_length=80)
+    strength: str = Field(default="default", max_length=20)
 
 
 class ReviewRequest(BaseModel):
@@ -452,12 +454,24 @@ def remove_document(doc_id: str, _user: dict = Depends(require_role("manager", "
     return {"ok": True}
 
 
+@app.get("/api/chat/options")
+def chat_model_options():
+    return chat_options(llm)
+
+
+def _selected_chat_client(payload: ChatRequest):
+    try:
+        return resolve_chat_client(payload.model, payload.strength, llm)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/chat")
 def chat(payload: ChatRequest):
     question = payload.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="问题不能为空")
-    result = qa.answer(question, payload.history, payload.scope or None)
+    result = qa.answer(question, payload.history, payload.scope or None, client=_selected_chat_client(payload))
     result["citations"] = _cite_payload(result.get("citations") or [])
     return result
 
@@ -467,10 +481,11 @@ def chat_stream(payload: ChatRequest):
     question = payload.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="问题不能为空")
+    client = _selected_chat_client(payload)
     prepared = qa.prepare(question, payload.history, payload.scope or None)
     citations = _cite_payload(prepared["citations"])
-    use_model = prepared["mode"] == "qwen" and bool(prepared["messages"])
-    model_generation = generation_info(llm, used_model=True)
+    use_model = client.configured and bool(prepared["messages"])
+    model_generation = generation_info(client, used_model=True)
 
     def generate():
         yield _sse(
@@ -479,14 +494,14 @@ def chat_stream(payload: ChatRequest):
                 "citations": citations,
                 "mode": "qwen" if use_model else "offline",
                 "warning": prepared["warning"],
-                "provider": llm.status(),
+                "provider": client.status(),
             }
         )
         emitted = False
         status = "complete"
         if use_model:
             try:
-                for token in llm.stream_chat(prepared["messages"]):
+                for token in client.stream_chat(prepared["messages"]):
                     if not emitted:
                         yield _sse({"type": "generation", "generation": model_generation})
                     emitted = True
@@ -494,7 +509,7 @@ def chat_stream(payload: ChatRequest):
             except LLMError as exc:
                 if not emitted:
                     status = "fallback"
-                    yield _sse({"type": "generation", "generation": generation_info(llm, status=status)})
+                    yield _sse({"type": "generation", "generation": generation_info(client, status=status)})
                     for piece in _pieces(prepared["fallback"]):
                         yield _sse({"type": "token", "text": piece})
                     yield _sse({"type": "warning", "message": f"大模型调用失败，已回退到离线检索：{exc}"})
@@ -502,11 +517,11 @@ def chat_stream(payload: ChatRequest):
                     status = "interrupted"
                     yield _sse({"type": "warning", "message": f"生成中断：{exc}"})
         else:
-            yield _sse({"type": "generation", "generation": generation_info(llm)})
+            yield _sse({"type": "generation", "generation": generation_info(client)})
             for piece in _pieces(prepared["fallback"]):
                 yield _sse({"type": "token", "text": piece})
                 time.sleep(0.008)
-        source = {**model_generation, "status": status} if emitted else generation_info(llm, status=status)
+        source = {**model_generation, "status": status} if emitted else generation_info(client, status=status)
         yield _sse({"type": "done", "mode": "qwen" if emitted else "offline", "generation": source})
 
     return StreamingResponse(

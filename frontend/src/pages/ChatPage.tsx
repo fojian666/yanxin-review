@@ -19,6 +19,7 @@ import {
 import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
+import { ChatModelControls } from "../components/ChatModelControls";
 import { CitationTrace, type CitationSelection } from "../components/CitationTrace";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
@@ -74,6 +75,7 @@ export function ChatPage() {
     chatCitations: citations,
     setChatCitations: setCitations,
     health,
+    chatSelection,
   } = useApp();
   const retrievalMode = health?.retrieval?.mode;
   const [input, setInput] = useState("");
@@ -191,6 +193,7 @@ export function ChatPage() {
           question,
           history,
           scope: selectedDocs,
+          ...chatSelection,
         },
         {
           onMeta: (meta) => {
@@ -409,6 +412,7 @@ export function ChatPage() {
           </AnimatePresence>
         </div>
 
+        <ChatModelControls busy={busy} />
         <div className="composer">
           <textarea
             ref={inputRef}

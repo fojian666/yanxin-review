@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 39 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（127 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 41 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（132 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -28,7 +28,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：25 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：26 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new
@@ -116,3 +116,5 @@ frontend/src/
 右上角上传按钮：≤680px统一44px图标按钮并隐藏文字、padding为0；不要让图标按钮宽度与文字隐藏使用不同断点。移动端回归覆盖420/421和680/681边界。
 
 模型标识契约：顶栏仅显示当前配置；回答与预审及其 Markdown 导出使用独立 `generation` 快照（provider/label/model/status），回退标离线、中断保留实际来源，缺记录不猜测。SSE 首 token 前发来源事件、done 给最终状态；旧 mode=qwen 仅作兼容，不能据此称供应商为千问。旧 QWEN_* 自动接口仅对已知官方端点显示具体供应商。
+
+智能问答模型与强度只在输入区选择，以请求级独立客户端生效，不修改全局客户端或预审/趋势；选择器目录由 `GET /api/chat/options` 下发，不返回密钥或接口地址。后台按供应商独立密钥和出口门禁验证白名单，未知模型/强度拒绝，模型缺能力或显式方言不匹配只开放默认。切页保持会话选择，退出/刷新重置。

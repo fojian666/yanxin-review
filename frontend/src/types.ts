@@ -67,11 +67,23 @@ export interface Citation {
 
 export type Role = "user" | "assistant";
 
+export type ChatStrength = "default" | "quick" | "low" | "high" | "max";
+export interface ChatSelection { model: string; strength: ChatStrength }
+export interface ChatModelOption {
+  id: string;
+  label: string;
+  model: string;
+  available: boolean;
+  reason: string;
+  strengths: ChatStrength[];
+}
+
 export interface GenerationInfo {
   provider: string;
   label: string;
   model: string;
   status: "complete" | "fallback" | "interrupted";
+  strength?: ChatStrength;
 }
 
 export interface ChatMessage {

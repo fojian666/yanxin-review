@@ -75,3 +75,24 @@ test('手机明确显示DeepSeek与千问配置且不挤压上传按钮', async 
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(page.locator('.welcome-home')).toBeVisible(); await page.screenshot({ path: testInfo.outputPath('generation-mobile.png'), fullPage: true });
 });
+
+test('手机问答模型选择靠近输入框且面板可操作', async ({ app: page }, testInfo) => {
+  await page.route('**/api/chat/options', route => route.fulfill({ json: { models: [
+    { id: 'default', label: 'DeepSeek', model: 'deepseek-flash', available: true, reason: '', strengths: ['default', 'quick', 'low', 'high', 'max'] },
+    { id: 'offline', label: '离线摘录', model: '', available: true, reason: '', strengths: ['default'] },
+    { id: 'qwen-plus', label: '千问 / DashScope', model: 'qwen-plus', available: false, reason: '未配置该供应商密钥', strengths: ['default'] },
+  ] } }));
+  await page.goto('/chat');
+  for (const width of [320, 375, 680]) {
+    await page.setViewportSize({ width, height: 812 });
+    const toolbar = page.locator('.chat-model-controls');
+    await toolbar.getByRole('button', { name: /模型：/ }).click();
+    await expect(page.getByRole('checkbox', { name: /离线摘录/ })).toBeVisible();
+    const bounds = await page.locator('.chat-model-panel').boundingBox();
+    expect(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width).toBeTruthy();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+    if (width === 375) await page.screenshot({ path: testInfo.outputPath('model-picker-mobile.png') });
+    await page.getByRole('button', { name: '关闭模型选项' }).click();
+    await expect(page.getByRole('button', { name: '上传文档', exact: true }).first()).toHaveCSS('width', '44px');
+  }
+});

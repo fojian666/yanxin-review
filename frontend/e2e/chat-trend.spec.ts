@@ -175,3 +175,48 @@ test('受控DeepSeek与千问来源逐次保存，回退不冒认当前模型', 
   await expect(page.locator('.msg.assistant .generation-source').first()).toHaveText('DeepSeek · deepseek-flash');
   await page.screenshot({ path: testInfo.outputPath('generation-desktop.png'), fullPage: true });
 });
+
+test('问答输入区选择模型与强度并随请求独立发送', async ({ app: page }, testInfo) => {
+  const options = { models: [
+    { id: 'default', label: 'DeepSeek', model: 'deepseek-flash', available: true, reason: '', strengths: ['default', 'quick', 'low', 'high', 'max'] },
+    { id: 'offline', label: '离线摘录', model: '', available: true, reason: '', strengths: ['default'] },
+    { id: 'deepseek-v4-pro', label: 'DeepSeek', model: 'deepseek-v4-pro', available: true, reason: '', strengths: ['default', 'quick', 'low', 'high', 'max'] },
+    { id: 'qwen-plus', label: '千问 / DashScope', model: 'qwen-plus', available: false, reason: '未配置该供应商密钥', strengths: ['default', 'quick', 'low', 'high', 'max'] },
+  ] };
+  await page.route('**/api/chat/options', route => route.fulfill({ json: options }));
+  let captured: Record<string, unknown> = {};
+  await page.route('**/api/chat/stream', route => {
+    captured = route.request().postDataJSON();
+    return route.fulfill({ contentType: 'text/event-stream', body: sse([
+      { type: 'meta', citations: [], mode: 'qwen' },
+      { type: 'generation', generation: { provider: 'deepseek', label: 'DeepSeek', model: 'deepseek-v4-pro', strength: 'high', status: 'complete' } },
+      { type: 'token', text: '受控回答' }, { type: 'done', generation: { provider: 'deepseek', label: 'DeepSeek', model: 'deepseek-v4-pro', strength: 'high', status: 'complete' } },
+    ]) });
+  });
+  await navigate(page, '智能问答');
+  const toolbar = page.locator('.chat-model-controls');
+  await expect(toolbar.getByRole('button', { name: /模型：deepseek-flash/ })).toBeEnabled();
+  await toolbar.getByRole('button', { name: /模型：/ }).click();
+  await expect(page.getByLabel(/千问 \/ DashScope/)).toBeDisabled();
+  await expect(toolbar).toContainText('未配置该供应商密钥');
+  await page.screenshot({ path: testInfo.outputPath('model-picker-desktop.png') });
+  await page.getByLabel(/DeepSeek · deepseek-v4-pro/).check();
+  await toolbar.getByRole('button', { name: /强度：/ }).click();
+  await page.getByLabel(/^高/).check();
+  await page.keyboard.press('Escape');
+  await expect(toolbar.getByRole('button', { name: /强度：高/ })).toBeFocused();
+  await page.locator('textarea').fill('测试模型设置');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(page.locator('.msg.assistant')).toContainText('强度：高');
+  expect(captured.model).toBe('deepseek-v4-pro');
+  expect(captured.strength).toBe('high');
+  await navigate(page, '文档库'); await navigate(page, '智能问答');
+  await expect(page.locator('.chat-model-controls')).toContainText('deepseek-v4-pro');
+  await expect(page.locator('.msg.assistant')).toContainText('强度：高');
+  await navigate(page, '文档库');
+  await page.unroute('**/api/chat/options');
+  await page.route('**/api/chat/options', route => route.fulfill({ status: 503, json: { detail: '受控选项加载失败' } }));
+  await navigate(page, '智能问答');
+  await expect(page.locator('.chat-model-controls')).toContainText('deepseek-v4-pro');
+  await expect(page.getByRole('button', { name: '选项加载失败，重试' })).toBeVisible();
+});

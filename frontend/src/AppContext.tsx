@@ -1,3 +1,4 @@
+import type { ChatSelection } from "./types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   createContext,
@@ -42,6 +43,8 @@ interface AppContextValue {
   refreshDocs: () => Promise<void>;
   refreshPapers: () => Promise<void>;
   toast: (message: string, type?: "info" | "error") => void;
+  chatSelection: ChatSelection;
+  setChatSelection: (selection: ChatSelection) => void;
   uploadOpen: boolean;
   setUploadOpen: (open: boolean) => void;
   uploadSeedFile: File | null;
@@ -80,6 +83,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     return window.innerWidth < 980;
   });
+  const [chatSelection, setChatSelection] = useState<ChatSelection>({ model: "default", strength: "default" });
   const [health, setHealth] = useState<Health | null>(null);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -109,6 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDocs([]);
     setPapers([]);
     setSelectedDocs([]);
+    setChatSelection({ model: "default", strength: "default" });
     setChatMessages([]);
     setChatCitations([]);
     setHealth(null);
@@ -247,13 +252,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshDocs,
       refreshPapers,
       toast,
+      chatSelection,
+      setChatSelection,
       uploadOpen,
       setUploadOpen,
       uploadSeedFile,
       openUpload,
       clearUploadSeed,
     }),
-    [auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
+    [chatSelection, auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
   );
 
   return (

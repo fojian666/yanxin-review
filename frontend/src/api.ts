@@ -1,6 +1,8 @@
 import type {
   AuthUser,
   ChatHistoryItem,
+  ChatSelection,
+  ChatModelOption,
   Citation,
   DocItem,
   Health,
@@ -177,8 +179,10 @@ export const api = {
     request<ToolCheckResult>("/tool/check", jsonOptions({ doc_id: docId, top_k: topK })),
 };
 
+export const getChatModels = () => request<{ models: ChatModelOption[] }>("/chat/options");
+
 export async function streamChat(
-  payload: { question: string; history: ChatHistoryItem[]; scope: string[] },
+  payload: { question: string; history: ChatHistoryItem[]; scope: string[] } & Partial<ChatSelection>,
   handlers: StreamHandlers,
   signal?: AbortSignal
 ): Promise<void> {

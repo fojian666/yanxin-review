@@ -278,7 +278,7 @@ def test_stream_records_actual_source_after_fallback_or_interruption(monkeypatch
     from rag.llm import LLMError
     prepared = {"mode": "qwen", "messages": [{"role": "user", "content": "测试"}],
                 "fallback": "离线原文", "citations": [], "warning": ""}
-    client = SimpleNamespace(info={"provider": provider, "label": label}, model=model)
+    client = SimpleNamespace(info={"provider": provider, "label": label}, model=model, configured=True)
     client.status = lambda: {**client.info, "model": model, "configured": True}
     monkeypatch.setattr(application.qa, "prepare", lambda *a, **k: prepared)
     monkeypatch.setattr(application, "llm", client)
@@ -317,3 +317,116 @@ def test_legacy_qwen_interface_labels_only_known_providers(monkeypatch):
         info = config.llm_provider()
         assert info["label"] == label and info["provider"] == provider
         assert info["configured"]
+
+
+def test_chat_model_catalog_respects_keys_and_egress(monkeypatch):
+    from rag.llm import LLMClient, chat_options, resolve_chat_client
+    _clean(monkeypatch)
+    monkeypatch.setattr(config, "QWEN_BASE_URL", config.DASHSCOPE_BASE_URL)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-deepseek-key")
+    monkeypatch.setenv("QWEN_API_KEY", "fake-qwen-key")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    default = LLMClient(config._offline())
+    models = {model["id"]: model for model in chat_options(default)["models"]}
+    assert models["deepseek-flash"]["available"]
+    assert models["qwen-plus"]["available"]
+    assert "fake-" not in str(models) and "base_url" not in str(models)
+    deepseek = resolve_chat_client("deepseek-flash", "low", default)
+    qwen = resolve_chat_client("qwen-plus", "high", default)
+    assert deepseek.api_key == "fake-deepseek-key" and qwen.api_key == "fake-qwen-key"
+    assert not default.configured and deepseek.strength == "low" and qwen.strength == "high"
+    with pytest.raises(ValueError):
+        resolve_chat_client("https://example.com", "default", default)
+    with pytest.raises(ValueError):
+        resolve_chat_client("offline", "high", default)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", False)
+    assert not next(x for x in chat_options(default)["models"] if x["id"] == "qwen-plus")["available"]
+    with pytest.raises(ValueError, match="未授权"):
+        resolve_chat_client("qwen-plus", "default", default)
+
+
+def test_chat_legacy_key_is_not_sent_to_another_vendor(monkeypatch):
+    from rag.llm import LLMClient, chat_options
+    _clean(monkeypatch)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    monkeypatch.setattr(config, "QWEN_BASE_URL", "https://api.deepseek.com/v1")
+    monkeypatch.setenv("QWEN_API_KEY", "fake-legacy-deepseek-key")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "")
+    default = LLMClient(config._configured("deepseek", "DeepSeek", "https://api.deepseek.com/v1", "deepseek-flash", "fake-legacy-deepseek-key", "deepseek"))
+    models = {model["id"]: model for model in chat_options(default)["models"]}
+    assert not models["qwen-plus"]["available"]
+    assert models["deepseek-v4-pro"]["available"]
+
+
+def test_chat_strength_payloads_are_per_request(monkeypatch):
+    from rag.llm import LLMClient, resolve_chat_client, generation_info
+    _clean(monkeypatch)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    monkeypatch.setattr(config, "LLM_THINKING_STYLE", "auto")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-ds")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "fake-qwen")
+    monkeypatch.setattr(config, "QWEN_BASE_URL", config.DASHSCOPE_BASE_URL)
+    original = LLMClient(config._offline())
+    ds = resolve_chat_client("deepseek-flash", "high", original)
+    qw = resolve_chat_client("qwen-plus", "low", original)
+    deep = ds._payload([], True, 0.2, 1400)
+    qwen = qw._payload([], True, 0.2, 1400)
+    assert deep["thinking"] == {"type": "enabled"} and deep["reasoning_effort"] == "high"
+    assert deep["max_tokens"] >= 16384 and "enable_thinking" not in deep
+    assert qwen["enable_thinking"] is True and qwen["thinking_budget"] == 2048
+    assert "thinking" not in qwen and "reasoning_effort" not in qwen
+    assert generation_info(ds, True)["strength"] == "high"
+    assert not original.configured and ds.strength == "high"
+    monkeypatch.setattr(config, "LLM_THINKING_STYLE", "none")
+    with pytest.raises(ValueError, match="强度"):
+        resolve_chat_client("qwen-plus", "low", original)
+
+
+def test_chat_alternate_model_works_when_default_offline(monkeypatch):
+    from rag import llm as llm_module
+    _clean(monkeypatch)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    monkeypatch.setattr(config, "LLM_THINKING_STYLE", "auto")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-ds")
+    client = llm_module.resolve_chat_client("deepseek-flash", "quick", llm_module.LLMClient(config._offline()))
+    monkeypatch.setattr(qa_service, "prepare", lambda *a, **k: {"mode": "offline", "messages": [{"role": "user", "content": "x"}], "fallback": "原文", "citations": [], "warning": ""})
+    monkeypatch.setattr(client, "chat", lambda messages: "受控模型结果")
+    result = qa_service.answer("测试", client=client)
+    assert result["answer"] == "受控模型结果" and result["generation"]["provider"] == "deepseek"
+    assert result["generation"]["strength"] == "quick"
+
+
+def test_selected_stream_sends_actual_model_and_thinking(monkeypatch):
+    import asyncio
+    import json
+    import app as application
+    from rag import llm as llm_module
+    _clean(monkeypatch)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_LLM", True)
+    monkeypatch.setattr(config, "LLM_THINKING_STYLE", "auto")
+    monkeypatch.setattr(config, "QWEN_BASE_URL", config.DASHSCOPE_BASE_URL)
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "fake-qwen-key")
+    monkeypatch.setattr(application, "llm", llm_module.LLMClient(config._offline()))
+    monkeypatch.setattr(application.qa, "prepare", lambda *args: {"mode": "offline", "messages": [{"role": "user", "content": "x"}], "fallback": "原文", "citations": [], "warning": ""})
+    calls = []
+    class Response:
+        status_code = 200
+        def iter_lines(self, **kwargs):
+            yield 'data: {"choices":[{"delta":{"content":"模型回答"}}]}'
+            yield 'data: [DONE]'
+        def close(self):
+            pass
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        return Response()
+    monkeypatch.setattr(llm_module.requests, "post", fake_post)
+    async def collect():
+        response = application.chat_stream(application.ChatRequest(question="测试", model="qwen-plus", strength="low"))
+        return [json.loads(chunk.removeprefix("data: ").strip()) async for chunk in response.body_iterator]
+    frames = asyncio.run(collect())
+    assert calls[0][0] == config.DASHSCOPE_BASE_URL + "/chat/completions"
+    payload = calls[0][1]["json"]
+    assert payload["model"] == "qwen-plus" and payload["enable_thinking"] is True and payload["thinking_budget"] == 2048
+    assert calls[0][1]["allow_redirects"] is False
+    assert frames[-1]["generation"]["provider"] == "qwen" and frames[-1]["generation"]["strength"] == "low"
+    assert not application.llm.configured

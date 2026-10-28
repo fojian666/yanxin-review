@@ -169,24 +169,25 @@ def prepare(question: str, history: list[dict] | None = None, scope: list[str] |
     }
 
 
-def answer(question: str, history: list[dict] | None = None, scope: list[str] | None = None) -> dict:
+def answer(question: str, history: list[dict] | None = None, scope: list[str] | None = None, client=None) -> dict:
+    client = llm if client is None else client
     prepared = prepare(question, history, scope)
     result = {
         "answer": prepared["fallback"],
         "citations": prepared["citations"],
         "mode": "offline",
         "warning": prepared["warning"],
-        "generation": generation_info(llm),
+        "generation": generation_info(client),
     }
-    if prepared["mode"] == "qwen" and prepared["messages"]:
-        model_generation = generation_info(llm, used_model=True)
+    if client.configured and prepared["messages"]:
+        model_generation = generation_info(client, used_model=True)
         try:
-            text = llm.chat(prepared["messages"])
+            text = client.chat(prepared["messages"])
             if text:
                 result["answer"] = text
                 result["mode"] = "qwen"
                 result["generation"] = model_generation
         except LLMError as exc:
-            result["generation"] = generation_info(llm, status="fallback")
+            result["generation"] = generation_info(client, status="fallback")
             result["warning"] = (prepared["warning"] + " " if prepared["warning"] else "") + f"大模型调用失败，已回退到离线检索：{exc}"
     return result
