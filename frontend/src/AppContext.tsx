@@ -129,7 +129,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshDocs = useCallback(async () => {
     const data = await api.documents();
     setDocs(data.documents);
-    setActiveDocId(current => data.documents.some((d) => d.id === current) ? current : "");
+    setActiveDocId((current) => {
+      if (data.documents.some((d) => d.id === current)) return current;
+      return data.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
+    });
     setSelectedDocs((current) => current.filter((id) => data.documents.some((d) => d.id === id)));
   }, []);
 
@@ -175,6 +178,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const [h, d, p] = await Promise.all([api.health(), api.documents(), api.papers()]);
       setHealth(h);
       setDocs(d.documents);
+      setActiveDocId((current) => {
+        if (d.documents.some((doc) => doc.id === current)) return current;
+        return d.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
+      });
       setPapers(p.papers);
     } catch (err) {
       toast(`初始化失败：${(err as Error).message}`, "error");

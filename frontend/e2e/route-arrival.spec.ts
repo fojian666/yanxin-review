@@ -3,6 +3,49 @@ import { test, expect, navigate } from './fixtures';
 // 全程自然播放并逐帧采样，不能用暂停帧替代连续动效验证。
 type MotionAudit = { routeArrivals: string[]; pageOpacities: number[]; drawerRights: number[]; backgroundCounts: number[]; sampling: boolean };
 test.use({ video: 'on' });
+
+test('单页工作区切换功能时保留卷宗上下文', async ({ app: page }) => {
+  const ledger = await page.locator('.workspace-ledger').elementHandle();
+  expect(ledger).not.toBeNull();
+  await page.locator('.welcome-entries').getByRole('link', { name: '智能问答', exact: true }).click();
+  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('智能问答');
+  expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
+  await page.locator('.welcome-entries').getByRole('link', { name: '文档库', exact: true }).click();
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('文档库');
+  expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
+});
+
+test('长桌面工作区卷宗栏文字与操作不重叠', async ({ app: page }, testInfo) => {
+  for (const [width, height] of [[1440, 900], [1920, 1080], [2560, 1440]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/welcome');
+    const ledger = page.locator('.workspace-ledger');
+    const main = page.locator('.workspace-ledger-main');
+    const register = page.locator('.workspace-register');
+    const documentLabel = page.locator('.workspace-document-row label');
+    const documentSelect = page.locator('#workspace-document');
+    await expect(ledger).toBeVisible();
+    const [ledgerBox, mainBox, registerBox, labelBox, selectBox] = await Promise.all([
+      ledger.boundingBox(),
+      main.boundingBox(),
+      register.boundingBox(),
+      documentLabel.boundingBox(),
+      documentSelect.boundingBox(),
+    ]);
+    expect(ledgerBox && mainBox && registerBox && labelBox && selectBox).toBeTruthy();
+    expect(mainBox!.x + mainBox!.width, `${width}px 卷宗主栏与统计栏重叠`).toBeLessThanOrEqual(registerBox!.x);
+    expect(selectBox!.x - labelBox!.x - labelBox!.width, `${width}px 卷宗标签与下拉框间距异常`).toBeLessThanOrEqual(24);
+    expect(await page.locator('.workspace-document-row, .welcome-actions, .workspace-register').evaluateAll(
+      elements => elements.every(element => element.scrollWidth <= element.clientWidth)
+    )).toBeTruthy();
+    if (width === 1920) {
+      await page.screenshot({ path: testInfo.outputPath('workspace-1920.png'), fullPage: true });
+    }
+  }
+});
+
 for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812]] as const) {
   test(`${label}翻卷入页每次进入重播，同页状态不重播且尊重动态偏好`, async ({ app: page }, testInfo) => {
     await page.setViewportSize({ width, height });

@@ -45,6 +45,7 @@ export function ReviewPage() {
       return next;
     });
   const runningRef = useRef(false);
+  const requestSequence = useRef(0);
   const reportRef = useRef<HTMLDivElement>(null);
   const runFocusRef = useRef<Element | null>(null);
   const userScrolledRef = useRef(false);
@@ -55,27 +56,47 @@ export function ReviewPage() {
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
 
-  const selectedDoc = sortedDocs.find((doc) => doc.id === docId);
-
   useEffect(() => {
     if (!sortedDocs.length) {
       setDocId("");
       return;
     }
     const fromQuery = params.get("doc");
-    if (fromQuery && sortedDocs.some((d) => d.id === fromQuery)) {
+    if (!fromQuery) return;
+    if (fromQuery && sortedDocs.some((d) => d.id === fromQuery && (d.kind === "proposal" || d.kind === "other"))) {
       setDocId(fromQuery);
-      if (sortedDocs.some((d) => d.id === fromQuery && (d.kind === "proposal" || d.kind === "other"))) setActiveDocId(fromQuery);
+      setActiveDocId(fromQuery);
       // 消费后移除参数，避免用户改选文档时又被 URL 拉回
       const next = new URLSearchParams(params);
       next.delete("doc");
       setParams(next, { replace: true });
       return;
     }
-    if (!docId || !sortedDocs.some((d) => d.id === docId)) {
-      setDocId(sortedDocs[0].id);
+    const next = new URLSearchParams(params);
+    next.delete("doc");
+    setParams(next, { replace: true });
+  }, [sortedDocs, params, setActiveDocId, setParams]);
+
+  useEffect(() => {
+    if (!activeDocId) {
+      requestSequence.current += 1;
+      runningRef.current = false;
+      setBusy(false);
+      setDocId("");
+      setReport(null);
+      setReportReady(false);
+      setError("");
+      return;
     }
-  }, [sortedDocs, params, docId, setParams]);
+    if (!sortedDocs.some((doc) => doc.id === activeDocId)) return;
+    requestSequence.current += 1;
+    runningRef.current = false;
+    setBusy(false);
+    setDocId(activeDocId);
+    setReport(null);
+    setReportReady(false);
+    setError("");
+  }, [activeDocId, sortedDocs]);
 
   useEffect(() => {
     if (!busy) return;
@@ -125,20 +146,25 @@ export function ReviewPage() {
     runningRef.current = true;
     runFocusRef.current = document.activeElement;
     userScrolledRef.current = false;
+    const requestId = ++requestSequence.current;
     setReportReady(false);
     setBusy(true);
     setError("");
     setReport(null);
     try {
       const result = await api.review(docId);
+      if (requestId !== requestSequence.current) return;
       setReport(result);
       setStep(STEPS.length - 1);
     } catch (err) {
+      if (requestId !== requestSequence.current) return;
       setError((err as Error).message);
       toast(`预审失败：${(err as Error).message}`, "error");
     } finally {
-      runningRef.current = false;
-      setBusy(false);
+      if (requestId === requestSequence.current) {
+        runningRef.current = false;
+        setBusy(false);
+      }
     }
   };
 
@@ -197,32 +223,6 @@ export function ReviewPage() {
     <div className="review-layout">
       <div className="panel review-control">
         <h2>本子预审</h2>
-        <label className="field-label" htmlFor="reviewDoc">待审文档</label>
-        <select
-          id="reviewDoc"
-          className="select"
-          value={docId}
-          onChange={(event) => {
-            setDocId(event.target.value);
-            if (sortedDocs.some((d) => d.id === event.target.value && (d.kind === "proposal" || d.kind === "other"))) setActiveDocId(event.target.value);
-            setReport(null);
-            setReportReady(false);
-            setError("");
-          }}
-          disabled={busy}
-        >
-          {sortedDocs.length === 0 ? (
-            <option value="">暂无文档，请先上传</option>
-          ) : (
-            sortedDocs.map((doc) => (
-              <option value={doc.id} key={doc.id}>{doc.name}</option>
-            ))
-          )}
-        </select>
-        <div className="picked-doc">
-          <span className="picked-doc-label">当前选定</span>
-          <span>{selectedDoc?.name || "尚未选定文档"}</span>
-        </div>
         <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
           {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
         </button>

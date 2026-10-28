@@ -39,7 +39,7 @@ function expertStatus(expert: Expert) {
 }
 
 export function MatchPage() {
-  const { docs, toast, can, activeDocId, setActiveDocId } = useApp();
+  const { docs, toast, can, activeDocId } = useApp();
   const [docId, setDocId] = useState(activeDocId);
   const [result, setResult] = useState<ToolCheckResult | null>(null);
   const [experts, setExperts] = useState<Expert[]>([]);
@@ -53,8 +53,6 @@ export function MatchPage() {
     const rank: Record<string, number> = { proposal: 0, other: 1, policy: 2, paper: 3 };
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
-
-  const selectedDoc = sortedDocs.find((doc) => doc.id === docId);
 
   const loadExperts = async () => {
     try {
@@ -71,14 +69,23 @@ export function MatchPage() {
   }, []);
 
   useEffect(() => {
-    if (!sortedDocs.length) {
+    if (!activeDocId) {
+      checkIdRef.current += 1;
+      loadingRef.current = false;
+      setLoading(false);
       setDocId("");
+      setResult(null);
+      setError("");
       return;
     }
-    if (!docId || !sortedDocs.some((doc) => doc.id === docId)) {
-      setDocId(sortedDocs[0].id);
-    }
-  }, [sortedDocs, docId]);
+    if (!sortedDocs.some((doc) => doc.id === activeDocId)) return;
+    checkIdRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
+    setDocId(activeDocId);
+    setResult(null);
+    setError("");
+  }, [activeDocId, sortedDocs]);
 
   const run = async () => {
     if (!docId) {
@@ -203,30 +210,6 @@ export function MatchPage() {
           </p>
         </div>
         <div className="match-controls">
-          <label className="field-label" htmlFor="matchDoc">待查本子</label>
-          <select
-            id="matchDoc"
-            className="select"
-            value={docId}
-            onChange={(event) => {
-              checkIdRef.current += 1;  // 作废进行中的检查，避免旧结果落到新选的本子上
-              setDocId(event.target.value);
-              if (sortedDocs.some((doc) => doc.id === event.target.value && (doc.kind === "proposal" || doc.kind === "other"))) setActiveDocId(event.target.value);
-              setResult(null);
-              setError("");
-            }}
-            disabled={loading}
-          >
-            {sortedDocs.length === 0 ? (
-              <option value="">暂无文档，请先上传</option>
-            ) : (
-              sortedDocs.map((doc) => <option value={doc.id} key={doc.id}>{doc.name}</option>)
-            )}
-          </select>
-          <div className="picked-doc">
-            <span className="picked-doc-label">当前选定</span>
-            <span>{selectedDoc?.name || "尚未选定本子"}</span>
-          </div>
           <div className="match-actions">
             <button className="btn btn-primary" onClick={() => void run()} disabled={loading || !docId}>
               {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />运行一体化检查</>}

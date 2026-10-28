@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { SPRING } from "../motion";
 
@@ -22,10 +22,12 @@ const NAV: NavItem[] = [
 
 export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClose?: () => void }) {
   const { can, sidebarCollapsed, toggleSidebar } = useApp();
+  const { pathname } = useLocation();
   const visible = NAV.filter((item) => !item.permission || can(item.permission));
   const nav: NavItem[] = can("admin")
     ? [...visible, { to: "/admin", label: "用户管理", icon: UserCog }]
     : visible;
+  const workspacePath = pathname === "/welcome" ? (can("review") ? "/review" : "/chat") : pathname;
   const asideRef = useRef<HTMLElement>(null);
   const wasOpen = useRef(false);
   const animationRef = useRef(0);
@@ -157,21 +159,18 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
             draggable={false}
             title={sidebarCollapsed ? label : undefined}
             onClick={() => onClose?.()}
-            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+            aria-current={to === workspacePath ? "page" : undefined}
+            className={() => `nav-item ${to === workspacePath ? "active" : ""}`}
           >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <motion.span
-                    layoutId="nav-pill"
-                    className="nav-pill"
-                    transition={SPRING}
-                  />
-                )}
-                <Icon size={19} className="nav-icon" />
-                <span className="nav-label">{label}</span>
-              </>
+            {to === workspacePath && (
+              <motion.span
+                layoutId="nav-pill"
+                className="nav-pill"
+                transition={SPRING}
+              />
             )}
+            <Icon size={19} className="nav-icon" />
+            <span className="nav-label">{label}</span>
           </NavLink>
         ))}
       </nav>

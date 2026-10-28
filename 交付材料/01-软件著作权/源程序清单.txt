@@ -22,8 +22,8 @@
     290 rag/trends.py
    5535 total
 前端（TypeScript/TSX/CSS）
-    230 frontend/src/App.tsx
-    300 frontend/src/AppContext.tsx
+    203 frontend/src/App.tsx
+    307 frontend/src/AppContext.tsx
     270 frontend/src/api.ts
     363 frontend/src/charts/TrendCharts.tsx
      93 frontend/src/components/ChatModelControls.tsx
@@ -33,7 +33,7 @@
      50 frontend/src/components/ErrorBoundary.tsx
     104 frontend/src/components/KpiCard.tsx
      84 frontend/src/components/Markdown.tsx
-    188 frontend/src/components/Sidebar.tsx
+    187 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
     177 frontend/src/components/Topbar.tsx
     290 frontend/src/components/UploadModal.tsx
@@ -45,13 +45,13 @@
     580 frontend/src/pages/ChatPage.tsx
     310 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
-    524 frontend/src/pages/MatchPage.tsx
+    507 frontend/src/pages/MatchPage.tsx
     466 frontend/src/pages/ReviewPage.tsx
     430 frontend/src/pages/TrendPage.tsx
-    130 frontend/src/pages/WelcomePage.tsx
-   2089 frontend/src/styles.css
+    173 frontend/src/pages/WelcomePage.tsx
+   2454 frontend/src/styles.css
     294 frontend/src/types.ts
-   7783 total
+   8153 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -72,15 +72,15 @@
     222 frontend/e2e/chat-trend.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    150 frontend/e2e/library.spec.ts
+    161 frontend/e2e/library.spec.ts
     168 frontend/e2e/mobile.spec.ts
-    168 frontend/e2e/review-match.spec.ts
-     81 frontend/e2e/route-arrival.spec.ts
+    193 frontend/e2e/review-match.spec.ts
+    124 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      27 frontend/playwright.config.ts
-   1125 total
+   1204 total
 合计
-  17794 total（69 个文件）
+  18243 total（69 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

@@ -1,21 +1,14 @@
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "./AppContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { UploadModal } from "./components/UploadModal";
-import { ChatPage } from "./pages/ChatPage";
 import { LoginPage } from "./pages/LoginPage";
+import { WelcomePage } from "./pages/WelcomePage";
 import { pageVariants, useMotionPreference } from "./motion";
-
-const TrendPage = lazy(() => import("./pages/TrendPage").then((m) => ({ default: m.TrendPage })));
-const ReviewPage = lazy(() => import("./pages/ReviewPage").then((m) => ({ default: m.ReviewPage })));
-const MatchPage = lazy(() => import("./pages/MatchPage").then((m) => ({ default: m.MatchPage })));
-const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
-const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
-const WelcomePage = lazy(() => import("./pages/WelcomePage").then((m) => ({ default: m.WelcomePage })));
 
 function RouteEffects() {
   const { pathname } = useLocation();
@@ -34,7 +27,7 @@ function RouteEffects() {
 
 function Shell() {
   const location = useLocation();
-  const { auth, authReady, sidebarCollapsed, can } = useApp();
+  const { auth, authReady, sidebarCollapsed } = useApp();
   const [navOpen, setNavOpen] = useState(false);
   const [entering, setEntering] = useState(false);
   const hadVeil = useRef(false);
@@ -149,50 +142,30 @@ function Shell() {
         <main className="main" id="main" tabIndex={-1}>
           <Topbar onOpenNav={() => setNavOpen(true)} navOpen={navOpen} />
           <RouteEffects />
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={location.pathname}
-              className="page"
-              variants={pageVariants}
-              initial={reduce ? false : "initial"}
-              animate="animate"
-              exit={reduce ? { opacity: 1, transition: { duration: 0 } } : "exit"}
-            >
-              <ErrorBoundary resetKey={location.pathname}>
-                <Suspense
-                  fallback={
-                    <div className="page-skeleton" role="status">
-                      <span className="sr-only">正在加载页面…</span>
-                      <div className="skeleton skeleton-title" aria-hidden="true" />
-                      <div className="skeleton" aria-hidden="true" />
-                      <div className="skeleton-grid" aria-hidden="true"><div className="skeleton" /><div className="skeleton" /></div>
-                    </div>
-                  }
-                >
-                  <Routes location={location}>
-                    <Route path="/welcome" element={<WelcomePage />} />
-                    <Route path="/chat" element={<ChatPage />} />
-                    <Route path="/trend" element={<TrendPage />} />
-                    <Route
-                      path="/match"
-                      element={can("tool") ? <MatchPage /> : <Navigate to="/chat" replace />}
-                    />
-                    <Route
-                      path="/review"
-                      element={can("review") ? <ReviewPage /> : <Navigate to="/chat" replace />}
-                    />
-                    <Route path="/library" element={<LibraryPage />} />
-                    <Route
-                      path="/admin"
-                      element={can("admin") ? <AdminPage /> : <Navigate to="/chat" replace />}
-                    />
-                    <Route path="/" element={<Navigate to="/welcome" replace />} />
-                    <Route path="*" element={<Navigate to="/chat" replace />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            className="page"
+            variants={pageVariants}
+            initial={reduce ? false : "initial"}
+            animate="animate"
+          >
+            <ErrorBoundary resetKey={location.pathname}>
+              <Suspense
+                fallback={
+                  <div className="page-skeleton" role="status">
+                    <span className="sr-only">正在加载工作区…</span>
+                    <div className="skeleton skeleton-title" aria-hidden="true" />
+                    <div className="skeleton" aria-hidden="true" />
+                    <div className="skeleton-grid" aria-hidden="true"><div className="skeleton" /><div className="skeleton" /></div>
+                  </div>
+                }
+              >
+                <Routes location={location}>
+                  <Route path="/" element={<Navigate to="/welcome" replace />} />
+                  <Route path="*" element={<WelcomePage />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </motion.div>
         </main>
         <UploadModal />
       </div>

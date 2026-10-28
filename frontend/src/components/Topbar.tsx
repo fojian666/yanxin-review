@@ -8,7 +8,7 @@ import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
 
 const META: Record<string, { title: string; sub: string }> = {
-  "/welcome": { title: "工作台", sub: "选择功能或开始提问" },
+  "/welcome": { title: "工作台", sub: "围绕当前卷宗连续办理" },
   "/chat": { title: "智能问答", sub: "根据资料回答，可查看引用依据" },
   "/trend": { title: "文献趋势", sub: "查看文献数量和主题变化" },
   "/match": { title: "查重匹配", sub: "检查文本相似度并匹配专家" },
@@ -72,7 +72,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   }, [meta.title]);
 
   return (
-    <header className="topbar" onDragStart={(event) => event.preventDefault()}>
+    <header className={`topbar ${pathname === "/welcome" ? "" : "is-task"}`} onDragStart={(event) => event.preventDefault()}>
       <div className="topbar-title" key={`title:${pathname}`}>
         <h1>{meta.title}</h1>
         <p>{meta.sub}</p>

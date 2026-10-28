@@ -39,7 +39,7 @@ test('手机上传弹窗焦点不逃出，关闭恢复焦点', async ({ app: pag
 });
 
 test('手机匹配证据换行与实际报告下载', async ({ app: page, documents }, testInfo) => {
-  await navigate(page, '查重匹配'); await page.getByLabel('待查本子').selectOption(documents[0].id);
+  await navigate(page, '查重匹配'); await page.getByLabel('当前卷宗').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await page.locator('.excluded-box summary').click(); await expect(page.locator('.excluded-list')).toContainText('原名一致');
   await expect(page.locator('.expert-card').last()).toHaveCSS('opacity', '1');
