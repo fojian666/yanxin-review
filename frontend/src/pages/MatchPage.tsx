@@ -148,7 +148,7 @@ export function MatchPage() {
       `- 待查文档：${result.doc.name}`,
       `- 生成时间：${result.generated_at.replace("T", " ")}`,
       "",
-      "## 语义查重",
+      "## 文本查重",
       result.duplicate.summary,
       "",
     ];
@@ -197,10 +197,9 @@ export function MatchPage() {
     <div className="match-page">
       <div className="panel match-hero">
         <div className="match-hero-copy">
-          <div className="eyebrow">INTEGRATED TOOL · DUPLICATE + EXPERT MATCHING</div>
-          <h2>智能查重 · 专家匹配</h2>
+          <h2>查重与专家匹配</h2>
           <p>
-            一份本子，一次运行：段落级语义查重与专家画像匹配同步完成；回避与负载约束前置过滤，每条推荐皆有证据与理由——可解释，可复核。
+            比对文本相似段落，并根据专业领域、回避条件和负载匹配专家。
           </p>
         </div>
         <div className="match-controls">
@@ -287,7 +286,7 @@ export function MatchPage() {
         <div className="panel match-panel">
           <div className="panel-head">
             <div>
-              <h2>语义查重</h2>
+              <h2>文本查重</h2>
               <p>段落级相似度，附原文证据；相似不等于抄袭，须人工复核</p>
             </div>
             <span className={`status-pill ${!duplicate ? "status-idle" : duplicate.high_count ? "status-fail" : duplicate.watch_count ? "status-warn" : "status-pass"}`}>

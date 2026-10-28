@@ -17,12 +17,12 @@ interface Entry {
 }
 
 const ENTRIES: Entry[] = [
-  { to: "/chat", title: "智能问答", desc: "从一句话开始，读到原文与页码", icon: MessageSquareText },
-  { to: "/trend", title: "文献趋势", desc: "在多年文献里读热度、读空白", icon: TrendingUp },
-  { to: "/match", title: "查重匹配", desc: "段落比对与专家匹配，约束前置", icon: Users, permission: "tool" },
-  { to: "/review", title: "本子预审", desc: "形式、诚信、查重、政策四关", icon: ShieldCheck, permission: "review" },
-  { to: "/library", title: "文档库", desc: "资料入库，索引在册", icon: FolderOpen },
-  { to: "/admin", title: "用户管理", desc: "账号与角色，权限在册", icon: UserCog, permission: "admin" },
+  { to: "/chat", title: "智能问答", desc: "根据资料提问，查看原文", icon: MessageSquareText },
+  { to: "/trend", title: "文献趋势", desc: "查看文献数量与主题变化", icon: TrendingUp },
+  { to: "/match", title: "查重匹配", desc: "文本查重与专家匹配", icon: Users, permission: "tool" },
+  { to: "/review", title: "本子预审", desc: "检查申报书并查看依据", icon: ShieldCheck, permission: "review" },
+  { to: "/library", title: "文档库", desc: "管理申报书、政策与文献", icon: FolderOpen },
+  { to: "/admin", title: "用户管理", desc: "管理账号与角色", icon: UserCog, permission: "admin" },
 ];
 
 function greeting(): string {
@@ -64,7 +64,6 @@ export function WelcomePage() {
           <h2>{greeting()}，{name}</h2>
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
-        <p>以诚信为尺，勘每一卷申报。</p>
         <div className="welcome-actions">
           {can("upload") ? (
             <button className="btn btn-primary" onClick={() => openUpload()}><Upload size={16} />上传文档</button>

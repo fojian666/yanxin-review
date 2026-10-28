@@ -110,9 +110,8 @@ export function TrendPage() {
     <div className="trend-page">
       <div className="panel trend-hero">
         <div className="trend-hero-copy">
-          <div className="eyebrow">HISTORICAL EVOLUTION</div>
           <h2>历史沿革 · 多年文献趋势</h2>
-          <p>落一枚方向词，读多年文献的热度与空白。</p>
+          <p>输入主题，查看文献数量和关键词变化。</p>
         </div>
         <div className="trend-controls">
           <div className="search-box">
@@ -339,7 +338,7 @@ export function TrendPage() {
           >
             <div className="panel-head">
               <div>
-                <h2>AI 趋势研判</h2>
+                <h2>趋势分析</h2>
                 <p>基于当前文献集合统计而成，不替代人工文献综述</p>
               </div>
               <span className={`mode-badge ${data.mode === "qwen" ? "online" : ""}`}>

@@ -362,9 +362,9 @@ export function ChatPage() {
                 >
                   <ShieldCheck size={27} />
                 </motion.div>
-                <h2>把本子放进来，让 AI 先读、先问、先核</h2>
+                <h2>根据资料提问</h2>
                 <p>
-                  支持 DOCX / PDF / TXT / MD。回答只以你上传的资料为据，附页码与章节；资料不足，它会直说，不臆造。
+                  选择资料后提问，可查看引用原文及章节或页码。
                 </p>
                 <motion.div
                   className="quick-grid"
@@ -386,9 +386,6 @@ export function ChatPage() {
                     </motion.button>
                   ))}
                 </motion.div>
-                <div className="welcome-note">
-                  提示：评审材料请在内网使用；演示版不会把文件发往任何未配置的外部服务。
-                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -417,6 +414,8 @@ export function ChatPage() {
           <textarea
             ref={inputRef}
             rows={1}
+            aria-label="输入问题；Enter 发送，Shift + Enter 换行"
+            title="Enter 发送，Shift + Enter 换行"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={onKeyDown}
@@ -433,7 +432,6 @@ export function ChatPage() {
           </motion.button>
         </div>
         <div className="composer-hint">
-          <span className="kbd-hint">Enter 发送 · Shift + Enter 换行 · </span>
           回答仅供辅助，须人工复核
         </div>
       </div>
@@ -516,7 +514,7 @@ function SourcesPanel({
       <div className="panel-head">
         <div>
           <h2>证据与引用</h2>
-          <p>回答里的 [1][2]，都对应此处原文与页码</p>
+          <p>点击引用编号，查看对应原文及位置信息</p>
         </div>
         <span className="count-badge">{citations.length}</span>
       </div>

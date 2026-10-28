@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: yanxin-review-design
-description: 研信智评内网评审工作台的设计契约——米色纸面与青绿强调色、宋体标题与黑体界面、勘验阅卷式文案；React 19 + 手写 CSS，token 全部取自 frontend/src/styles.css，组件覆盖按钮/输入/面板/表格/导航/徽章/图表容器，动效只允许 transform 与 opacity，并遵守 reduced-motion。
+description: 研信智评内网评审工作台的设计契约——米色纸面与青绿强调色、宋体标题与黑体界面、简洁的业务文案；React 19 + 手写 CSS，token 全部取自 frontend/src/styles.css，组件覆盖按钮/输入/面板/表格/导航/徽章/图表容器，动效只允许 transform 与 opacity，并遵守 reduced-motion。
 colors:
   primary: "#0e7c6b"
   primary-deep: "#0a5f52"
@@ -361,7 +361,7 @@ components:
    承担一种语义（演示样本/风险/离线），不新增第五种强调色。
 3. **安静的动效**：只动 `transform` 与 `opacity`，150–260ms，可被打断，`prefers-reduced-motion`
    下全部关闭；不用动效掩盖加载或错误。
-4. **直白的边界**：免责声明、按钮、状态词、错误提示保持平实措辞；"文采"只给标题、空态与引导语。
+4. **直白的边界**：免责声明、按钮、状态词、错误提示保持平实措辞；标题、空态与引导语也以清楚表达为先。
 5. **键盘可达**：焦点可见、skip link、抽屉焦点陷阱、弹窗 `role="dialog"` + ESC。
 
 ## Colors
@@ -410,8 +410,8 @@ components:
 
 - **宋体（Songti SC / STSong）**：品牌、页面标题、面板标题、趋势/查重主标题、KPI 数字——"阅卷"的正式感；
 - **黑体（PingFang SC / Microsoft YaHei…）**：界面控件、表格、标签——可读与中性；
-- **楷体（Kaiti SC / KaiTi…）**：文案阅读层（欢迎语、问答回答、摘要、研判、证据原文、免责声明）——手写批注感；
-- **等宽（SFMono / Menlo）**：英文小标签（`CORE CAPABILITIES`、`SIGN IN`）与演示口令。
+- **楷体（Kaiti SC / KaiTi…）**：问答回答、摘要和证据原文的阅读层；
+- **等宽（SFMono / Menlo）**：必要的英文内容与演示口令。
 
 | Level | 字体 | 字号/行高 | 用途 |
 |---|---|---|---|
@@ -427,14 +427,14 @@ components:
 | `body-ui` | 黑体 400 | 14 / 1.6 | 默认界面文字、按钮 |
 | `body-sm` | 黑体 400 | 13.5 / 1.6 | 面板说明、表格 |
 | `caption` | 黑体 400 | 12 / 1.6 | 字段标签、辅助说明、徽章 |
-| `caption-xs` | 黑体 600 | 10.5 / 1.4 · 2.6px | 英文 eyebrow 标签 |
+| `caption-xs` | 黑体 600 | 10.5 / 1.4 | 演示数据徽章 |
 | `code-md` | 等宽 400 | 12.5 / 1.4 | 演示口令、代码片段 |
 | `kai-reading` | 楷体 400 | 14 / 1.85 · 0.28px | 批注式说明、空态按语 |
 
 **规则**
 
 - 宋体只用于标题与数字，**不要**用于长正文（小字号宋体在屏幕上发虚）。
-- 正文最小 12px；唯一例外是 10.5px 的全大写 eyebrow（字距已补偿）。
+- 正文最小 12px；演示数据徽章为 10.5px。
 - 数据列与 KPI 使用 `font-variant-numeric: tabular-nums`，避免数值跳动。
 - 阅读区最大行宽约 600px（`.welcome > p`、趋势引导语），长文行高 ≥1.8。
 
@@ -536,7 +536,7 @@ components:
 **反馈**
 
 - `toast` 顶部居中，3.4s 自动消失，`aria-live="polite"`；错误用 `toast-error`，不抢焦点。
-- 空态：图标 + 一句话说明 + 下一步动作；文案可用楷体按语。
+- 空态：图标 + 一句话说明 + 下一步动作。
 - 弹窗：`role="dialog"` + `aria-modal`、焦点陷阱、ESC、关闭后焦点归还触发按钮；
   有未保存内容时关闭需确认。`modal-head` 吸顶（`position: sticky; top: 0` + 负外边距覆盖卡片内边距），
   卡片内部滚动时标题与关闭按钮始终可见可点。
@@ -610,8 +610,8 @@ components:
 
 ## Copy Voice
 
-- **标题 / 副标题 / 空态 / 引导语**：勘验阅卷意象，四字格与对仗，克制不堆砌。
-  例："以诚信为尺，勘每一卷申报"；"把本子放进来，让 AI 先读、先问、先核"；"库中尚空。上传一份本子或政策文件，即开始。"
+- **标题 / 副标题 / 空态 / 引导语**：用简洁业务语言说明功能和下一步，避免装饰性英文眉题、重复说明与堆砌对仗。
+  例："根据资料提问"；"请先上传申报书"。
 - **按钮 / 表头 / 状态词**：短、直白、动词优先（上传文档、运行一体化检查、移除演示本子）。
 - **免责声明与限制提示**：只陈述事实与后果，不修辞：
   "相似不等于抄袭，须人工复核""不输出立项结论、评分与排名""扫描件暂未启用 OCR"。
@@ -623,9 +623,8 @@ components:
 - 辅助文字下限：状态药丸、侧栏按语、登录页脚与特性说明 ≥12px，角色徽章 ≥11.5px，且都需实测过线——
   `on-navy-note .62`≈5.9、`on-navy-faint .58`≈5.3、`on-navy-caption .72`≈7.6、
   `idle-ink on idle-surface` 5.50、`role-viewer #575f58 on #eee9df` 5.45。
-  纯装饰的字距标签（`.eyebrow` 10.5px、`badge-sample` 10.5px）不承载独有信息，允许更小。
-- 快捷键提示（Enter 发送 / Shift+Enter 换行）只在精确指针设备出现：
-  `@media (hover: none), (pointer: coarse)` 下 `.kbd-hint` 隐藏，触屏只保留免责句。
+  演示数据徽章（`badge-sample` 10.5px）用于标记样本数据。
+- 问答输入框的 `title` 和无障碍名称提示 Enter 发送、Shift+Enter 换行；界面保留人工复核提示。
 - 焦点：全局 `:focus-visible` 2px `primary` 环 + offset 2px；指针触发的焦点不显示 UA 环形，
   但**不得**移除键盘焦点样式。
 - skip link：每页第一个 Tab 是"跳到主要内容"；路由切换后焦点移交 `<main id="main" tabindex="-1">`

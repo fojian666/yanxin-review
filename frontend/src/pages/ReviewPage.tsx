@@ -16,7 +16,7 @@ import { StatusPill } from "../components/StatusPill";
 import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
 import type { CheckStatus, ReviewReport } from "../types";
 
-const STEPS = ["解析文档结构", "检查形式完整性", "核对诚信与规范", "语义查重比对", "生成预审报告"];
+const STEPS = ["解析文档结构", "检查形式完整性", "核对诚信与规范", "文本查重比对", "生成预审报告"];
 
 const STATUS_LABELS: Record<CheckStatus, string> = {
   pass: "通过",
@@ -158,11 +158,7 @@ export function ReviewPage() {
   return (
     <div className="review-layout">
       <div className="panel review-control">
-        <div className="eyebrow">AI PRE-REVIEW</div>
         <h2>本子预审</h2>
-        <p className="hint">
-          选定申报书，逐项勘验，循证核对。
-        </p>
         <label className="field-label" htmlFor="reviewDoc">待审文档</label>
         <select
           id="reviewDoc"
@@ -188,7 +184,7 @@ export function ReviewPage() {
           <span>{selectedDoc?.name || "尚未选定文档"}</span>
         </div>
         <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
-          {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始 AI 预审</>}
+          {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
         </button>
         <div className={`review-steps ${busy ? "is-running" : ""}`}>
           <div className="steps-track">
@@ -213,7 +209,7 @@ export function ReviewPage() {
         </div>
         <div className="control-note">
           <strong>边界</strong>
-          <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策合规需先上传政策库。</p>
+          <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策引用须人工核对。</p>
         </div>
       </div>
 
@@ -230,14 +226,14 @@ export function ReviewPage() {
               <EmptyState
                 tall
                 icon={<FileSearch size={42} />}
-                title={error ? "预审失败" : "预审报告将在此呈卷"}
+                title={error ? "预审失败" : "预审报告将在这里显示"}
                 description={
                   error ||
                   (!sortedDocs.length
-                    ? "文档库尚空，先上传一份申报书再行预审。"
+                    ? "请先上传申报书。"
                     : docId
-                      ? "卷宗已选定，点击「开始 AI 预审」即依次勘验四道关。"
-                      : "先在左侧选定一份待审文档，即可开始预审。")
+                      ? "已选择文档，点击「开始预审」。"
+                      : "请先选择待审文档。")
                 }
               />
             </motion.div>
@@ -359,7 +355,6 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
   return (
     <div className="report-head">
       <div>
-        <div className="eyebrow">AI PRE-REVIEW REPORT</div>
         <div className="report-title-row">
           <h2>预审报告</h2>
           <motion.span className="report-seal"

@@ -17,10 +17,10 @@ const DEMO_ACCOUNTS: {
 ];
 
 const FEATURES = [
-  { icon: FileSearch, label: "引用溯源", desc: "句句有出处，页页可回溯" },
-  { icon: ScanSearch, label: "语义查重", desc: "段落相比，证据并列" },
-  { icon: Users, label: "专家匹配", desc: "回避与负载，先于偏好" },
-  { icon: TrendingUp, label: "文献趋势", desc: "看热度起伏，也看空白处" },
+  { icon: FileSearch, label: "引用溯源", desc: "查看引用原文与位置" },
+  { icon: ScanSearch, label: "文本查重", desc: "查看相似段落与依据" },
+  { icon: Users, label: "专家匹配", desc: "结合回避条件和负载" },
+  { icon: TrendingUp, label: "文献趋势", desc: "查看文献数量和主题变化" },
 ];
 
 const DEMO_PASSWORD = "yanxin2026";
@@ -212,9 +212,8 @@ export function LoginPage() {
               <MapPinned size={13} /> 自然资源 · 科研诚信 · 江苏
             </div>
             <h1>研信智评</h1>
-            <p className="login-brand-sub">以诚信为尺，勘每一卷申报</p>
+            <p className="login-brand-sub">科研项目评审辅助工作台</p>
             <div className="login-features-head">
-              <span>CORE CAPABILITIES</span>
               <span>核心能力</span>
             </div>
             <div className="login-features">
@@ -233,16 +232,15 @@ export function LoginPage() {
               ))}
             </div>
             <div className="login-foot">
-              <span className="login-lan-badge">内网部署 · 数据不出域</span>
+              <span className="login-lan-badge">默认本机访问</span>
               <span>江苏省自然资源科研课题 · 首期原型</span>
             </div>
           </div>
 
           <form className="login-form" onSubmit={submit}>
             <div className="login-form-head">
-              <div className="eyebrow">SIGN IN</div>
               <h2>登录</h2>
-              <p>内网账号登入 · 评审工作台即启</p>
+              <p>使用内网账号登录</p>
             </div>
             <label className="field">
               <span>用户名</span>

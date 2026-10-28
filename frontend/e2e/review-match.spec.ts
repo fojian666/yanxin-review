@@ -3,19 +3,21 @@ import { test, expect, navigate, downloadText } from './fixtures';
 test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: page, documents }, testInfo) => {
   await page.goto(`/review?doc=${documents[0].id}`);
   await expect(page.getByLabel('待审文档')).toHaveValue(documents[0].id);
-  await page.getByRole('button', { name: '开始 AI 预审' }).click();
+  await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
   await expect(page.locator('.report-head')).toContainText('规则预审');
+  await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
   await expect(page.locator('.report-seal')).toHaveText('待人工复核');
   await expect(page.locator('.report-limits')).not.toBeEmpty();
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
   expect(text).toContain(documents[0].name);
   expect(text).toContain('能力边界');
+  expect(text).toContain('文本查重');
   expect(text).toContain('离线规则与检索');
   expect(text).toContain('须经专家和管理人员复核');
   await page.getByLabel('待审文档').selectOption(documents[1].id);
   await expect(page.locator('.report-head')).toHaveCount(0);
-  await page.getByRole('button', { name: '开始 AI 预审' }).click();
+  await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[1].name);
 });
 
@@ -29,14 +31,14 @@ test('预审慢请求期间锁定文档并阻止重复运行，错误后可重�
     await gate;
     await route.fulfill({ status: 500, json: { error: '受控预审错误' } });
   });
-  await page.getByRole('button', { name: '开始 AI 预审' }).click();
+  await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.getByLabel('待审文档')).toBeDisabled();
   await expect(page.getByRole('button', { name: '预审中…' })).toBeDisabled();
   release();
   await expect(page.getByRole('heading', { name: '预审失败', exact: true })).toBeVisible();
   expect(calls).toBe(1);
   await page.unroute('**/api/review');
-  await page.getByRole('button', { name: '开始 AI 预审' }).click();
+  await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
 });
 
@@ -145,7 +147,7 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   report.limitations = [];
   await page.route('**/api/review', route => route.fulfill({ json: report }));
   await page.goto(`/review?doc=${documents[0].id}`);
-  await page.getByRole('button', { name: '开始 AI 预审' }).click();
+  await page.getByRole('button', { name: '开始预审' }).click();
   const row = page.locator('.check-item').filter({ hasText: item.label });
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
   await row.getByRole('button', { name: /展开全文/ }).click();

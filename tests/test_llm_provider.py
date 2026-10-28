@@ -144,6 +144,7 @@ def test_offline_review_reports_limitations(monkeypatch):
     monkeypatch.setattr(review_service, "llm", SimpleNamespace(configured=False))
     report = review_service.review_document("d1")
     assert report["mode"] == "offline"
+    assert next(s for s in report["sections"] if s["key"] == "duplicate")["title"] == "文本查重"
     assert len(report["limitations"]) == len(review_service.OFFLINE_LIMITATIONS)
     assert any("未启用大模型" in item for item in report["limitations"])
     assert any("字面重合" in item for item in report["limitations"])

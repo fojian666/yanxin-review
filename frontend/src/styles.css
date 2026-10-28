@@ -155,7 +155,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   max-width: 1760px;
 }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid rgba(16,36,46,.12); margin-bottom: 28px; }
-.eyebrow { font-size: 10.5px; letter-spacing: 2.6px; color: var(--teal); font-weight: 600; margin-bottom: 6px; }
 .topbar h1 { font-family: "Songti SC", "STSong", serif; font-size: 34px; line-height: 1.15; margin: 0; letter-spacing: 1px; font-weight: 600; }
 .topbar p { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
 .topbar-actions { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
@@ -301,7 +300,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .quick-card:hover { border-color: #b8d8cf; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(16,36,46,.06); }
 .quick-card span { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
 .quick-card small { display: block; margin-top: 4px; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
-.welcome-note { color: var(--muted-2); font-size: 12px; margin-top: 14px; }
 .msg { display: flex; gap: 13px; margin: 0 auto 24px; max-width: 900px; animation: rise .29s ease both; }
 .msg-avatar {
   width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50% 50% 50% 8px;
@@ -356,7 +354,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .send-btn { height: 48px; padding: 0 20px; }
 .composer-hint { padding: 0 20px 12px; color: var(--muted-2); font-size: 12px; background: #fffdf8; }
 /* 触屏虚拟键盘没有 Shift+Enter 换行习惯，快捷键提示只在精确指针设备展示 */
-@media (hover: none), (pointer: coarse) { .kbd-hint { display: none; } }
 
 .sources-panel { display: flex; flex-direction: column; height: calc(100vh - 214px); height: calc(100dvh - 214px); min-height: 0; overflow: hidden; }
 .sources-panel .panel-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #fffdf8, #fbf8f1); }
@@ -1883,7 +1880,6 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 }
 @media (max-width: 680px) {
   .topbar { margin-bottom: 18px; padding-bottom: 16px; }
-  .topbar-title .eyebrow { display: none; }
   .topbar p { line-height: 1.6; }
   .btn, .icon-btn, .scope-btn, .chip, .view-toggle button { min-height: 44px; }
   .topbar .btn-label { display: none; }
@@ -1902,7 +1898,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .trend-view-actions { width: 100%; justify-content: space-between; }
   .welcome-register { gap: 6px; }
   .welcome-register > svg { display: none; }
-  .review-control > .eyebrow, .review-control > h2, .review-control > .hint { display: none; }
+  .review-control > h2 { display: none; }
   .review-steps:not(.is-running) { display: none; }
   .welcome { padding: 24px 18px; }
   .welcome h2 { font-size: 25px; line-height: 1.45; }

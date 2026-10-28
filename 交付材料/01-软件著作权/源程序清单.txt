@@ -35,32 +35,32 @@
      84 frontend/src/components/Markdown.tsx
     178 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
-    178 frontend/src/components/Topbar.tsx
-    291 frontend/src/components/UploadModal.tsx
+    177 frontend/src/components/Topbar.tsx
+    290 frontend/src/components/UploadModal.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
      10 frontend/src/main.tsx
      51 frontend/src/motion.ts
-    178 frontend/src/pages/AdminPage.tsx
-    573 frontend/src/pages/ChatPage.tsx
+    176 frontend/src/pages/AdminPage.tsx
+    571 frontend/src/pages/ChatPage.tsx
     304 frontend/src/pages/LibraryPage.tsx
-    314 frontend/src/pages/LoginPage.tsx
-    521 frontend/src/pages/MatchPage.tsx
-    430 frontend/src/pages/ReviewPage.tsx
-    437 frontend/src/pages/TrendPage.tsx
-    124 frontend/src/pages/WelcomePage.tsx
-   2037 frontend/src/styles.css
+    312 frontend/src/pages/LoginPage.tsx
+    520 frontend/src/pages/MatchPage.tsx
+    425 frontend/src/pages/ReviewPage.tsx
+    436 frontend/src/pages/TrendPage.tsx
+    123 frontend/src/pages/WelcomePage.tsx
+   2033 frontend/src/styles.css
     294 frontend/src/types.ts
-   7669 total
+   7649 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
      23 tests/test_docs.py
      93 tests/test_llm_payload.py
-    432 tests/test_llm_provider.py
+    433 tests/test_llm_provider.py
     401 tests/test_retrieval_embedding.py
    1075 tests/test_robustness.py
-   2347 total
+   2348 total
 工具（Python）
     205 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -74,13 +74,13 @@
      10 frontend/e2e/infrastructure.spec.ts
     109 frontend/e2e/library.spec.ts
      98 frontend/e2e/mobile.spec.ts
-    163 frontend/e2e/review-match.spec.ts
+    165 frontend/e2e/review-match.spec.ts
      81 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      27 frontend/playwright.config.ts
-   1007 total
+   1009 total
 合计
-  17561 total（69 个文件）
+  17544 total（69 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

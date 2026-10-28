@@ -166,7 +166,6 @@ export function UploadModal() {
           >
             <div className="modal-head">
               <div>
-                <div className="eyebrow">UPLOAD</div>
                 <h2>上传文档</h2>
               </div>
               <button className="icon-btn" onClick={() => setUploadOpen(false)} aria-label="关闭" disabled={busy}>

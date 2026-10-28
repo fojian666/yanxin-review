@@ -75,7 +75,7 @@ test('空文档库提示可操作，预审及匹配禁用运行', async ({ app: 
   await navigate(page, '文档库');
   await expect(page.getByText('库中尚空。上传一份本子或政策文件，即开始。')).toBeVisible();
   await navigate(page, '本子预审');
-  await expect(page.getByRole('button', { name: '开始 AI 预审' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
   await navigate(page, '查重匹配');
   await expect(page.getByRole('button', { name: '运行一体化检查' })).toBeDisabled();
   await navigate(page, '智能问答');

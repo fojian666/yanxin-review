@@ -210,7 +210,7 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
     sections = [
         {"key": "completeness", "title": "形式完整性", "status": _overall_status(completeness_items), "items": completeness_items},
         {"key": "integrity", "title": "科研诚信与规范性", "status": _overall_status(integrity_items), "items": integrity_items},
-        {"key": "duplicate", "title": "语义查重", "status": _overall_status(duplicate_items), "items": duplicate_items},
+        {"key": "duplicate", "title": "文本查重", "status": _overall_status(duplicate_items), "items": duplicate_items},
         {"key": "policy", "title": "政策合规", "status": _overall_status(policy_items), "items": policy_items},
     ]
     generic_questions = [

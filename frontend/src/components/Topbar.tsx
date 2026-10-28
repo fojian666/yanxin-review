@@ -8,12 +8,12 @@ import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
 
 const META: Record<string, { title: string; sub: string }> = {
-  "/welcome": { title: "工作台", sub: "选一处入口，或直接从一句提问开始" },
-  "/chat": { title: "智能问答", sub: "只以你上传的资料作答，逐条附原文与页码" },
-  "/trend": { title: "文献趋势", sub: "在多年文献的起伏里，读热度、读阶段、读空白" },
-  "/match": { title: "查重匹配", sub: "一次运行：段落查重与专家匹配并行，约束前置" },
-  "/review": { title: "本子预审", sub: "形式、诚信、查重、政策四道关，AI 只勘不断" },
-  "/library": { title: "文档库", sub: "资料入库、索引在册、文献成集" },
+  "/welcome": { title: "工作台", sub: "选择功能或开始提问" },
+  "/chat": { title: "智能问答", sub: "根据资料回答，可查看引用依据" },
+  "/trend": { title: "文献趋势", sub: "查看文献数量和主题变化" },
+  "/match": { title: "查重匹配", sub: "检查文本相似度并匹配专家" },
+  "/review": { title: "本子预审", sub: "检查申报书并提供核对依据" },
+  "/library": { title: "文档库", sub: "管理申报书、政策与文献" },
   "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
 };
 
@@ -74,7 +74,6 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   return (
     <header className="topbar" onDragStart={(event) => event.preventDefault()}>
       <div className="topbar-title" key={`title:${pathname}`}>
-        <div className="eyebrow">RESEARCH INTEGRITY · AI REVIEW</div>
         <h1>{meta.title}</h1>
         <p>{meta.sub}</p>
         <div className="mobile-model-status" aria-label="当前模型配置">

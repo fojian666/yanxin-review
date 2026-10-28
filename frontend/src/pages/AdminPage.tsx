@@ -74,7 +74,6 @@ export function AdminPage() {
               <h2>用户与角色</h2>
               <span className="count-badge">{users.length}</span>
             </div>
-            <p>账号密码为原型之策；正式部署将替换为厅统一身份（SSO），沿用同一角色模型</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -112,7 +111,6 @@ export function AdminPage() {
         <div className="panel-head">
           <div>
             <h2>新建用户</h2>
-            <p>密码以加盐哈希存储；角色即权限边界（见下方说明）</p>
           </div>
         </div>
         <div className="form-grid">
