@@ -12,8 +12,11 @@ frontend/dist/
 
 # 本地协作目录（AI 工作笔记与运行态，仅本地保留，不上远端）
 .workbuddy/
+.superpowers/
 
 # 含真实个人信息，不入版本库（公开仓库）
+*.docx
+*.doc
 3.科研课题申请书（终稿）.docx
 交付材料/01-软件著作权/screenshots/
 
