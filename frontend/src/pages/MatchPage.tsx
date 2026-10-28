@@ -39,8 +39,8 @@ function expertStatus(expert: Expert) {
 }
 
 export function MatchPage() {
-  const { docs, toast, can } = useApp();
-  const [docId, setDocId] = useState("");
+  const { docs, toast, can, activeDocId, setActiveDocId } = useApp();
+  const [docId, setDocId] = useState(activeDocId);
   const [result, setResult] = useState<ToolCheckResult | null>(null);
   const [experts, setExperts] = useState<Expert[]>([]);
   const [loading, setLoading] = useState(false);
@@ -211,6 +211,7 @@ export function MatchPage() {
             onChange={(event) => {
               checkIdRef.current += 1;  // 作废进行中的检查，避免旧结果落到新选的本子上
               setDocId(event.target.value);
+              if (sortedDocs.some((doc) => doc.id === event.target.value && (doc.kind === "proposal" || doc.kind === "other"))) setActiveDocId(event.target.value);
               setResult(null);
               setError("");
             }}
@@ -417,6 +418,8 @@ export function MatchPage() {
         </div>
       </div>
 
+      <details className="expert-library">
+        <summary>管理专家库 <span>{experts.length} 位</span></summary>
       <div className="panel">
         <div className="panel-head">
           <div>
@@ -486,6 +489,7 @@ export function MatchPage() {
         </div>
       </div>
 
+      </details>
       <div className="disclaimer">
         工具输出仅供科研管理与评审辅助，不构成重复申报认定或专家抽取结论；所有结果须人工复核。
       </div>

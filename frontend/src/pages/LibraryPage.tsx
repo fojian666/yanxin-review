@@ -25,10 +25,11 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 export function LibraryPage() {
-  const { health, docs, papers, refreshDocs, refreshPapers, toast, openUpload, setSelectedDocs, can } = useApp();
+  const { health, docs, papers, refreshDocs, refreshPapers, toast, openUpload, setSelectedDocs, setActiveDocId, can } = useApp();
   const navigate = useNavigate();
   const csvRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const limitMb = health?.upload_limit_mb ?? 30;
 
@@ -100,6 +101,7 @@ export function LibraryPage() {
   };
 
   const hasSample = papers.some((p) => p.is_sample === 1);
+  const visibleDocs = docs.filter((doc) => doc.name.toLocaleLowerCase().includes(documentQuery.trim().toLocaleLowerCase()));
 
   return (
     <div className="library-page">
@@ -140,12 +142,15 @@ export function LibraryPage() {
             </button>
           )}
         </div>
+        {docs.length > 0 && <div className="document-filter"><label htmlFor="document-filter">筛选文档</label><input id="document-filter" type="search" value={documentQuery} onChange={(event) => setDocumentQuery(event.target.value)} placeholder="按文档名称筛选" /></div>}
         <div className="table-wrap">
           {docs.length === 0 ? (
             <EmptyState
               icon={<FolderOpen size={38} />}
               description="库中尚空。上传一份本子或政策文件，即开始。"
             />
+          ) : visibleDocs.length === 0 ? (
+            <EmptyState icon={<FolderOpen size={38} />} description="没有匹配的文档，请调整筛选条件。" />
           ) : (
             <table className="data-table">
               <thead>
@@ -153,7 +158,7 @@ export function LibraryPage() {
               </thead>
               <tbody>
                 <AnimatePresence initial={false}>
-                {docs.map((doc, index) => (
+                {visibleDocs.map((doc, index) => (
                   <motion.tr
                     key={doc.id}
                     layout="position"
@@ -186,13 +191,14 @@ export function LibraryPage() {
                         <button
                           className="table-btn"
                           onClick={() => {
+                            if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
                             setSelectedDocs([doc.id]);
                             navigate("/chat");
                           }}
                         >
                           <MessageSquareText size={13} />问答
                         </button>
-                        <button className="table-btn" onClick={() => navigate(`/review?doc=${doc.id}`)}>
+                        <button className="table-btn" onClick={() => { if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id); navigate(`/review?doc=${doc.id}`); }}>
                           <ShieldCheck size={13} />预审
                         </button>
                         {can("delete-doc") && (

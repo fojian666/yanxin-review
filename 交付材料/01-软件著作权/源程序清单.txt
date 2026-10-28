@@ -23,7 +23,7 @@
    5535 total
 前端（TypeScript/TSX/CSS）
     230 frontend/src/App.tsx
-    293 frontend/src/AppContext.tsx
+    300 frontend/src/AppContext.tsx
     270 frontend/src/api.ts
     363 frontend/src/charts/TrendCharts.tsx
      93 frontend/src/components/ChatModelControls.tsx
@@ -33,7 +33,7 @@
      50 frontend/src/components/ErrorBoundary.tsx
     104 frontend/src/components/KpiCard.tsx
      84 frontend/src/components/Markdown.tsx
-    178 frontend/src/components/Sidebar.tsx
+    188 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
     177 frontend/src/components/Topbar.tsx
     290 frontend/src/components/UploadModal.tsx
@@ -42,16 +42,16 @@
      10 frontend/src/main.tsx
      51 frontend/src/motion.ts
     176 frontend/src/pages/AdminPage.tsx
-    571 frontend/src/pages/ChatPage.tsx
-    304 frontend/src/pages/LibraryPage.tsx
+    580 frontend/src/pages/ChatPage.tsx
+    310 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
-    520 frontend/src/pages/MatchPage.tsx
-    425 frontend/src/pages/ReviewPage.tsx
-    436 frontend/src/pages/TrendPage.tsx
-    123 frontend/src/pages/WelcomePage.tsx
-   2033 frontend/src/styles.css
+    524 frontend/src/pages/MatchPage.tsx
+    466 frontend/src/pages/ReviewPage.tsx
+    430 frontend/src/pages/TrendPage.tsx
+    130 frontend/src/pages/WelcomePage.tsx
+   2089 frontend/src/styles.css
     294 frontend/src/types.ts
-   7649 total
+   7783 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -68,19 +68,19 @@
     170 tools/soft_copyright.py
    1003 total
 浏览器回归（TypeScript/Python）
-    104 frontend/e2e/auth.spec.ts
+    106 frontend/e2e/auth.spec.ts
     222 frontend/e2e/chat-trend.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    109 frontend/e2e/library.spec.ts
-     98 frontend/e2e/mobile.spec.ts
-    165 frontend/e2e/review-match.spec.ts
+    150 frontend/e2e/library.spec.ts
+    168 frontend/e2e/mobile.spec.ts
+    168 frontend/e2e/review-match.spec.ts
      81 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      27 frontend/playwright.config.ts
-   1009 total
+   1125 total
 合计
-  17544 total（69 个文件）
+  17794 total（69 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

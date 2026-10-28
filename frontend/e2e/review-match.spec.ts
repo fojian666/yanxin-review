@@ -9,6 +9,7 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
   await expect(page.locator('.report-seal')).toHaveText('待人工复核');
   await expect(page.locator('.report-limits')).not.toBeEmpty();
+  await page.screenshot({ path: testInfo.outputPath('review-desktop.png') });
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
   expect(text).toContain(documents[0].name);
   expect(text).toContain('能力边界');
@@ -47,6 +48,7 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await page.getByLabel('待查本子').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
+  await page.screenshot({ path: testInfo.outputPath('match-desktop.png') });
   await page.locator('.excluded-box summary').click();
   await expect(page.locator('.excluded-list')).toContainText('示例专家A');
   await expect(page.locator('.excluded-list')).toContainText('与申报单位存在同单位回避');
@@ -111,6 +113,7 @@ test('匹配请求失败后恢复，缺申报信息独立告警', async ({ app: 
 
 test('专家CSV导入、归一回避和模板下载', async ({ app: page, documents }, testInfo) => {
   await navigate(page, '查重匹配');
+  await page.getByText('管理专家库', { exact: false }).click();
   const template = await downloadText(page, () => page.getByRole('button', { name: '下载 CSV 模板' }).click(), testInfo);
   expect(template).toContain('回避单位');
   await page.locator('input[type=file]').setInputFiles({ name: '专家.csv', mimeType: 'text/csv', buffer: Buffer.from('姓名,单位,学科,研究方向,在研项目数,是否可评审\nE2E归一专家,沄州 大学资源环境学院,科研诚信,数据治理,1,是\n') });

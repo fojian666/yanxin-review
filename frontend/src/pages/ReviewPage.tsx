@@ -25,14 +25,15 @@ const STATUS_LABELS: Record<CheckStatus, string> = {
 };
 
 export function ReviewPage() {
-  const { docs, toast } = useApp();
+  const { docs, toast, activeDocId, setActiveDocId } = useApp();
   const reduce = useMotionPreference();
   const [params, setParams] = useSearchParams();
-  const [docId, setDocId] = useState("");
+  const [docId, setDocId] = useState(activeDocId);
   const [report, setReport] = useState<ReviewReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState("");
+  const [reportReady, setReportReady] = useState(false);
   // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(() => new Set());
   useEffect(() => setExpandedEvidence(new Set()), [report]);
@@ -44,6 +45,9 @@ export function ReviewPage() {
       return next;
     });
   const runningRef = useRef(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const runFocusRef = useRef<Element | null>(null);
+  const userScrolledRef = useRef(false);
   const progress = report ? 100 : busy ? Math.min(96, ((step + 1) / STEPS.length) * 100) : 0;
 
   const sortedDocs = useMemo(() => {
@@ -61,6 +65,7 @@ export function ReviewPage() {
     const fromQuery = params.get("doc");
     if (fromQuery && sortedDocs.some((d) => d.id === fromQuery)) {
       setDocId(fromQuery);
+      if (sortedDocs.some((d) => d.id === fromQuery && (d.kind === "proposal" || d.kind === "other"))) setActiveDocId(fromQuery);
       // 消费后移除参数，避免用户改选文档时又被 URL 拉回
       const next = new URLSearchParams(params);
       next.delete("doc");
@@ -75,11 +80,41 @@ export function ReviewPage() {
   useEffect(() => {
     if (!busy) return;
     setStep(0);
+    const noteInteraction = () => { userScrolledRef.current = true; };
+    const noteScrollKey = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) noteInteraction();
+    };
+    window.addEventListener("touchmove", noteInteraction, { passive: true });
+    window.addEventListener("wheel", noteInteraction, { passive: true });
+    window.addEventListener("keydown", noteScrollKey);
     const timer = window.setInterval(() => {
       setStep((current) => Math.min(current + 1, STEPS.length - 1));
     }, 650);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("touchmove", noteInteraction);
+      window.removeEventListener("wheel", noteInteraction);
+      window.removeEventListener("keydown", noteScrollKey);
+    };
   }, [busy]);
+
+  const focusReport = () => {
+    const target = reportRef.current;
+    target?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    target?.focus({ preventScroll: true });
+    setReportReady(false);
+  };
+
+  useEffect(() => {
+    if (!report || !window.matchMedia("(max-width: 680px)").matches) return;
+    const active = document.activeElement;
+    const blocked = document.querySelector('[role="dialog"][aria-modal="true"], .app-shell.nav-open');
+    if (userScrolledRef.current || blocked || (active && active !== document.body && active !== runFocusRef.current && !reportRef.current?.contains(active))) {
+      setReportReady(true);
+      return;
+    }
+    focusReport();
+  }, [report]);
 
   const run = async () => {
     if (!docId) {
@@ -88,6 +123,9 @@ export function ReviewPage() {
     }
     if (runningRef.current) return;
     runningRef.current = true;
+    runFocusRef.current = document.activeElement;
+    userScrolledRef.current = false;
+    setReportReady(false);
     setBusy(true);
     setError("");
     setReport(null);
@@ -166,7 +204,9 @@ export function ReviewPage() {
           value={docId}
           onChange={(event) => {
             setDocId(event.target.value);
+            if (sortedDocs.some((d) => d.id === event.target.value && (d.kind === "proposal" || d.kind === "other"))) setActiveDocId(event.target.value);
             setReport(null);
+            setReportReady(false);
             setError("");
           }}
           disabled={busy}
@@ -186,6 +226,7 @@ export function ReviewPage() {
         <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
           {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
         </button>
+        {reportReady && <div className="review-ready" role="status">预审已完成 <button type="button" className="btn btn-ghost btn-sm" onClick={focusReport}>查看报告</button></div>}
         <div className={`review-steps ${busy ? "is-running" : ""}`}>
           <div className="steps-track">
             <motion.div
@@ -213,7 +254,7 @@ export function ReviewPage() {
         </div>
       </div>
 
-      <div className="panel review-report">
+      <div className="panel review-report" role="region" aria-label="预审报告" tabIndex={0} ref={reportRef}>
         <AnimatePresence mode="wait" initial={false}>
           {!report ? (
             <motion.div

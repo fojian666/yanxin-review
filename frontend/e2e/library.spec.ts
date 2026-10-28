@@ -103,7 +103,48 @@ test('清理演示数据保留自建文档、文献、专家与公开政策', as
   expect(docs.documents.filter((doc: { source: string }) => doc.source === 'public')).toHaveLength(2);
   await navigate(page, '查重匹配');
   page.once('dialog', dialog => dialog.accept());
+  await page.getByText('管理专家库', { exact: false }).click();
   await page.getByRole('button', { name: '移除演示专家' }).click();
   await expect(page.getByRole('row').filter({ hasText: '示例专家A' })).toHaveCount(0);
   await expect(page.getByRole('row').filter({ hasText: 'E2E保留专家' })).toBeVisible();
+});
+
+test('工作台选择申报书并在预审、匹配、问答间保持上下文', async ({ app: page, documents }, testInfo) => {
+  await page.getByLabel('当前申报书').selectOption(documents[1].id);
+  await page.screenshot({ path: testInfo.outputPath('workspace-desktop.png') });
+  await page.locator('.welcome-entries').getByRole('link', { name: /本子预审/ }).click();
+  await expect(page.getByLabel('待审文档')).toHaveValue(documents[1].id);
+  await navigate(page, '查重匹配');
+  await expect(page.getByLabel('待查本子')).toHaveValue(documents[1].id);
+  await page.getByLabel('待查本子').selectOption(documents[0].id);
+  await navigate(page, '本子预审');
+  await expect(page.getByLabel('待审文档')).toHaveValue(documents[0].id);
+  await page.locator('.brand-home').click();
+  await expect(page.getByLabel('当前申报书')).toHaveValue(documents[0].id);
+  await page.locator('.welcome-entries').getByRole('link', { name: /智能问答/ }).click();
+  await expect(page.locator('.scope-btn')).toContainText(documents[0].name);
+  await navigate(page, '文档库');
+  await page.getByRole('row').filter({ hasText: '公开公文' }).first().getByRole('button', { name: '问答', exact: true }).click();
+  await page.locator('.brand-home').click();
+  await expect(page.getByLabel('当前申报书')).toHaveValue(documents[0].id);
+});
+
+test('文档库名称筛选不改变实际数据', async ({ app: page, documents }) => {
+  await navigate(page, '文档库');
+  await page.getByLabel('筛选文档').fill(documents[0].name);
+  await expect(page.getByRole('row').filter({ hasText: documents[0].name })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: documents[1].name })).toHaveCount(0);
+  await page.getByLabel('筛选文档').fill('无此文档');
+  await expect(page.getByText('没有匹配的文档，请调整筛选条件。')).toBeVisible();
+  await page.getByLabel('筛选文档').clear();
+  await expect(page.getByRole('row').filter({ hasText: documents[1].name })).toBeVisible();
+});
+
+test('访客从工作台进入问答时使用选定申报书', async ({ app: page, documents, context }) => {
+  const login = await context.request.post('/api/auth/login', { data: { username: 'viewer', password: 'yanxin2026' } });
+  expect(login.ok()).toBeTruthy();
+  await page.reload();
+  await page.getByLabel('当前申报书').selectOption(documents[1].id);
+  await page.getByRole('link', { name: /进入智能问答/ }).click();
+  await expect(page.locator('.scope-btn')).toContainText(documents[1].name);
 });

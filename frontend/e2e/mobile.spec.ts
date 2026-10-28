@@ -1,10 +1,12 @@
 import { test, expect, navigate, downloadText, loginUI } from './fixtures';
 
-test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }) => {
+test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }, testInfo) => {
   for (const label of ['智能问答', '文献趋势', '查重匹配', '本子预审', '文档库']) {
     await navigate(page, label);
     await expect(page.locator('.app-shell')).not.toHaveClass(/nav-open/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    await expect(page.locator('.page-skeleton')).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`mobile-${label}.png`) });
   }
   const open = page.getByRole('button', { name: '打开导航' });
   await open.click(); await expect(page.locator('.nav a').first()).toBeFocused();
@@ -95,4 +97,72 @@ test('手机问答模型选择靠近输入框且面板可操作', async ({ app: 
     await page.getByRole('button', { name: '关闭模型选项' }).click();
     await expect(page.getByRole('button', { name: '上传文档', exact: true }).first()).toHaveCSS('width', '44px');
   }
+});
+
+test('手机问答与证据切换并从引用返回', async ({ app: page }, testInfo) => {
+  await navigate(page, '智能问答');
+  await page.locator('textarea').fill('科研失信调查人员是否需要签署保密协议？');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '查看引用 1', exact: true }).first().click();
+  await expect(page.locator('.sources-panel')).toBeVisible();
+  await expect(page.locator('#source-1')).toHaveClass(/flash/);
+  await expect(page.locator('#source-1')).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath('mobile-evidence-pane.png') });
+  await expect(page.getByRole('button', { name: /证据与引用/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: '问答', exact: true }).click();
+  await expect(page.locator('.chat-panel')).toBeVisible();
+  await expect(page.locator('.msg.assistant')).toContainText('保密');
+});
+
+test('手机预审完成后定位到可访问的结果区', async ({ app: page }, testInfo) => {
+  await navigate(page, '本子预审');
+  await page.getByRole('button', { name: '开始预审' }).click();
+  const report = page.getByRole('region', { name: '预审报告' });
+  await expect(report.locator('.report-head')).toBeVisible();
+  await expect(report).toBeFocused();
+  await expect.poll(async () => (await report.boundingBox())?.y ?? -1000).toBeGreaterThanOrEqual(-5);
+  await page.screenshot({ path: testInfo.outputPath('mobile-review-result.png') });
+});
+
+test('手机预审完成时不抢占上传弹窗焦点', async ({ app: page }) => {
+  let release!: () => void; let started!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const intercepted = new Promise<void>(resolve => { started = resolve; });
+  await page.route('**/api/review', async route => {
+    const response = await route.fetch(); started(); await gate; await route.fulfill({ response });
+  });
+  await navigate(page, '本子预审');
+  await page.getByRole('button', { name: '开始预审' }).click();
+  await intercepted;
+  await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上传文档' });
+  await expect(dialog).toBeVisible();
+  release();
+  await expect(page.getByRole('region', { name: '预审报告' }).locator('.report-head')).toHaveCount(1);
+  await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBeTruthy();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: '查看报告', exact: true }).click();
+  await expect(page.getByRole('region', { name: '预审报告' })).toBeFocused();
+});
+
+for (const method of ['触摸', '键盘'] as const) test(`手机预审期间${method}滚动阅读后不自动跳转报告`, async ({ app: page }) => {
+  let release!: () => void; let started!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const intercepted = new Promise<void>(resolve => { started = resolve; });
+  await page.route('**/api/review', async route => {
+    const response = await route.fetch(); started(); await gate; await route.fulfill({ response });
+  });
+  await navigate(page, '本子预审');
+  await page.getByRole('button', { name: '开始预审' }).click();
+  await intercepted;
+  if (method === '触摸') await page.evaluate(() => window.dispatchEvent(new Event('touchmove')));
+  else await page.keyboard.press('PageDown');
+  release();
+  await expect(page.locator('.review-ready')).toContainText('预审已完成');
+  const report = page.getByRole('region', { name: '预审报告' });
+  await expect(report).not.toBeFocused();
+  await page.getByRole('button', { name: '查看报告', exact: true }).click();
+  await expect(report).toBeFocused();
 });

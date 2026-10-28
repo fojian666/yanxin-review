@@ -377,14 +377,8 @@ export function TrendPage() {
             </motion.div>
           </motion.div>
 
-          <div className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>代表性文献</h2>
-                <p>与主题最相近的文献，皆可回到原文核对</p>
-              </div>
-              <span className="muted">{data.papers.length ? `展示前 ${data.papers.length} 篇` : ""}</span>
-            </div>
+          <details className="panel trend-papers">
+            <summary>代表性文献 <span>{data.papers.length ? `展示前 ${data.papers.length} 篇` : "暂无匹配"}</span></summary>
             <motion.div
               className="paper-list"
               key={`papers-${data.query}-${data.stats.total}`}
@@ -413,7 +407,7 @@ export function TrendPage() {
                 ))
               )}
             </motion.div>
-          </div>
+          </details>
         </>
       ) : (
         <div className="panel skeleton-panel">

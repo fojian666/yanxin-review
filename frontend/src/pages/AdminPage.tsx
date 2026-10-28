@@ -76,7 +76,7 @@ export function AdminPage() {
             </div>
           </div>
         </div>
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="用户列表" tabIndex={0}>
           {loading ? (
             <div className="empty-state"><Loader2 size={30} className="spin" /></div>
           ) : users.filter(Boolean).length === 0 ? (

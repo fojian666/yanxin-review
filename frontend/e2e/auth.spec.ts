@@ -62,9 +62,11 @@ test('会话失效后清除问答和上传弹窗状态', async ({ app: page, con
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('管理员创建账号后真实账号可登录，重复创建有反馈', async ({ page, context }) => {
+test('管理员创建账号后真实账号可登录，重复创建有反馈', async ({ page, context }, testInfo) => {
   await loginUI(page, 'admin');
   await navigate(page, '用户管理');
+  await expect(page.getByRole('heading', { name: '新建用户' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('admin-desktop.png') });
   await page.getByPlaceholder('如 zhangsan').fill('e2e-user');
   await page.getByPlaceholder('设置初始密码').fill('e2e-password');
   await page.getByPlaceholder('显示名称').fill('自动回归用户');

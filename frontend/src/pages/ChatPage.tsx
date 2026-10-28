@@ -79,6 +79,7 @@ export function ChatPage() {
   } = useApp();
   const retrievalMode = health?.retrieval?.mode;
   const [input, setInput] = useState("");
+  const [mobilePane, setMobilePane] = useState<"chat" | "sources">("chat");
   const [busy, setBusy] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [focusedSource, setFocusedSource] = useState<number | null>(null);
@@ -129,6 +130,7 @@ export function ChatPage() {
   }, [input]);
 
   const focusSource = (index: number, list: Citation[] | undefined, origin: HTMLElement) => {
+    if (window.matchMedia("(max-width: 680px)").matches) setMobilePane("sources");
     // 点旧问题的 [1] 要先把证据面板换回那一轮的回答，否则定位到最新一轮的第一条
     if (list && list !== citations) setCitations(list);
     setFocusedSource(index);
@@ -140,9 +142,9 @@ export function ChatPage() {
   // 换列表要等这一帧渲染完，DOM 里才是该轮的证据
   useEffect(() => {
     if (focusedSource === null) return;
-    document
-      .getElementById(`source-${focusedSource}`)
-      ?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+    const target = document.getElementById(`source-${focusedSource}`);
+    target?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+    if (window.matchMedia("(max-width: 680px)").matches) target?.focus({ preventScroll: true });
   }, [focusedSource, citationSelection, citations, reduce]);
 
   useEffect(() => {
@@ -279,7 +281,11 @@ export function ChatPage() {
 
   return (
     <div className="chat-layout">
-      <div className="panel chat-panel">
+      <div className="chat-mobile-panes" aria-label="问答区域">
+        <button type="button" aria-pressed={mobilePane === "chat"} onClick={() => setMobilePane("chat")}>问答</button>
+        <button type="button" aria-pressed={mobilePane === "sources"} onClick={() => setMobilePane("sources")}>证据与引用 {citations.length > 0 && `(${citations.length})`}</button>
+      </div>
+      <div className={`panel chat-panel ${mobilePane === "sources" ? "mobile-pane-hidden" : ""}`}>
         <div className="chat-toolbar">
           <div className="scope-wrap" ref={scopeRef}>
             <button className="scope-btn" onClick={() => setScopeOpen((v) => !v)} aria-haspopup="menu" aria-expanded={scopeOpen}>
@@ -436,7 +442,7 @@ export function ChatPage() {
         </div>
       </div>
 
-      <SourcesPanel citations={citations} focused={focusedSource} pulse={citationSelection?.id ?? 0} mode={retrievalMode} />
+      <SourcesPanel citations={citations} focused={focusedSource} pulse={citationSelection?.id ?? 0} mode={retrievalMode} mobileHidden={mobilePane === "chat"} />
       <CitationTrace selection={citationSelection} />
     </div>
   );
@@ -493,11 +499,13 @@ function SourcesPanel({
   focused,
   pulse,
   mode,
+  mobileHidden,
 }: {
   citations: Citation[];
   focused: number | null;
   pulse: number;
   mode?: "tfidf" | "embedding";
+  mobileHidden: boolean;
 }) {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   // 换一轮回答时收起全部：卡片序号会复用，旧展开态不能带过去
@@ -510,7 +518,7 @@ function SourcesPanel({
       return next;
     });
   return (
-    <aside className="panel sources-panel">
+    <aside className={`panel sources-panel ${mobileHidden ? "mobile-pane-hidden" : ""}`}>
       <div className="panel-head">
         <div>
           <h2>证据与引用</h2>
@@ -531,6 +539,7 @@ function SourcesPanel({
               <motion.div
                 className={`source-card ${focused === c.index ? "flash" : ""}`}
                 id={`source-${c.index}`}
+                tabIndex={-1}
                 key={c.index}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}

@@ -35,7 +35,7 @@ function greeting(): string {
 }
 
 export function WelcomePage() {
-  const { auth, can, docs, loading, openUpload } = useApp();
+  const { auth, can, docs, loading, openUpload, activeDocId, setActiveDocId, setSelectedDocs } = useApp();
   const reduce = useMotionPreference();
   const unfold = useSessionEntrance("yanxin.dossier-entrance");
   const priority = can("review")
@@ -64,11 +64,18 @@ export function WelcomePage() {
           <h2>{greeting()}，{name}</h2>
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
+        <div className="workspace-selection">
+          <label htmlFor="workspace-document">当前申报书</label>
+          <select id="workspace-document" className="select" value={activeDocId} onChange={(event) => setActiveDocId(event.target.value)}>
+            <option value="">选择申报书</option>
+            {docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other").map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+          </select>
+        </div>
         <div className="welcome-actions">
           {can("upload") ? (
             <button className="btn btn-primary" onClick={() => openUpload()}><Upload size={16} />上传文档</button>
           ) : (
-            <Link className="btn btn-primary" to={can("review") ? "/review" : "/chat"}>
+            <Link className="btn btn-primary" to={can("review") ? "/review" : "/chat"} onClick={() => { if (!can("review") && activeDocId) setSelectedDocs([activeDocId]); }}>
               {can("review") ? "开始预审" : "进入智能问答"}<ArrowRight size={16} />
             </Link>
           )}
@@ -105,7 +112,7 @@ export function WelcomePage() {
       >
         {entries.map(({ to, title, desc, icon: Icon }, index) => (
           <motion.div key={to} variants={staggerItem}>
-            <Link className={`welcome-card ${index < 2 ? "welcome-card-priority" : ""}`} to={to}>
+            <Link className={`welcome-card ${index < 2 ? "welcome-card-priority" : ""}`} to={to} onClick={() => { if (to === "/chat" && activeDocId) setSelectedDocs([activeDocId]); }}>
               <span className="welcome-card-icon"><Icon size={19} /></span>
               <strong>{title}</strong>
               <small>{desc}</small>

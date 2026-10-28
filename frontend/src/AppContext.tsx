@@ -34,6 +34,8 @@ interface AppContextValue {
   docs: DocItem[];
   papers: Paper[];
   loading: boolean;
+  activeDocId: string;
+  setActiveDocId: (id: string) => void;
   selectedDocs: string[];
   setSelectedDocs: (ids: string[]) => void;
   chatMessages: ChatMessage[];
@@ -87,6 +89,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [health, setHealth] = useState<Health | null>(null);
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [activeDocId, setActiveDocId] = useState("");
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatCitations, setChatCitations] = useState<Citation[]>([]);
@@ -112,6 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const resetSession = useCallback(() => {
     setDocs([]);
     setPapers([]);
+    setActiveDocId("");
     setSelectedDocs([]);
     setChatSelection({ model: "default", strength: "default" });
     setChatMessages([]);
@@ -125,6 +129,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshDocs = useCallback(async () => {
     const data = await api.documents();
     setDocs(data.documents);
+    setActiveDocId(current => data.documents.some((d) => d.id === current) ? current : "");
     setSelectedDocs((current) => current.filter((id) => data.documents.some((d) => d.id === id)));
   }, []);
 
@@ -243,6 +248,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       docs,
       papers,
       loading,
+      activeDocId,
+      setActiveDocId,
       selectedDocs,
       setSelectedDocs,
       chatMessages,
@@ -260,7 +267,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openUpload,
       clearUploadSeed,
     }),
-    [chatSelection, auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
+    [activeDocId, chatSelection, auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
   );
 
   return (

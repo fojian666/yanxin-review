@@ -51,7 +51,16 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
         .filter((el) => el.getClientRects().length > 0);
     // 等抽屉的 visibility 切换生效后再接管焦点；从首个导航项开始，而不是品牌链接
     const firstNav = aside?.querySelector<HTMLElement>(".nav-item");
-    const raf = requestAnimationFrame(() => (firstNav ?? items()[0])?.focus());
+    const initialFocus = document.activeElement;
+    const focusFirstIfNeeded = () => {
+      const active = document.activeElement;
+      const trigger = document.querySelector<HTMLElement>(".mobile-nav-btn");
+      // 只有焦点仍在触发按钮或页面时才补焦点，尊重用户已选的抽屉控件。
+      if (!aside?.contains(active) && (active === initialFocus || active === trigger || active === document.body)) (firstNav ?? items()[0])?.focus();
+    };
+    const raf = requestAnimationFrame(focusFirstIfNeeded);
+    // 抽屉刚关闭又打开时 visibility 可能仍处于退场阶段；退场结束后再核对一次。
+    const focusRetry = window.setTimeout(focusFirstIfNeeded, 300);
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closeRef.current?.();
@@ -78,6 +87,7 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
     document.addEventListener("keydown", onKey);
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(focusRetry);
       document.removeEventListener("keydown", onKey);
     };
   }, [navOpen]);
