@@ -5,16 +5,18 @@ import { useMotionPreference } from "../motion";
 
 interface EChartProps {
   option: Record<string, unknown>;
-  height?: number;
+  height?: number | string;
   className?: string;
   disableWheelZoom?: boolean;
   ariaLabel?: string;
   autoRotate?: boolean;
+  onClick?: (params: unknown) => void;
 }
 
-export function EChart({ option, height = 360, className = "", disableWheelZoom = false, ariaLabel, autoRotate }: EChartProps) {
+export function EChart({ option, height = 360, className = "", disableWheelZoom = false, ariaLabel, autoRotate, onClick }: EChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const clickRef = useRef(onClick);
   const reduce = useMotionPreference();
   const [inView, setInView] = useState(false);
   const [pageVisible, setPageVisible] = useState(() => !document.hidden);
@@ -22,9 +24,14 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
   const moving = inView && pageVisible && !reduce;
 
   useEffect(() => {
+    clickRef.current = onClick;
+  }, [onClick]);
+
+  useEffect(() => {
     if (!containerRef.current) return;
     const chart = echarts.init(containerRef.current, undefined, { renderer: "canvas" });
     chartRef.current = chart;
+    chart.on("click", (params) => clickRef.current?.(params));
     const observer = new ResizeObserver(() => {
       // resize 已由布局驱动；不再每帧叠加 350ms 补间，避免窄屏反复重排。
       chart.resize({ animation: { duration: 0 } } as never);

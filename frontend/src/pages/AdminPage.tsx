@@ -161,7 +161,7 @@ export function AdminPage() {
           {[
             { role: "admin", text: "全部功能，含用户管理" },
             { role: "manager", text: "上传/删除文档、导入文献与专家、外部推送" },
-            { role: "reviewer", text: "问答、预审、查重匹配、文献趋势；文档库只读" },
+    { role: "reviewer", text: "问答、预审、查重匹配、文献趋势、知识图谱；文档中心只读" },
             { role: "viewer", text: "问答与文献趋势（只读演示）" },
           ].map((item) => (
             <motion.div className="role-matrix-item" key={item.role} variants={staggerItem}>

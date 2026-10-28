@@ -7,8 +7,8 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     await expect(nav.getByRole('link', { name: '用户管理' })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(nav.getByRole('link', { name: '查重匹配' })).toHaveCount(role === 'viewer' ? 0 : 1);
     await expect(page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true })).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
-    await navigate(page, '文档库');
-    await expect(page.getByRole('button', { name: '删除', exact: true }).first()).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
+    await navigate(page, '文档中心');
+    await expect(page.getByRole('button', { name: '删除文档', exact: true }).first()).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
     // 同时验证后端拒绝越权，不能只以隐藏按钮作为权限证明。
     expect((await context.request.get('/api/auth/users')).status()).toBe(role === 'admin' ? 200 : 403);
     expect((await context.request.get('/api/experts')).status()).toBe(role === 'viewer' ? 403 : 200);
@@ -52,7 +52,7 @@ test('会话失效后清除问答和上传弹窗状态', async ({ app: page, con
   await expect(page.getByRole('dialog')).toBeVisible();
   await context.request.post('/api/auth/logout');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
-  await navigate(page, '文档库');
+  await navigate(page, '文档中心');
   // 主动触发下一次受保护的请求。
   await page.reload();
   await expect(page.getByPlaceholder('请输入用户名')).toBeVisible();

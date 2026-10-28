@@ -388,7 +388,7 @@ export function TrendPage() {
             >
               {data.papers.length === 0 ? (
                 <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-                  <p>暂无匹配文献。换一枚主题词，或在文档库导入真实文献 CSV 再试。</p>
+                  <p>暂无匹配文献。换一枚主题词，或在文档中心导入真实文献 CSV 再试。</p>
                 </div>
               ) : (
                 data.papers.map((paper, index) => (

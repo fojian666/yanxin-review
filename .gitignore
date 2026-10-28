@@ -1,4 +1,4 @@
-data/
+/data/
 .env
 __pycache__/
 *.pyc
@@ -14,10 +14,9 @@ frontend/dist/
 .workbuddy/
 .superpowers/
 
-# 含真实个人信息，不入版本库（公开仓库）
+# 本地申报材料可能含真实个人信息，一律不入版本库（公开仓库）
 *.docx
 *.doc
-3.科研课题申请书（终稿）.docx
 交付材料/01-软件著作权/screenshots/
 
 # 浏览器回归生成物（含测试会话/报告/截图，禁止提交）

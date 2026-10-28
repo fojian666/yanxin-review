@@ -128,6 +128,7 @@ export function UploadModal() {
       setProgress(100);
       setDone(true);
       await Promise.all([refreshDocs(), refreshPapers()]);
+      window.dispatchEvent(new CustomEvent("yanxin:document-uploaded", { detail: result.document }));
       if (!prefersReducedMotion()) {
         await new Promise((resolve) => window.setTimeout(resolve, 420));
       }

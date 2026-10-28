@@ -3,42 +3,158 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
-  FolderOpen,
   Loader2,
-  MessageSquareText,
-  ShieldCheck,
-  Trash2,
   UploadCloud,
 } from "lucide-react";
-import { useRef, useState, type DragEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
+import { DocumentDirectory } from "../components/DocumentDirectory";
+import { DocumentReader } from "../components/DocumentReader";
 import { EmptyState } from "../components/EmptyState";
-import { EASE, staggerItem } from "../motion";
+import { EASE } from "../motion";
+import type { DocItem, DocumentContent } from "../types";
 
-const KIND_LABELS: Record<string, string> = {
-  proposal: "本子",
-  policy: "政策",
-  paper: "文献",
-  other: "资料",
-};
+const KIND_RANK: Record<string, number> = { proposal: 0, policy: 1, paper: 2, other: 3 };
 
 export function LibraryPage() {
-  const { health, docs, papers, refreshDocs, refreshPapers, toast, openUpload, setSelectedDocs, setActiveDocId, can } = useApp();
+  const {
+    health,
+    docs,
+    papers,
+    refreshDocs,
+    refreshPapers,
+    toast,
+    openUpload,
+    setSelectedDocs,
+    setActiveDocId,
+    activeDocId,
+    can,
+    loading,
+  } = useApp();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const csvRef = useRef<HTMLInputElement>(null);
+  const readerRef = useRef<HTMLElement>(null);
+  const contentRequest = useRef(0);
   const [dragging, setDragging] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [content, setContent] = useState<DocumentContent | null>(null);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [contentError, setContentError] = useState("");
+  const [direction, setDirection] = useState<"next" | "prev" | "same">("same");
+  const [uploadedDocId, setUploadedDocId] = useState("");
   const limitMb = health?.upload_limit_mb ?? 30;
 
-  const deleteDocument = async (id: string, name: string) => {
-    if (!confirm(`确定删除《${name}》及其索引？`)) return;
-    setDeletingId(id);
+  const orderedDocs = useMemo(
+    () => [...docs].sort((a, b) => (KIND_RANK[a.kind] ?? 9) - (KIND_RANK[b.kind] ?? 9)),
+    [docs],
+  );
+  const requestedId = params.get("doc") || "";
+  const requestedDoc = orderedDocs.find((doc) => doc.id === requestedId);
+  const contextDoc = orderedDocs.find((doc) => doc.id === activeDocId);
+  const uploadedDoc = orderedDocs.find((doc) => doc.id === uploadedDocId);
+  const selected = uploadedDoc ?? requestedDoc ?? contextDoc ?? orderedDocs[0] ?? null;
+  const selectedIndex = selected ? orderedDocs.findIndex((doc) => doc.id === selected.id) : -1;
+  const previous = selectedIndex > 0 ? orderedDocs[selectedIndex - 1] : null;
+  const next = selectedIndex >= 0 && selectedIndex < orderedDocs.length - 1 ? orderedDocs[selectedIndex + 1] : null;
+
+  useEffect(() => {
+    if (loading) return;
+    if (requestedId && (!orderedDocs.length || !requestedDoc)) {
+      const nextParams = new URLSearchParams(params);
+      nextParams.delete("doc");
+      setParams(nextParams, { replace: true });
+    }
+  }, [loading, orderedDocs.length, params, requestedDoc, requestedId, setParams]);
+
+  useEffect(() => {
+    if (uploadedDoc) {
+      if (requestedId !== uploadedDoc.id) {
+        const nextParams = new URLSearchParams(params);
+        nextParams.set("doc", uploadedDoc.id);
+        setParams(nextParams);
+        if (uploadedDoc.kind === "proposal" || uploadedDoc.kind === "other") setActiveDocId(uploadedDoc.id);
+      } else {
+        setUploadedDocId("");
+      }
+    }
+  }, [params, requestedId, setActiveDocId, setParams, uploadedDoc]);
+
+  useEffect(() => {
+    const onUploaded = (event: Event) => {
+      const doc = (event as CustomEvent<DocItem>).detail;
+      if (doc?.id) setUploadedDocId(doc.id);
+    };
+    window.addEventListener("yanxin:document-uploaded", onUploaded);
+    return () => window.removeEventListener("yanxin:document-uploaded", onUploaded);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) {
+      contentRequest.current += 1;
+      setContent(null);
+      setLoadingContent(false);
+      setContentError("");
+      return;
+    }
+    let active = true;
+    const requestId = ++contentRequest.current;
+    setLoadingContent(true);
+    setContentError("");
+    setContent(null);
+    void api.documentContent(selected.id)
+      .then((result) => {
+        if (active && requestId === contentRequest.current) setContent(result);
+      })
+      .catch((err) => {
+        if (active && requestId === contentRequest.current) setContentError((err as Error).message);
+      })
+      .finally(() => {
+        if (active && requestId === contentRequest.current) setLoadingContent(false);
+      });
+    return () => { active = false; };
+  }, [selected?.id]);
+
+  const chooseDocument = (doc: DocItem) => {
+    const current = selected ? orderedDocs.findIndex((item) => item.id === selected.id) : -1;
+    const target = orderedDocs.findIndex((item) => item.id === doc.id);
+    setDirection(current < 0 || target === current ? "same" : target > current ? "next" : "prev");
+    const nextParams = new URLSearchParams(params);
+    nextParams.set("doc", doc.id);
+    setParams(nextParams);
+    if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      setDirectoryOpen(false);
+      requestAnimationFrame(() => readerRef.current?.focus({ preventScroll: true }));
+    }
+  };
+
+  const openForChat = (doc: DocItem) => {
+    if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
+    setSelectedDocs([doc.id]);
+    navigate("/chat");
+  };
+
+  const openForReview = (doc: DocItem) => {
+    if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
+    navigate(`/review?doc=${doc.id}`);
+  };
+
+  const deleteDocument = async (doc: DocItem) => {
+    if (!confirm(`确定删除《${doc.name}》及其索引？`)) return;
+    const fallback = next ?? previous;
+    setDeletingId(doc.id);
     try {
-      await api.deleteDocument(id);
+      await api.deleteDocument(doc.id);
       await Promise.all([refreshDocs(), refreshPapers()]);
+      const nextParams = new URLSearchParams(params);
+      if (fallback) nextParams.set("doc", fallback.id);
+      else nextParams.delete("doc");
+      setParams(nextParams, { replace: true });
       toast("文档已删除");
     } catch (err) {
       toast(`删除失败：${(err as Error).message}`, "error");
@@ -47,7 +163,7 @@ export function LibraryPage() {
     }
   };
 
-  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+  const onDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     setDragging(false);
     openUpload(event.dataTransfer.files?.[0]);
@@ -100,142 +216,114 @@ export function LibraryPage() {
     }
   };
 
-  const hasSample = papers.some((p) => p.is_sample === 1);
-  const visibleDocs = docs.filter((doc) => doc.name.toLocaleLowerCase().includes(documentQuery.trim().toLocaleLowerCase()));
+  const hasSample = papers.some((paper) => paper.is_sample === 1);
 
   return (
-    <div className="library-page">
-      {can("upload") && (
-      <div className="panel upload-panel">
-        <div
-          className={`dropzone ${dragging ? "dragover" : ""}`}
-          onClick={() => openUpload()}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-        >
-          <div className="drop-icon"><UploadCloud size={23} /></div>
-          <h3>拖拽至此，或点击选择</h3>
-          <p>支持 DOCX、PDF、TXT、MD；单个文件不超过 {limitMb}MB。扫描件暂未启用 OCR。</p>
-          <button className="btn btn-primary" onClick={(event) => { event.stopPropagation(); openUpload(); }}>
-            选择文件
-          </button>
-        </div>
-      </div>
-      )}
-
-      <div className="panel">
-        <div className="panel-head">
+    <div className={dragging ? "library-page document-center is-dragging" : "library-page document-center"}>
+      <section
+        className="document-center-bar"
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+      >
+        <div className="document-center-title">
+          <span className="document-center-mark" aria-hidden="true"><UploadCloud size={20} /></span>
           <div>
-            <div className="panel-title-row">
-              <h2>文档库</h2>
-              <span className="count-badge">{docs.length} 份</span>
-            </div>
-            <p>上传件存于本机 data/uploads；政策语料来自 corpus/ 快照（删除后需重新导入）。删除文档，索引随之清除。</p>
+            <strong>资料在册 · 目录可循</strong>
+            <span>{docs.length} 份资料 · 文件上限 {limitMb}MB · 拖入页面即可上传</span>
           </div>
+        </div>
+        <div className="document-center-tools">
+          {can("upload") && (
+            <button type="button" className="btn btn-primary" onClick={() => openUpload()}>
+              <UploadCloud size={15} />上传文档
+            </button>
+          )}
           {can("delete-doc") && (
-            <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSampleDocs()}>
-              <Trash2 size={14} />移除演示本子
+            <button type="button" className="btn btn-ghost btn-sm danger" onClick={() => void removeSampleDocs()}>
+              移除演示本子
             </button>
           )}
         </div>
-        {docs.length > 0 && <div className="document-filter"><label htmlFor="document-filter">筛选文档</label><input id="document-filter" type="search" value={documentQuery} onChange={(event) => setDocumentQuery(event.target.value)} placeholder="按文档名称筛选" /></div>}
-        <div className="table-wrap">
-          {docs.length === 0 ? (
-            <EmptyState
-              icon={<FolderOpen size={38} />}
-              description="库中尚空。上传一份本子或政策文件，即开始。"
+      </section>
+
+      <div className="document-center-layout">
+        <aside className={directoryOpen ? "document-directory-shell is-open" : "document-directory-shell"}>
+          <button
+            type="button"
+            className="document-directory-toggle"
+            aria-expanded={directoryOpen}
+            aria-controls="document-directory-panel"
+            onClick={() => setDirectoryOpen((open) => !open)}
+          >
+            <span>文档目录</span>
+            <strong>{selected?.name || "暂无文档"}</strong>
+          </button>
+          <div id="document-directory-panel">
+            <DocumentDirectory
+              docs={orderedDocs}
+              selectedId={selected?.id || ""}
+              query={documentQuery}
+              onQueryChange={setDocumentQuery}
+              onSelect={chooseDocument}
             />
-          ) : visibleDocs.length === 0 ? (
-            <EmptyState icon={<FolderOpen size={38} />} description="没有匹配的文档，请调整筛选条件。" />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr><th>文档</th><th>类型</th><th>年份</th><th>文本块</th><th>状态</th><th>操作</th></tr>
-              </thead>
-              <tbody>
-                <AnimatePresence initial={false}>
-                {visibleDocs.map((doc, index) => (
-                  <motion.tr
-                    key={doc.id}
-                    layout="position"
-                    variants={staggerItem}
-                    initial="initial"
-                    animate="animate"
-                    exit={{ opacity: 0, transition: { duration: 0.18, delay: 0 } }}
-                    transition={{ duration: 0.29, ease: EASE, delay: Math.min(index * 0.035, 0.2) }}
-                  >
-                    <td>
-                      <div className="doc-title" title={doc.name}>{doc.name}</div>
-                      {doc.warning && <div className="muted doc-warning">{doc.warning}</div>}
-                    </td>
-                    <td>
-                      <span className="kind-badge">{KIND_LABELS[doc.kind] ?? "资料"}</span>
-                      {doc.source === "demo" && <span className="badge-sample">演示</span>}
-                      {doc.source === "public" && (
-                        <span className="badge-public" title="政府公开信息，来源见 corpus/sources.json">公开公文</span>
-                      )}
-                    </td>
-                    <td>{doc.year ?? "—"}</td>
-                    <td>{doc.chunk_count}</td>
-                    <td>
-                      <span className={`status-pill ${doc.status === "ready" ? "status-pass" : "status-warn"}`}>
-                        {doc.status === "ready" ? "已索引" : "待处理"}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          className="table-btn"
-                          onClick={() => {
-                            if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
-                            setSelectedDocs([doc.id]);
-                            navigate("/chat");
-                          }}
-                        >
-                          <MessageSquareText size={13} />问答
-                        </button>
-                        <button className="table-btn" onClick={() => { if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id); navigate(`/review?doc=${doc.id}`); }}>
-                          <ShieldCheck size={13} />预审
-                        </button>
-                        {can("delete-doc") && (
-                        <button
-                          className="table-btn danger"
-                          onClick={() => void deleteDocument(doc.id, doc.name)}
-                          disabled={deletingId === doc.id}
-                        >
-                          {deletingId === doc.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
-                          {deletingId === doc.id ? "删除中…" : "删除"}
-                        </button>
-                        )}
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          )}
-        </div>
+          </div>
+        </aside>
+
+        <DocumentReader
+          content={content}
+          selected={selected}
+          loading={loadingContent}
+          error={contentError}
+          direction={direction}
+          position={Math.max(1, selectedIndex + 1)}
+          total={orderedDocs.length}
+          previous={previous}
+          next={next}
+          canDelete={can("delete-doc")}
+          deleting={deletingId === selected?.id}
+          readerRef={readerRef}
+          onNavigate={chooseDocument}
+          onAsk={openForChat}
+          onReview={openForReview}
+          onDelete={(doc) => void deleteDocument(doc)}
+          onRetry={() => {
+            if (!selected) return;
+            const requestId = ++contentRequest.current;
+            setContentError("");
+            setLoadingContent(true);
+            setContent(null);
+            void api.documentContent(selected.id)
+              .then((result) => {
+                if (requestId === contentRequest.current) setContent(result);
+              })
+              .catch((err) => {
+                if (requestId === contentRequest.current) setContentError((err as Error).message);
+              })
+              .finally(() => {
+                if (requestId === contentRequest.current) setLoadingContent(false);
+              });
+          }}
+        />
       </div>
 
-      <div className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>文献数据</h2>
-            <p>供“历史沿革”趋势分析之用。CSV 批量导入，示例数据可随时移除。</p>
-          </div>
-          <div className="head-actions">
-            <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
+      <details className="panel document-literature">
+        <summary>
+          <span><FileSpreadsheet size={17} />文献数据</span>
+          <span>{papers.length} 篇 · 趋势分析数据</span>
+        </summary>
+        <div className="document-literature-body">
+          <div className="document-literature-actions">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
               <Download size={14} />下载 CSV 模板
             </button>
             {can("import") && (
-            <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}>
-              <FileSpreadsheet size={14} />导入文献 CSV
-            </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}>
+                <FileSpreadsheet size={14} />导入文献 CSV
+              </button>
             )}
             <input
               ref={csvRef}
@@ -248,63 +336,43 @@ export function LibraryPage() {
               }}
             />
           </div>
+          <AnimatePresence initial={false}>
+            {hasSample && (
+              <motion.div
+                className="sample-note"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.34, ease: EASE }}
+              >
+                当前包含演示文献，趋势结论仅用于功能验证。
+                {can("remove-sample") && <button type="button" className="link-btn danger" onClick={() => void clearSamples()}>移除演示文献</button>}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="table-wrap scroll-area">
+            {papers.length === 0 ? (
+              <EmptyState icon={<FileText size={32} />} description="文献尚空。导入 CSV，趋势分析即可成图。" />
+            ) : (
+              <table className="data-table">
+                <thead><tr><th>标题</th><th>年份</th><th>关键词</th><th>来源</th></tr></thead>
+                <tbody>
+                  {papers.slice(0, 100).map((paper) => (
+                    <tr key={paper.id}>
+                      <td><div className="doc-title" title={paper.title}>{paper.title}</div></td>
+                      <td>{paper.year ?? "—"}</td>
+                      <td>{paper.keywords}</td>
+                      <td>{paper.is_sample ? <span className="badge-sample">演示</span> : paper.source === "csv" ? "CSV 导入" : "上传"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-        <AnimatePresence initial={false}>
-          {hasSample && (
-            <motion.div
-              className="sample-note"
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.34, ease: EASE }}
-            >
-              当前包含演示文献（合成数据），趋势结论仅用于功能验证。
-              {can("remove-sample") && <button className="link-btn danger" onClick={() => void clearSamples()}>移除演示文献</button>}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="table-wrap scroll-area">
-          {papers.length === 0 ? (
-            <EmptyState
-              icon={<FileText size={38} />}
-              description="文献尚空。导入 CSV，趋势分析即可成图。"
-            />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr><th>标题</th><th>年份</th><th>关键词</th><th>来源</th></tr>
-              </thead>
-              <tbody>
-                <AnimatePresence initial={false}>
-                {papers.slice(0, 100).map((paper, index) => (
-                  <motion.tr
-                    key={paper.id}
-                    layout="position"
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, transition: { duration: 0.16, delay: 0 } }}
-                    transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.012, 0.18) }}
-                  >
-                    <td><div className="doc-title" title={paper.title}>{paper.title}</div></td>
-                    <td>{paper.year ?? "—"}</td>
-                    <td>{paper.keywords}</td>
-                    <td>
-                      {paper.is_sample ? (
-                        <span className="badge-sample">演示</span>
-                      ) : paper.source === "csv" ? (
-                        "CSV 导入"
-                      ) : (
-                        "上传"
-                      )}
-                    </td>
-                  </motion.tr>
-                ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      </details>
+
+      {dragging && <div className="document-drop-overlay" aria-hidden="true"><UploadCloud size={28} />松开以上传文档</div>}
     </div>
   );
 }

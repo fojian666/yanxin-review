@@ -5,6 +5,7 @@ import type {
   ChatModelOption,
   Citation,
   DocItem,
+  DocumentContent,
   Health,
   GenerationInfo,
   Paper,
@@ -126,6 +127,8 @@ export const api = {
     request<{ ok: boolean }>("/auth/users", jsonOptions(payload)),
   health: () => request<Health>("/health"),
   documents: () => request<{ documents: DocItem[] }>("/documents"),
+  documentContent: (docId: string) =>
+    request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
   review: (docId: string) =>
     request<ReviewReport>("/review", jsonOptions({ doc_id: docId })),

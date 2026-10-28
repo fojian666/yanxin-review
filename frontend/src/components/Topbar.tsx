@@ -11,9 +11,10 @@ const META: Record<string, { title: string; sub: string }> = {
   "/welcome": { title: "工作台", sub: "围绕当前卷宗连续办理" },
   "/chat": { title: "智能问答", sub: "根据资料回答，可查看引用依据" },
   "/trend": { title: "文献趋势", sub: "查看文献数量和主题变化" },
+  "/graph": { title: "知识图谱", sub: "查看科研治理实体与关系证据" },
   "/match": { title: "查重匹配", sub: "检查文本相似度并匹配专家" },
   "/review": { title: "本子预审", sub: "检查申报书并提供核对依据" },
-  "/library": { title: "文档库", sub: "管理申报书、政策与文献" },
+  "/library": { title: "文档中心", sub: "阅读并管理申报书、政策与文献" },
   "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
 };
 

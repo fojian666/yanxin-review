@@ -105,7 +105,7 @@ test('匹配锁定文档，离页后旧请求不覆盖新本子结果', async ({
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await started;
   await expect(page.getByRole('button', { name: '检查中…' })).toBeDisabled();
-  await navigate(page, '文档库');
+  await navigate(page, '文档中心');
   await navigate(page, '查重匹配');
   await page.getByLabel('当前卷宗').selectOption(documents[1].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();

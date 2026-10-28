@@ -11,9 +11,9 @@ test('单页工作区切换功能时保留卷宗上下文', async ({ app: page }
   await expect(page).toHaveURL(/\/chat$/);
   await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('智能问答');
   expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
-  await page.locator('.welcome-entries').getByRole('link', { name: '文档库', exact: true }).click();
+  await page.locator('.welcome-entries').getByRole('link', { name: '文档中心', exact: true }).click();
   await expect(page).toHaveURL(/\/library$/);
-  await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('文档库');
+  await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('文档中心');
   expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
 });
 
@@ -87,15 +87,15 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     });
     await expect(page).toHaveURL(/scope=regression/);
     await expect(page.locator('.composer textarea')).toHaveValue('同页输入不应重播');
-    await navigate(page, '文档库');
+    await navigate(page, '文档中心');
     await expect.poll(arrivals).toEqual(['/chat', '/library']);
     await navigate(page, '智能问答');
     await expect.poll(arrivals).toEqual(['/chat', '/library', '/chat']);
     await page.goBack();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('文档库');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('文档中心');
     await expect.poll(arrivals).toEqual(['/chat', '/library', '/chat', '/library']);
     await expect.poll(() => marker.evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)).toBe(0);
-    await expect(page.locator('.route-arrival-tab')).toHaveText('文档库');
+    await expect(page.locator('.route-arrival-tab')).toHaveText('文档中心');
     await expect(page.locator('.route-arrival-tab')).toHaveCSS('opacity', '1');
     await expect(page.locator('.route-arrival-paper')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
@@ -106,7 +106,7 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await navigate(page, '智能问答');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await expect(page.locator('.route-arrival-tab')).toHaveCSS('animation-name', 'none');
-    await navigate(page, '文档库');
+    await navigate(page, '文档中心');
     await expect(page.locator('.route-arrival-tab')).toHaveCSS('transform', 'none');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const audit = await page.evaluate(() => {

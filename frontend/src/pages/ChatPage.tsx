@@ -16,6 +16,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
@@ -63,6 +64,7 @@ function uid() {
 
 export function ChatPage() {
   const reduce = useMotionPreference();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     docs,
     selectedDocs,
@@ -92,6 +94,16 @@ export function ChatPage() {
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
   const runningRef = useRef(false);
+
+  useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (!prompt) return;
+    setInput(prompt);
+    const next = new URLSearchParams(searchParams);
+    next.delete("prompt");
+    setSearchParams(next, { replace: true });
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [searchParams, setSearchParams]);
 
   const scopeLabel =
     selectedDocs.length === 0

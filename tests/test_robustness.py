@@ -168,6 +168,39 @@ def test_retriever_rebuild_drops_orphan_chunks(tmp_path, monkeypatch):
     assert not retriever.ready
 
 
+def test_document_content_api_returns_ordered_chunks_without_local_path(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    db.insert_document(
+        {
+            "id": "readable",
+            "name": "可阅读文档",
+            "kind": "proposal",
+            "source": "upload",
+            "path": "/private/local/document.docx",
+            "meta": {"original_name": "敏感原文件名.docx"},
+        },
+        [
+            {"idx": 1, "page": 2, "section": "研究内容", "text": "第二段"},
+            {"idx": 0, "page": 1, "section": "立项背景", "text": "第一段"},
+        ],
+    )
+
+    result = app_module.document_content("readable")
+
+    assert result["document"]["name"] == "可阅读文档"
+    assert "path" not in result["document"]
+    assert "meta" not in result["document"]
+    assert [chunk["idx"] for chunk in result["chunks"]] == [0, 1]
+    assert [chunk["text"] for chunk in result["chunks"]] == ["第一段", "第二段"]
+
+
+def test_document_content_api_returns_404_for_unknown_document(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        app_module.document_content("missing")
+    assert exc.value.status_code == 404
+
+
 def test_seed_markers_live_in_db_and_migrate_legacy_files(tmp_path, monkeypatch):
     """Seed markers must share the DB lifecycle; legacy marker files are honored once."""
     _tmp_db(tmp_path, monkeypatch)

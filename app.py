@@ -344,6 +344,43 @@ def documents():
     return {"documents": db.list_documents()}
 
 
+@app.get("/api/documents/{doc_id}/content")
+def document_content(doc_id: str):
+    document = db.get_document(doc_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    chunks = db.get_chunks(doc_id)
+    public_document = {
+        key: document.get(key)
+        for key in (
+            "id",
+            "name",
+            "kind",
+            "year",
+            "source",
+            "text_len",
+            "page_count",
+            "chunk_count",
+            "status",
+            "warning",
+            "created_at",
+        )
+    }
+    return {
+        "document": public_document,
+        "chunks": [
+            {
+                "idx": chunk.get("idx"),
+                "page": chunk.get("page"),
+                "section": chunk.get("section") or "",
+                "text": chunk.get("text") or "",
+                "char_len": chunk.get("char_len") or 0,
+            }
+            for chunk in chunks
+        ],
+    }
+
+
 @app.post("/api/documents")
 async def upload_document(
     file: UploadFile = File(...),

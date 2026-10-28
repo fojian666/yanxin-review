@@ -12,7 +12,7 @@ test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page }) 
   const answer = await page.locator('.msg.assistant .msg-content').innerText();
   await page.getByRole('button', { name: '查看引用 1', exact: true }).first().click();
   await expect(page.locator('#source-1')).toHaveClass(/flash/);
-  await navigate(page, '文档库'); await navigate(page, '智能问答');
+  await navigate(page, '文档中心'); await navigate(page, '智能问答');
   await expect(page.locator('.msg.assistant .msg-content')).toHaveText(answer, { useInnerText: true });
   await page.getByRole('button', { name: '清空对话' }).click();
   await expect(page.locator('.msg')).toHaveCount(0);
@@ -70,7 +70,7 @@ test('受控慢问答离页取消，晚到回答不污染返回页面', async ({
   await navigate(page, '智能问答');
   await page.locator('textarea').fill('慢问题');
   await page.getByRole('button', { name: '发送', exact: true }).click(); await started;
-  await navigate(page, '文档库'); release();
+  await navigate(page, '文档中心'); release();
   await page.unrouteAll({ behavior: 'wait' });
   await navigate(page, '智能问答');
   await expect(page.locator('.chat-messages')).not.toContainText('不应出现的晚到回答');
@@ -171,7 +171,7 @@ test('受控DeepSeek与千问来源逐次保存，回退不冒认当前模型', 
   await expect(page.locator('.msg.assistant .generation-source')).toHaveText([
     'DeepSeek · deepseek-flash', '千问 / DashScope · qwen-plus', '已回退离线摘录', '千问 / DashScope · qwen-plus（生成中断）',
   ]);
-  await navigate(page, '文档库'); await navigate(page, '智能问答');
+  await navigate(page, '文档中心'); await navigate(page, '智能问答');
   await expect(page.locator('.msg.assistant .generation-source').first()).toHaveText('DeepSeek · deepseek-flash');
   await page.screenshot({ path: testInfo.outputPath('generation-desktop.png'), fullPage: true });
 });
@@ -210,10 +210,10 @@ test('问答输入区选择模型与强度并随请求独立发送', async ({ ap
   await expect(page.locator('.msg.assistant')).toContainText('强度：高');
   expect(captured.model).toBe('deepseek-v4-pro');
   expect(captured.strength).toBe('high');
-  await navigate(page, '文档库'); await navigate(page, '智能问答');
+  await navigate(page, '文档中心'); await navigate(page, '智能问答');
   await expect(page.locator('.chat-model-controls')).toContainText('deepseek-v4-pro');
   await expect(page.locator('.msg.assistant')).toContainText('强度：高');
-  await navigate(page, '文档库');
+  await navigate(page, '文档中心');
   await page.unroute('**/api/chat/options');
   await page.route('**/api/chat/options', route => route.fulfill({ status: 503, json: { detail: '受控选项加载失败' } }));
   await navigate(page, '智能问答');

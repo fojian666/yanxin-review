@@ -55,6 +55,19 @@ export interface DocItem {
   created_at: string;
 }
 
+export interface DocumentChunk {
+  idx: number;
+  page: number | null;
+  section: string;
+  text: string;
+  char_len: number;
+}
+
+export interface DocumentContent {
+  document: DocItem;
+  chunks: DocumentChunk[];
+}
+
 export interface Citation {
   index: number;
   doc_id: string;

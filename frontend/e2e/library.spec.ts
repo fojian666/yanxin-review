@@ -1,6 +1,7 @@
 import { test, expect, navigate, proposalText, downloadText } from './fixtures';
 
 test('@smoke 文档上传、索引、问答跳转、预审跳转与删除闭环', async ({ app: page }, testInfo) => {
+  await navigate(page, '文档中心');
   await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上传文档' });
   await dialog.locator('input[type=file]').setInputFiles({ name: '回归上传.txt', mimeType: 'text/plain', buffer: Buffer.from(proposalText('回归研究院')) });
@@ -8,24 +9,29 @@ test('@smoke 文档上传、索引、问答跳转、预审跳转与删除闭环'
   await dialog.getByPlaceholder('留空则自动取文件名或正文首行').fill('E2E上传闭环');
   await dialog.getByRole('button', { name: '开始上传' }).click();
   await expect(dialog).not.toBeVisible();
-  await navigate(page, '文档库');
-  let row = page.getByRole('row').filter({ hasText: 'E2E上传闭环' });
-  await expect(row).toContainText('已索引');
-  await row.getByRole('button', { name: '问答', exact: true }).click();
+  let item = page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ });
+  await expect(page).toHaveURL(/\/library\?doc=/);
+  await item.click();
+  await expect(item).toContainText('已索引');
+  await expect(page.locator('.document-reader-head')).toContainText('E2E上传闭环');
+  await page.getByRole('button', { name: '文档问答', exact: true }).click();
   await expect(page).toHaveURL(/\/chat$/);
   await expect(page.locator('.scope-label')).toHaveText('E2E上传闭环');
-  await navigate(page, '文档库');
-  row = page.getByRole('row').filter({ hasText: 'E2E上传闭环' });
-  await row.getByRole('button', { name: '预审', exact: true }).click();
+  await navigate(page, '文档中心');
+  item = page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ });
+  await item.click();
+  await page.getByRole('button', { name: '发起预审', exact: true }).click();
   await expect(page.getByLabel('当前卷宗')).toHaveValue(/.+/);
   await expect(page.locator('#workspace-document option:checked')).toHaveText('E2E上传闭环');
-  await navigate(page, '文档库');
+  await navigate(page, '文档中心');
+  await page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ }).click();
   page.once('dialog', dialog => dialog.dismiss());
-  await page.getByRole('row').filter({ hasText: 'E2E上传闭环' }).getByRole('button', { name: '删除', exact: true }).click();
-  await expect(page.getByRole('row').filter({ hasText: 'E2E上传闭环' })).toBeVisible();
+  await page.getByRole('button', { name: '删除文档', exact: true }).click();
+  await expect(item).toBeVisible();
   page.once('dialog', dialog => dialog.accept());
-  await page.getByRole('row').filter({ hasText: 'E2E上传闭环' }).getByRole('button', { name: '删除', exact: true }).click();
-  await expect(page.getByRole('row').filter({ hasText: 'E2E上传闭环' })).toHaveCount(0);
+  await page.getByRole('button', { name: '删除文档', exact: true }).click();
+  await expect(page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ })).toHaveCount(0);
+  await page.locator('.document-literature > summary').click();
   const template = await downloadText(page, () => page.getByRole('button', { name: '下载 CSV 模板' }).click(), testInfo);
   expect(template).toContain('标题,年份,作者');
 });
@@ -57,7 +63,8 @@ test('上传校验、键盘焦点与服务端失败后重试', async ({ app: pag
 });
 
 test('文献 CSV 导入和重复导入保持幂等', async ({ app: page, context }) => {
-  await navigate(page, '文档库');
+  await navigate(page, '文档中心');
+  await page.locator('.document-literature > summary').click();
   const csv = { name: '文献.csv', mimeType: 'text/csv', buffer: Buffer.from('标题,年份,作者,期刊,摘要,关键词\nE2E文献,2025,测试作者,测试期刊,科研诚信数据治理研究,科研诚信;数据治理\n') };
   const input = page.locator('input[type=file]');
   await input.setInputFiles(csv);
@@ -69,11 +76,11 @@ test('文献 CSV 导入和重复导入保持幂等', async ({ app: page, context
   expect(papers.papers.filter((paper: { title: string }) => paper.title === 'E2E文献')).toHaveLength(1);
 });
 
-test('空文档库提示可操作，预审及匹配禁用运行', async ({ app: page }) => {
+test('空文档中心提示可操作，预审及匹配禁用运行', async ({ app: page }) => {
   await page.route('**/api/documents', route => route.fulfill({ json: { documents: [] } }));
   await page.reload();
-  await navigate(page, '文档库');
-  await expect(page.getByText('库中尚空。上传一份本子或政策文件，即开始。')).toBeVisible();
+  await navigate(page, '文档中心');
+  await expect(page.getByText('尚无文档', { exact: true })).toBeVisible();
   await navigate(page, '本子预审');
   await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
   await navigate(page, '查重匹配');
@@ -92,8 +99,9 @@ test('清理演示数据保留自建文档、文献、专家与公开政策', as
   await page.goto('/library');
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '移除演示本子' }).click();
-  await expect(page.getByRole('row').filter({ hasText: '演示本子：' })).toHaveCount(0);
-  await expect(page.getByRole('row').filter({ hasText: documents[0].name })).toBeVisible();
+  await expect(page.locator('.document-directory').getByRole('button', { name: /演示本子：/ })).toHaveCount(0);
+  await expect(page.locator('.document-directory').getByRole('button', { name: new RegExp(documents[0].name) })).toBeVisible();
+  await page.locator('.document-literature > summary').click();
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '移除演示文献' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'E2E保留文献' })).toBeVisible();
@@ -123,21 +131,22 @@ test('工作台选择申报书并在预审、匹配、问答间保持上下文',
   await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[0].id);
   await page.locator('.welcome-entries').getByRole('link', { name: /智能问答/ }).click();
   await expect(page.locator('.scope-btn')).toContainText(documents[0].name);
-  await navigate(page, '文档库');
-  await page.getByRole('row').filter({ hasText: '公开公文' }).first().getByRole('button', { name: '问答', exact: true }).click();
+  await navigate(page, '文档中心');
+  await page.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: '政策' }) }).getByRole('button').first().click();
+  await page.getByRole('button', { name: '文档问答', exact: true }).click();
   await page.locator('.brand-home').click();
   await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[0].id);
 });
 
-test('文档库名称筛选不改变实际数据', async ({ app: page, documents }) => {
-  await navigate(page, '文档库');
+test('文档中心名称筛选不改变实际数据', async ({ app: page, documents }) => {
+  await navigate(page, '文档中心');
   await page.getByLabel('筛选文档').fill(documents[0].name);
-  await expect(page.getByRole('row').filter({ hasText: documents[0].name })).toBeVisible();
-  await expect(page.getByRole('row').filter({ hasText: documents[1].name })).toHaveCount(0);
+  await expect(page.locator('.document-directory').getByRole('button', { name: new RegExp(documents[0].name) })).toBeVisible();
+  await expect(page.locator('.document-directory').getByRole('button', { name: new RegExp(documents[1].name) })).toHaveCount(0);
   await page.getByLabel('筛选文档').fill('无此文档');
-  await expect(page.getByText('没有匹配的文档，请调整筛选条件。')).toBeVisible();
+  await expect(page.getByText('没有匹配的文档', { exact: true })).toBeVisible();
   await page.getByLabel('筛选文档').clear();
-  await expect(page.getByRole('row').filter({ hasText: documents[1].name })).toBeVisible();
+  await expect(page.locator('.document-directory').getByRole('button', { name: new RegExp(documents[1].name) })).toBeVisible();
 });
 
 test('访客从工作台进入问答时使用选定申报书', async ({ app: page, documents, context }) => {

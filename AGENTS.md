@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 53 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（132 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 58 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（134 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -28,7 +28,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：26 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：27 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new
@@ -59,7 +59,9 @@ tools/
                        **所有代码改完后最后跑**，否则清单又落后于刚改的文件
 corpus/                随仓库交付的真实公文快照：sources.json（URL/许可/抓取时间/sha256）+ policy/*.txt
 frontend/src/
-  pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / Match(查重+专家匹配) / Review(预审) / Library / Admin(用户管理)
+  pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / KnowledgeGraph / Match(查重+专家匹配) / Review(预审) / Library(文档中心) / Admin(用户管理)
+  data/knowledge.ts    科研治理知识图谱：48 实体、100 关系、7 知识域、搜索与最短路径
+  components/          DocumentDirectory(目录)、DocumentReader(书页正文)、EChart(关系图)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
   styles.css           全局尺度（正文 15px/控件 40px/侧栏 264）、登录页地形/网格/纸纹关键帧、状态动效类；
                        动效只用 transform 入场，prefers-reduced-motion 全关；≤680px 抽屉导航与 skip link
@@ -79,7 +81,7 @@ frontend/src/
 1. **AI 不打分、不排名、不给立项/处罚结论**；预审/查重/匹配输出必须带免责声明，查重必须提示"相似≠抄袭、需人工复核"。
 2. **专家匹配不使用性别、年龄等敏感属性**；回避/负载约束过滤必须在语义排序之前。
 3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。**两条出网面都拒绝跟随重定向**（307/308 会把原始 body 转到未校验地址），`auto` 嵌入降级到 API 前必须重跑门禁、不通过就退回纯 TF-IDF；改任何一处都要保住这条，用例已锁定。
-4. **隐私**：`3.科研课题申请书（终稿）.docx` 与 `交付材料/01-软件著作权/screenshots/` 含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
+4. **隐私**：本地 `*.docx` / `*.doc` 申报材料与 `交付材料/01-软件著作权/screenshots/` 可能含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
 
 ## 已知边界（勿误报为 bug）
@@ -119,4 +121,4 @@ frontend/src/
 
 智能问答模型与强度只在输入区选择，以请求级独立客户端生效，不修改全局客户端或预审/趋势；选择器目录由 `GET /api/chat/options` 下发，不返回密钥或接口地址。后台按供应商独立密钥和出口门禁验证白名单，未知模型/强度拒绝，模型缺能力或显式方言不匹配只开放默认。切页保持会话选择，退出/刷新重置。
 
-One Page 工作区：所有受保护路由共享同一卷宗上下文与功能索引，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。顶部只放一个当前申报书选择，预审与查重实时同步，工作台进入问答可带入选定本子但不限制问答多文档；政策/文献不覆盖当前申报书，登出或刷新重置。手机进入具体任务后隐藏问候与重复指标，只保留卷宗选择及单行功能索引；问答与证据切换，引用定位转移焦点；手机预审完成时若弹窗或导航打开、或用户正在操作其他控件或滚动阅读，保留焦点并提供查看报告入口；桌面预审报告及用户列表独立滚动且键盘可达，打印报告不截断；专家库与代表性文献可展开，文档库支持名称筛选。
+One Page 工作区：所有受保护路由共享同一卷宗上下文与功能索引，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。顶部只放一个当前申报书选择，预审与查重实时同步，工作台进入问答可带入选定本子但不限制问答多文档；知识图谱采用左控制、中星图、右详情，支持知识域筛选、实体搜索、邻接关系、最短路径和 `?focus=` 深链；文档中心采用左目录、右书页，正文只经认证接口读取有序文本块并隐藏本地路径，保留上传、删除、筛选、问答、预审和文献 CSV 管理。政策/文献不覆盖当前申报书，登出或刷新重置。手机进入具体任务后隐藏问候与重复指标，只保留卷宗选择及单行功能索引；问答与证据切换，引用定位转移焦点；手机预审完成时若弹窗或导航打开、或用户正在操作其他控件或滚动阅读，保留焦点并提供查看报告入口；桌面预审报告及用户列表独立滚动且键盘可达，打印报告不截断；专家库与代表性文献可展开。

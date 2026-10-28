@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   FolderOpen,
   MessageSquareText,
+  Network,
   ShieldCheck,
   TrendingUp,
   UserCog,
@@ -20,6 +21,7 @@ const MatchPanel = lazy(() => import("./MatchPage").then((module) => ({ default:
 const ReviewPanel = lazy(() => import("./ReviewPage").then((module) => ({ default: module.ReviewPage })));
 const LibraryPanel = lazy(() => import("./LibraryPage").then((module) => ({ default: module.LibraryPage })));
 const AdminPanel = lazy(() => import("./AdminPage").then((module) => ({ default: module.AdminPage })));
+const KnowledgeGraphPanel = lazy(() => import("./KnowledgeGraphPage").then((module) => ({ default: module.KnowledgeGraphPage })));
 
 interface WorkspaceView {
   path: string;
@@ -33,8 +35,9 @@ const WORKSPACE_VIEWS: WorkspaceView[] = [
   { path: "/review", title: "本子预审", icon: ShieldCheck, permission: "review", component: ReviewPanel },
   { path: "/match", title: "查重匹配", icon: Users, permission: "tool", component: MatchPanel },
   { path: "/chat", title: "智能问答", icon: MessageSquareText, component: ChatPanel },
+  { path: "/graph", title: "知识图谱", icon: Network, component: KnowledgeGraphPanel },
   { path: "/trend", title: "文献趋势", icon: TrendingUp, component: TrendPanel },
-  { path: "/library", title: "文档库", icon: FolderOpen, component: LibraryPanel },
+  { path: "/library", title: "文档中心", icon: FolderOpen, component: LibraryPanel },
   { path: "/admin", title: "用户管理", icon: UserCog, permission: "admin", component: AdminPanel },
 ];
 
