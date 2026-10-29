@@ -10,6 +10,7 @@ async function expectCenteredIcon(page: import("@playwright/test").Page, selecto
 
 test("@smoke 知识图谱统计、检索、领域筛选、路径推演与大模型跳转", async ({ app: page }, testInfo) => {
   await navigate(page, "知识图谱");
+  await page.getByRole("button", { name: "人工知识图谱" }).click();
   await expect(page.locator(".kg-stats")).toContainText("48实体");
   await expect(page.locator(".kg-stats")).toContainText("100关系");
   await expect(page.locator(".kg-stats")).toContainText("7知识域");
@@ -116,9 +117,9 @@ test("平板任务态让知识图谱优先进入首屏", async ({ app: page }, t
   await page.screenshot({ path: testInfo.outputPath("knowledge-graph-tablet.png") });
   await page.setViewportSize({ width: 1200, height: 900 });
   await expect.poll(async () => {
-    const controls = await page.locator(".kg-control").first().boundingBox();
+    const controls = await page.locator(".keyword-list-panel").boundingBox();
     const graph = await page.locator(".kg-canvas-panel").boundingBox();
-    const details = await page.locator(".kg-detail").boundingBox();
+    const details = await page.locator(".keyword-detail").boundingBox();
     return !!(controls && graph && details && controls.x < graph.x && graph.x < details.x);
   }).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
@@ -187,4 +188,33 @@ test('文档二级分类按卷宗角色展示，跨卷宗同角色不重复', as
   await directory.getByLabel('筛选文档').fill(documents[0].name);
   await expect(directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) }).getByRole('button', { name: new RegExp(documents[0].name) })).toBeVisible();
   await expect(directory.getByRole('button', { name: new RegExp(documents[1].name) })).toHaveCount(0);
+});
+
+
+test('文档关键词星图显示真实关键词和来源，上传后更新', async ({ app: page, server }, testInfo) => {
+  expect((await fetch(`${server.url}/api/knowledge/keywords`)).status).toBe(401);
+  await navigate(page, '知识图谱');
+  await expect(page.locator('.keyword-graph .kg-stats')).toContainText('100关键词');
+  await expect(page.locator('.keyword-list button')).toHaveCount(100);
+  await expect(page.locator('.keyword-source a').first()).toBeVisible();
+  await expect(page.locator('.keyword-caveat')).toContainText('不代表因果');
+  const sources = page.locator('.keyword-graph .kg-stats span').last().locator('strong');
+  const before = Number(await sources.innerText());
+  await page.screenshot({ path: testInfo.outputPath('keyword-graph-desktop.png') });
+  await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上传文档' });
+  await dialog.locator('input[type=file]').setInputFiles({ name: '图谱更新.txt', mimeType: 'text/plain', buffer: Buffer.from('生态监测和资源治理。生态监测依赖资源治理及科学评估。'.repeat(30)) });
+  await dialog.getByLabel('资料类型').selectOption('other');
+  await dialog.getByRole('button', { name: '开始上传' }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(sources).toHaveText(String(before + 1));
+  await navigate(page, '文档中心');
+  await page.locator('.document-directory').getByRole('button', { name: /图谱更新/ }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '删除文档', exact: true }).click();
+  await expect(page.getByText('文档已删除', { exact: true })).toBeVisible();
+  await navigate(page, '知识图谱');
+  await expect(sources).toHaveText(String(before));
+  await page.getByRole('button', { name: '人工知识图谱' }).click();
+  await expect(page.locator('.kg-stats')).toContainText('48实体');
 });

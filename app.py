@@ -22,6 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from rag import auth, config, db, dossiers as dossier_service, qa, review, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
+from rag import keyword_graph
 from rag.llm import LLMError, chat_options, generation_info, llm, resolve_chat_client
 from rag.experts import parse_experts_csv
 from rag.parsers import ParseError, parse_papers_csv, parse_upload
@@ -375,6 +376,11 @@ def create_user(payload: CreateUserRequest):
 
 # ---------- 课题卷宗与材料归卷 ----------
 # 固定路径必须声明在 {dossier_id} 前，避免 options 被参数路由吃掉。
+
+
+@app.get("/api/knowledge/keywords")
+def knowledge_keywords():
+    return keyword_graph.build_keyword_graph()
 
 
 @app.get("/api/dossiers/options")

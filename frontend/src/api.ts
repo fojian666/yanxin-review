@@ -1,5 +1,6 @@
 import type {
   AuthUser,
+  KeywordGraphData,
   ChatHistoryItem,
   ChatSelection,
   ChatModelOption,
@@ -129,6 +130,7 @@ export const api = {
   createUser: (payload: { username: string; password: string; role: string; display_name: string }) =>
     request<{ ok: boolean }>("/auth/users", jsonOptions(payload)),
   health: () => request<Health>("/health"),
+  keywordGraph: () => request<KeywordGraphData>("/knowledge/keywords"),
   documents: () => request<{ documents: DocItem[] }>("/documents"),
   documentContent: (docId: string) =>
     request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),

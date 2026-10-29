@@ -25,7 +25,7 @@ npm run test:e2e:report # 打开最近的 HTML 报告
 
 调试单个用例：先运行 `npm run build`，然后 `npx playwright test --grep '旧匹配请求' --headed`。
 
-当前共 63 个用例。
+当前共 64 个用例。
 
 ## 覆盖矩阵
 

@@ -383,3 +383,8 @@ export interface ToolCheckResult {
   generated_at: string;
   disclaimer: string;
 }
+
+export interface KeywordGraphSource { doc_id: string; doc_name: string; chunk_idx: number; section: string; page: number | null; excerpt: string; }
+export interface KeywordGraphNode { id: string; name: string; chunk_count: number; sources: KeywordGraphSource[]; }
+export interface KeywordGraphLink { source: string; target: string; similarity: number; shared_chunks: number; }
+export interface KeywordGraphData { nodes: KeywordGraphNode[]; links: KeywordGraphLink[]; method: string; document_count: number; limit: number; }

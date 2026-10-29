@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { EChart } from "../components/EChart";
+import { KeywordGraph } from "../components/KeywordGraph";
 import { useMotionPreference } from "../motion";
 import {
   CATEGORY_META,
@@ -94,6 +95,18 @@ function pathPairs(path: KnowledgeNode[] | null) {
 }
 
 export function KnowledgeGraphPage() {
+  const [params] = useSearchParams();
+  const [view, setView] = useState<"keywords" | "curated">(params.get("focus") ? "curated" : "keywords");
+  return <div className="graph-views">
+    <div className="graph-view-switch" role="group" aria-label="图谱类型">
+      <button type="button" aria-pressed={view === "keywords"} onClick={() => setView("keywords")}>文档关键词</button>
+      <button type="button" aria-pressed={view === "curated"} onClick={() => setView("curated")}>人工知识图谱</button>
+    </div>
+    {view === "keywords" ? <KeywordGraph /> : <CuratedGraph />}
+  </div>;
+}
+
+function CuratedGraph() {
   const navigate = useNavigate();
   const reduce = useMotionPreference();
   const [params, setParams] = useSearchParams();
