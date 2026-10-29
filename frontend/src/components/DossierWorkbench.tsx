@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FilePlus2,
   FolderOpen,
   Loader2,
@@ -20,6 +22,18 @@ import type { Dossier, DossierChecklist } from "../types";
 import { DossierModal } from "./DossierModal";
 import { StatusPill } from "./StatusPill";
 
+type DossierSection = "overview" | "materials" | "attach" | "history" | "checklist" | "workflow" | "limitations";
+
+const DOSSIER_STEPS: Array<{ id: DossierSection; label: string; hint: string }> = [
+  { id: "overview", label: "卷宗概况", hint: "课题与当前进度" },
+  { id: "materials", label: "卷宗材料", hint: "查看当前材料" },
+  { id: "attach", label: "归入资料", hint: "选择文档和角色" },
+  { id: "history", label: "历史版本", hint: "版本与当前稿" },
+  { id: "checklist", label: "材料体检", hint: "逐项核对证据" },
+  { id: "workflow", label: "课题流程", hint: "定位当前阶段" },
+  { id: "limitations", label: "检查边界", hint: "人工复核范围" },
+];
+
 export function DossierWorkbench() {
   const {
     activeDossierId,
@@ -36,7 +50,12 @@ export function DossierWorkbench() {
   const [checklist, setChecklist] = useState<DossierChecklist | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
-  const [section, setSection] = useState<"materials" | "checklist" | "workflow">("materials");
+  const [section, setSection] = useState<DossierSection>("overview");
+  const [materialPage, setMaterialPage] = useState(0);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [checkPage, setCheckPage] = useState(0);
+  const [workflowPage, setWorkflowPage] = useState(0);
+  const [limitPage, setLimitPage] = useState(0);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -46,6 +65,9 @@ export function DossierWorkbench() {
   const checklistRequest = useRef(0);
 
   const dossier = dossiers.find((item) => item.id === activeDossierId) ?? null;
+  useEffect(() => {
+    setMaterialPage(0); setHistoryPage(0); setCheckPage(0); setWorkflowPage(0); setLimitPage(0);
+  }, [activeDossierId]);
   const availableDocs = useMemo(() => {
     const attached = new Set(dossier?.materials.map((item) => item.doc_id) ?? []);
     return docs.filter(
@@ -169,15 +191,28 @@ export function DossierWorkbench() {
   const roles = dossierOptions?.material_roles ?? [];
   const currentMaterials = dossier?.materials.filter((item) => item.is_current) ?? [];
   const previousMaterials = dossier?.materials.filter((item) => !item.is_current) ?? [];
+  const checks = checklist?.sections.flatMap((group) => group.items.map((item) => ({ group, item }))) ?? [];
+  const materialIndex = Math.min(materialPage, Math.max(0, currentMaterials.length - 1));
+  const historyIndex = Math.min(historyPage, Math.max(0, previousMaterials.length - 1));
+  const checkIndex = Math.min(checkPage, Math.max(0, checks.length - 1));
+  const limits = checklist ? [...checklist.limitations, checklist.disclaimer] : [];
+  const limitIndex = Math.min(limitPage, Math.max(0, limits.length - 1));
   const overallStatus = checklist?.overall.status ?? "warn";
   const workflowIndex = dossier ? currentWorkflowIndex(dossier.phase) : -1;
+  const dossierSteps = DOSSIER_STEPS.filter((step) => step.id !== "attach" || can("upload"));
+  const stepIndex = Math.max(0, dossierSteps.findIndex((step) => step.id === section));
+  const currentStep = dossierSteps[stepIndex];
+  const changeStep = (index: number) => {
+    const next = dossierSteps[Math.max(0, Math.min(index, dossierSteps.length - 1))];
+    if (next) setSection(next.id);
+  };
 
   return (
-    <section className="panel dossier-workbench" aria-label="课题卷宗与材料体检">
+    <section className={`panel dossier-workbench ${expanded ? "is-expanded" : "is-collapsed"}`} aria-label="课题卷宗与材料体检">
       <header className="dossier-workbench-head">
         <div>
           <span className="dossier-kicker"><FolderOpen size={15} />卷宗编目</span>
-          <h2>{dossier?.name ?? (dossiers.length ? "选择或新建课题卷宗" : "建立第一份课题卷宗")}</h2>
+          <h2 title={dossier?.name}>{dossier?.name ?? (dossiers.length ? "选择或新建课题卷宗" : "建立第一份课题卷宗")}</h2>
           <p>
             {dossier
               ? `${dossier.year ?? "年度未填"} · ${dossier.plan_type_label} · ${dossier.phase_label}`
@@ -185,15 +220,15 @@ export function DossierWorkbench() {
           </p>
         </div>
         <div className="dossier-workbench-actions">
-          {dossier && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} aria-controls="dossier-details" onClick={() => setExpanded((value) => !value)}>
-            {expanded ? "收起详情" : "展开详情"}<ChevronDown size={14} className={expanded ? "dossier-chevron is-expanded" : "dossier-chevron"} />
+          {dossier && <button type="button" className="btn btn-ghost btn-sm" aria-label={expanded ? "收起详情" : "展开详情"} aria-expanded={expanded} aria-controls="dossier-details" onClick={() => setExpanded((value) => !value)}>
+            <span>{expanded ? "收起详情" : "展开详情"}</span><ChevronDown size={14} className={expanded ? "dossier-chevron is-expanded" : "dossier-chevron"} />
           </button>}
           {dossier && can("upload") && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(true); setModalOpen(true); }}>
-              <Pencil size={14} />编辑卷宗
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="编辑卷宗" onClick={() => { setEditing(true); setModalOpen(true); }}>
+              <Pencil size={14} /><span>编辑卷宗</span>
             </button>
           )}
-          {dossier && can("upload") && <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditing(false); setModalOpen(true); }}><Plus size={14} />新建课题卷宗</button>}
+          {dossier && can("upload") && <button type="button" className="btn btn-primary btn-sm" aria-label="新建课题卷宗" onClick={() => { setEditing(false); setModalOpen(true); }}><Plus size={14} /><span>新建课题卷宗</span></button>}
         </div>
       </header>
 
@@ -207,214 +242,269 @@ export function DossierWorkbench() {
           {can("upload") && <button type="button" className="btn btn-primary" onClick={() => { setEditing(false); setModalOpen(true); }}>新建课题卷宗</button>}
         </div>
       ) : (
-        <>
-          <div className="dossier-overview">
-            <div>
-              <span>当前材料</span>
-              <strong>{dossier.current_material_count}</strong>
+        <div id="dossier-details" className="dossier-page-shell" hidden={!expanded}>
+          <aside className="dossier-step-rail">
+            <div className="dossier-rail-head">
+              <span>卷宗办理</span>
+              <strong>{String(stepIndex + 1).padStart(2, "0")} / {String(dossierSteps.length).padStart(2, "0")}</strong>
             </div>
-            <div>
-              <span>已人工确认</span>
-              <strong>{dossier.verified_material_count}</strong>
-            </div>
-            <div>
-              <span>材料阶段</span>
-              <strong>{dossier.phase_label}</strong>
-            </div>
-            <div className="dossier-overall">
-              <span>本阶段体检</span>
-              <StatusPill status={overallStatus} />
-            </div>
-          </div>
-
-          <div id="dossier-details" hidden={!expanded}>
-          <nav className="dossier-section-switch" aria-label="卷宗内容">
-            {([ ["materials", "卷宗材料"], ["checklist", "材料体检"], ["workflow", "课题流程"] ] as const).map(([value, label]) => (
-              <button type="button" key={value} aria-pressed={section === value} onClick={() => setSection(value)}>{label}</button>
-            ))}
-          </nav>
-          <div hidden={section !== "workflow"}>
-          <details className="dossier-process">
-            <summary>
-              <span>课题实施流程</span>
-              <strong>当前材料阶段：{dossier.phase_label}</strong>
-            </summary>
-            <ol>
-              {PROPOSAL_WORKFLOW.map((stage, index) => (
-                <li key={stage.key} className={index === workflowIndex ? "is-current" : ""}>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div>
-                    <strong>{stage.label}</strong>
-                    <p>{stage.summary}</p>
-                    <small>{stage.materials.join(" · ")}</small>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <p className="dossier-process-note">
-              流程节点用于材料导航，不代表官方系统已受理、推荐、立项或验收。
-            </p>
-          </details>
-          </div>
-
-          <div hidden={section !== "materials"}>
-          {can("upload") && (
-            <div className="dossier-attach">
-              <div>
-                <span>归入现有资料</span>
-                <p>新版本归入同一材料角色后会自动成为当前版本。</p>
-              </div>
-              {availableDocs.length ? (
-                <div className="dossier-attach-controls">
-                  <select className="select" value={selectedDoc} onChange={(event) => setSelectedDoc(event.target.value)} aria-label="选择要归卷的资料">
-                    {availableDocs.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
-                  </select>
-                  <select className="select" value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} aria-label="材料角色">
-                    {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
-                  </select>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => void attach()} disabled={saving === "attach"}>
-                    {saving === "attach" ? <Loader2 size={14} className="spin" /> : <FolderOpen size={14} />}
-                    归入卷宗
-                  </button>
-                </div>
-              ) : (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openUpload()}>
-                  <Plus size={14} />上传并准备归卷
+            <nav aria-label="卷宗内容">
+              {dossierSteps.map((step, index) => (
+                <button
+                  type="button"
+                  key={step.id}
+                  className={section === step.id ? "is-active" : ""}
+                  aria-label={step.label}
+                  aria-current={section === step.id ? "step" : undefined}
+                  aria-pressed={section === step.id}
+                  onClick={() => setSection(step.id)}
+                >
+                  <span className="dossier-step-number">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="dossier-step-copy">
+                    <strong>{step.label}</strong>
+                    <small>{step.hint}</small>
+                  </span>
                 </button>
-              )}
-            </div>
-          )}
+              ))}
+            </nav>
+          </aside>
 
-          <div className="dossier-materials">
-            <div className="dossier-section-title">
+          <div className="dossier-page-main">
+            <header className="dossier-page-head">
+              <span>第 {stepIndex + 1} 步</span>
               <div>
-                <h3>当前材料</h3>
-                <span>{currentMaterials.length} 份</span>
+                <h3>{currentStep.label}</h3>
+                <p>{currentStep.hint}</p>
               </div>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void loadChecklist()} disabled={loading}>
-                <RefreshCw size={13} className={loading ? "spin" : ""} />刷新体检
-              </button>
-            </div>
-            {currentMaterials.length ? (
-              <div className="dossier-material-list">
-                {currentMaterials.map((material) => {
-                  const role = roles.find((item) => item.value === material.role);
-                  const requiresVerification = Boolean(role?.requires_verification);
-                  const operation = `verify-${material.doc_id}`;
-                  return (
-                    <div className="dossier-material-row" key={material.doc_id}>
-                      <div className="dossier-material-copy">
-                        <span className="dossier-role">{role?.short ?? material.role}</span>
-                        <strong>{material.doc_name}</strong>
-                        <small>
-                          v{material.version}
-                          {material.doc_suffix ? ` · ${material.doc_suffix.replace(".", "").toUpperCase()}` : ""}
-                          {material.human_verified && material.verified_by
-                            ? ` · ${material.verified_by} 已确认`
-                            : ""}
-                        </small>
-                      </div>
-                      {can("upload") && (
-                        <div className="dossier-material-actions">
-                          {requiresVerification && (
-                            <label className="dossier-verify">
-                              <input
-                                type="checkbox"
-                                checked={material.human_verified}
-                                onChange={(event) => void verify(material.doc_id, event.target.checked)}
-                                disabled={saving === operation}
-                              />
-                              <BadgeCheck size={14} />
-                              人工确认
-                            </label>
-                          )}
-                          <button type="button" className="icon-btn" aria-label={`移除 ${material.doc_name}`} onClick={() => void detach(material.doc_id, material.doc_name)}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
+              <StatusPill status={overallStatus} />
+            </header>
+
+            <div className="dossier-page-body">
+              <div className="dossier-page-panel" hidden={section !== "overview"}>
+                <div className="dossier-overview">
+                  <div>
+                    <span>当前材料</span>
+                    <strong>{dossier.current_material_count}</strong>
+                  </div>
+                  <div>
+                    <span>已人工确认</span>
+                    <strong>{dossier.verified_material_count}</strong>
+                  </div>
+                  <div>
+                    <span>材料阶段</span>
+                    <strong>{dossier.phase_label}</strong>
+                  </div>
+                  <div className="dossier-overall">
+                    <span>本阶段体检</span>
+                    <StatusPill status={overallStatus} />
+                  </div>
+                </div>
+                <div className="dossier-overview-note">
+                  <span>办理范围</span>
+                  <p>材料清单用于核对本地归卷情况；盖章、签字和主管部门状态仍需人工确认。</p>
+                </div>
+              </div>
+
+              <div className="dossier-page-panel" hidden={section !== "materials"}>
+                <div className="dossier-materials">
+                  <div className="dossier-section-title">
+                    <div>
+                      <h3>当前材料</h3>
+                      <span>{currentMaterials.length} 份</span>
                     </div>
-                  );
-                })}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => void loadChecklist()} disabled={loading}>
+                      <RefreshCw size={13} className={loading ? "spin" : ""} />刷新体检
+                    </button>
+                  </div>
+                  {currentMaterials.length ? (
+                    <div className="dossier-material-list">
+                      {currentMaterials.slice(materialIndex, materialIndex + 1).map((material) => {
+                        const role = roles.find((item) => item.value === material.role);
+                        const requiresVerification = Boolean(role?.requires_verification);
+                        const operation = `verify-${material.doc_id}`;
+                        return (
+                          <div className="dossier-material-row" key={material.doc_id}>
+                            <div className="dossier-material-copy">
+                              <span className="dossier-role">{role?.short ?? material.role}</span>
+                              <strong title={material.doc_name}>{material.doc_name}</strong>
+                              <small>
+                                v{material.version}
+                                {material.doc_suffix ? ` · ${material.doc_suffix.replace(".", "").toUpperCase()}` : ""}
+                                {material.human_verified && material.verified_by
+                                  ? ` · ${material.verified_by} 已确认`
+                                  : ""}
+                              </small>
+                            </div>
+                            {can("upload") && (
+                              <div className="dossier-material-actions">
+                                {requiresVerification && (
+                                  <label className="dossier-verify">
+                                    <input
+                                      type="checkbox"
+                                      checked={material.human_verified}
+                                      onChange={(event) => void verify(material.doc_id, event.target.checked)}
+                                      disabled={saving === operation}
+                                    />
+                                    <BadgeCheck size={14} />
+                                    人工确认
+                                  </label>
+                                )}
+                                <button type="button" className="icon-btn" aria-label={`移除 ${material.doc_name}`} onClick={() => void detach(material.doc_id, material.doc_name)}>
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="dossier-inline-empty">尚无归卷材料。先进入“归入资料”，选择文档和材料角色。</p>
+                  )}
+                  <DossierPager label="材料" index={materialIndex} total={currentMaterials.length} onChange={setMaterialPage} />
+                </div>
               </div>
-            ) : (
-              <p className="dossier-inline-empty">尚无归卷材料。先上传文档，再从上方选择材料角色。</p>
-            )}
-          </div>
 
-          {previousMaterials.length > 0 && (
-            <details className="dossier-history">
-              <summary>历史版本 · {previousMaterials.length} 份</summary>
-              <div>
-                {previousMaterials.map((material) => (
-                  <div className="dossier-history-row" key={material.doc_id}>
-                    <span>v{material.version} · {material.doc_name}</span>
-                    {can("upload") && (
-                      <button type="button" className="link-btn" onClick={() => void makeCurrent(material.doc_id)} disabled={saving === `current-${material.doc_id}`}>
-                        设为当前
+              <div className="dossier-page-panel" hidden={section !== "attach"}>
+                {can("upload") && (
+                  <div className="dossier-attach">
+                    <div>
+                      <span>归入现有资料</span>
+                      <p>新版本归入同一材料角色后会自动成为当前版本。</p>
+                    </div>
+                    {availableDocs.length ? (
+                      <div className="dossier-attach-controls">
+                        <select className="select" value={selectedDoc} onChange={(event) => setSelectedDoc(event.target.value)} aria-label="选择要归卷的资料">
+                          {availableDocs.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+                        </select>
+                        <select className="select" value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} aria-label="材料角色">
+                          {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                        </select>
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => void attach()} disabled={saving === "attach"}>
+                          {saving === "attach" ? <Loader2 size={14} className="spin" /> : <FolderOpen size={14} />}
+                          归入卷宗
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => openUpload()}>
+                        <Plus size={14} />上传并准备归卷
                       </button>
                     )}
                   </div>
-                ))}
+                )}
               </div>
-            </details>
-          )}
-          </div>
 
-          <div hidden={section !== "checklist"}>
-          <div className="dossier-checklist">
-            <div className="dossier-section-title">
-              <div>
-                <h3><ShieldCheck size={17} />材料体检</h3>
-                <span>{checklist?.overall.summary ?? (loading ? "正在检查…" : "等待检查")}</span>
-              </div>
-            </div>
-            {error ? (
-              <div className="dossier-error" role="alert">
-                卷宗体检读取失败：{error}
-                <button type="button" className="link-btn" onClick={() => void loadChecklist()}>重试</button>
-              </div>
-            ) : checklist ? (
-              <AnimatePresence initial={false}>
-                <motion.div
-                  className="dossier-check-sections"
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.26, ease: EASE }}
-                >
-                  {checklist.sections.map((section) => (
-                    <section className="dossier-check-section" key={section.key}>
-                      <div className="dossier-check-head">
-                        <h4>{section.title}</h4>
-                        <StatusPill status={section.status} />
-                      </div>
-                      {section.items.map((item) => (
-                        <div className="dossier-check-item" key={item.key}>
-                          <span className={`dossier-check-dot status-${item.status}`} aria-hidden="true" />
-                          <div>
-                            <strong>{item.label}</strong>
-                            <p>{item.detail}</p>
-                            {item.evidence && <small>{item.evidence}</small>}
-                          </div>
-                          <StatusPill status={item.status} />
+              <div className="dossier-page-panel" hidden={section !== "history"}>
+                {previousMaterials.length > 0 ? (
+                  <div className="dossier-history">
+                    <strong>历史版本 · {previousMaterials.length} 份</strong>
+                    <div>
+                      {previousMaterials.slice(historyIndex, historyIndex + 1).map((material) => (
+                        <div className="dossier-history-row" key={material.doc_id}>
+                          <span>v{material.version} · {material.doc_name}</span>
+                          {can("upload") && (
+                            <button type="button" className="link-btn" onClick={() => void makeCurrent(material.doc_id)} disabled={saving === `current-${material.doc_id}`}>
+                              设为当前
+                            </button>
+                          )}
                         </div>
                       ))}
-                    </section>
-                  ))}
-                  <div className="dossier-limitations">
-                    <strong>检查边界</strong>
-                    <ul>{checklist.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
-                    <p>{checklist.disclaimer}</p>
+                    </div>
+                    <DossierPager label="历史版本" index={historyIndex} total={previousMaterials.length} onChange={setHistoryPage} />
                   </div>
-                </motion.div>
-              </AnimatePresence>
-            ) : loading ? (
-              <div className="dossier-loading" role="status"><Loader2 size={18} className="spin" /> 正在生成材料体检…</div>
-            ) : null}
+                ) : <p className="dossier-inline-empty">暂无历史版本。</p>}
+              </div>
+
+              <div className="dossier-page-panel" hidden={section !== "checklist"}>
+                <div className="dossier-checklist">
+                  <div className="dossier-section-title">
+                    <div>
+                      <h3><ShieldCheck size={17} />材料体检</h3>
+                      <span>{checklist?.overall.summary ?? (loading ? "正在检查…" : "等待检查")}</span>
+                    </div>
+                  </div>
+                  {error ? (
+                    <div className="dossier-error" role="alert">
+                      卷宗体检读取失败：{error}
+                      <button type="button" className="link-btn" onClick={() => void loadChecklist()}>重试</button>
+                    </div>
+                  ) : checklist ? (
+                    <AnimatePresence initial={false} mode="wait">
+                      {checks.slice(checkIndex, checkIndex + 1).map(({ group, item }) => (
+                          <motion.section
+                            className="dossier-check-section"
+                            key={`${group.key}:${item.key}`}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -3 }}
+                            transition={{ duration: 0.18, ease: EASE }}
+                          >
+                            <div className="dossier-check-head">
+                              <h4>{group.title}</h4>
+                              <StatusPill status={group.status} />
+                            </div>
+                            <div className="dossier-check-item">
+                              <span className={`dossier-check-dot status-${item.status}`} aria-hidden="true" />
+                              <div>
+                                <strong>{item.label}</strong>
+                                <p>{item.detail}</p>
+                                {item.evidence && <small>{item.evidence}</small>}
+                              </div>
+                              <StatusPill status={item.status} />
+                            </div>
+                          </motion.section>
+                      ))}
+                    </AnimatePresence>
+                  ) : loading ? (
+                    <div className="dossier-loading" role="status"><Loader2 size={18} className="spin" /> 正在生成材料体检…</div>
+                  ) : null}
+                  <DossierPager label="体检项目" index={checkIndex} total={checks.length} onChange={setCheckPage} />
+                </div>
+              </div>
+
+              <div className="dossier-page-panel" hidden={section !== "workflow"}>
+                <div className="dossier-process">
+                  <div className="dossier-process-summary">
+                    <span>课题实施流程</span>
+                    <strong>当前材料阶段：{dossier.phase_label}</strong>
+                  </div>
+                  <ol>
+                    {PROPOSAL_WORKFLOW.slice(workflowPage, workflowPage + 1).map((stage) => (
+                      <li key={stage.key} className={workflowPage === workflowIndex ? "is-current" : ""}>
+                        <span>{String(workflowPage + 1).padStart(2, "0")}</span>
+                        <div>
+                          <strong>{stage.label}</strong>
+                          <p>{stage.summary}</p>
+                          <small>{stage.materials.join(" · ")}</small>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  <DossierPager label="流程" index={workflowPage} total={PROPOSAL_WORKFLOW.length} onChange={setWorkflowPage} />
+                  <p className="dossier-process-note">
+                    流程节点用于材料导航，不代表官方系统已受理、推荐、立项或验收。
+                  </p>
+                </div>
+              </div>
+
+              <div className="dossier-page-panel" hidden={section !== "limitations"}>
+                {checklist
+                  ? <div className="dossier-limitations"><strong>检查边界</strong><p>{limits[limitIndex]}</p><DossierPager label="检查边界" index={limitIndex} total={limits.length} onChange={setLimitPage} /></div>
+                  : <p className="dossier-inline-empty">材料体检生成后，在这里查看检查边界。</p>}
+              </div>
+            </div>
+
+            <footer className="dossier-page-footer">
+              <button type="button" className="btn btn-ghost btn-sm" disabled={stepIndex === 0} onClick={() => changeStep(stepIndex - 1)}>
+                <ChevronLeft size={15} />上一步
+              </button>
+              <span aria-live="polite">{stepIndex + 1} / {dossierSteps.length} · {currentStep.label}</span>
+              <button type="button" className="btn btn-primary btn-sm" disabled={stepIndex >= dossierSteps.length - 1} onClick={() => changeStep(stepIndex + 1)}>
+                下一步<ChevronRight size={15} />
+              </button>
+            </footer>
           </div>
-          </div>
-          </div>
-        </>
+        </div>
       )}
 
       <DossierModal
@@ -431,4 +521,13 @@ export function DossierWorkbench() {
       />
     </section>
   );
+}
+
+function DossierPager({ label, index, total, onChange }: { label: string; index: number; total: number; onChange: (index: number) => void }) {
+  if (total < 2) return null;
+  return <div className="dossier-pager" role="group" aria-label={`${label}分页`}>
+    <button type="button" className="btn btn-ghost btn-sm" disabled={index === 0} onClick={() => onChange(index - 1)}>上一项</button>
+    <span>{index + 1} / {total}</span>
+    <button type="button" className="btn btn-ghost btn-sm" disabled={index >= total - 1} onClick={() => onChange(index + 1)}>下一项</button>
+  </div>;
 }

@@ -1,34 +1,15 @@
 import { motion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight, FolderKanban, FolderOpen, MessageSquareText, Network, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { visibleWorkspaceViews } from "../data/workspaceViews";
 import { SPRING } from "../motion";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  permission?: string;
-}
-
-const NAV: NavItem[] = [
-  { to: "/chat", label: "智能问答", icon: MessageSquareText },
-  { to: "/trend", label: "文献趋势", icon: TrendingUp },
-  { to: "/graph", label: "知识图谱", icon: Network },
-  { to: "/match", label: "查重匹配", icon: Users, permission: "tool" },
-  { to: "/dossiers", label: "课题卷宗", icon: FolderKanban, permission: "review" },
-  { to: "/review", label: "本子预审", icon: ShieldCheck, permission: "review" },
-  { to: "/library", label: "文档中心", icon: FolderOpen },
-];
 
 export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClose?: () => void }) {
   const { can, sidebarCollapsed, toggleSidebar } = useApp();
   const { pathname } = useLocation();
-  const visible = NAV.filter((item) => !item.permission || can(item.permission));
-  const nav: NavItem[] = can("admin")
-    ? [...visible, { to: "/admin", label: "用户管理", icon: UserCog }]
-    : visible;
+  const nav = visibleWorkspaceViews(can);
   const workspacePath = pathname === "/welcome" ? (can("review") ? "/review" : "/chat") : pathname;
   const asideRef = useRef<HTMLElement>(null);
   const wasOpen = useRef(false);
@@ -154,17 +135,17 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
       </div>
 
       <nav className="nav">
-        {nav.map(({ to, label, icon: Icon }) => (
+        {nav.map(({ path, title, icon: Icon }) => (
           <NavLink
-            key={to}
-            to={to}
+            key={path}
+            to={path}
             draggable={false}
-            title={sidebarCollapsed ? label : undefined}
+            title={sidebarCollapsed ? title : undefined}
             onClick={() => onClose?.()}
-            aria-current={to === workspacePath ? "page" : undefined}
-            className={() => `nav-item ${to === workspacePath ? "active" : ""}`}
+            aria-current={path === workspacePath ? "page" : undefined}
+            className={() => `nav-item ${path === workspacePath ? "active" : ""}`}
           >
-            {to === workspacePath && (
+            {path === workspacePath && (
               <motion.span
                 layoutId="nav-pill"
                 className="nav-pill"
@@ -172,7 +153,7 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
               />
             )}
             <Icon size={19} className="nav-icon" />
-            <span className="nav-label">{label}</span>
+            <span className="nav-label">{title}</span>
           </NavLink>
         ))}
       </nav>

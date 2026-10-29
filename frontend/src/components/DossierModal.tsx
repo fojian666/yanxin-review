@@ -24,6 +24,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
   const [leader, setLeader] = useState("");
   const [supervisor, setSupervisor] = useState("");
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<0 | 1>(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   const busyRef = useRef(busy);
@@ -40,6 +41,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
     setLeader(dossier?.leader ?? "");
     setSupervisor(dossier?.supervisor ?? "");
     setBusy(false);
+    setStep(0);
   }, [dossier, open]);
 
   useEffect(() => {
@@ -92,16 +94,22 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
     };
   }, [open]);
 
-  const submit = async () => {
+  const validateBasic = () => {
     if (!name.trim()) {
       toast("请填写课题名称", "error");
-      return;
+      return false;
     }
     const parsedYear = Number(year);
     if (!Number.isInteger(parsedYear) || parsedYear < 1990 || parsedYear > 2035) {
       toast("申报年度需在 1990–2035 之间", "error");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const submit = async () => {
+    if (!validateBasic()) { setStep(0); return; }
+    const parsedYear = Number(year);
     setBusy(true);
     try {
       const payload = {
@@ -171,7 +179,8 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
                 <X size={18} />
               </button>
             </div>
-            <div className="form-grid">
+            <div className="dossier-form-step" aria-live="polite">{step === 0 ? "1 / 2 · 课题信息" : "2 / 2 · 单位与负责人"}</div>
+            <div className="form-grid" hidden={step !== 0}>
               <label className="field span-2">
                 <span>课题名称</span>
                 <input value={name} onChange={(event) => setName(event.target.value)} maxLength={160} />
@@ -213,6 +222,8 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
                   ))}
                 </select>
               </label>
+            </div>
+            <div className="form-grid" hidden={step !== 1}>
               <label className="field">
                 <span>课题负责人（可选）</span>
                 <input value={leader} onChange={(event) => setLeader(event.target.value)} maxLength={80} />
@@ -236,9 +247,9 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
                 </button>
               )}
               <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>取消</button>
-              <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>
-                {busy ? "保存中…" : "保存卷宗"}
-              </button>
+              {step === 1 && <button type="button" className="btn btn-ghost" onClick={() => setStep(0)} disabled={busy}>上一步</button>}
+              {step === 0 ? <button type="button" className="btn btn-primary" onClick={() => { if (validateBasic()) setStep(1); }} disabled={busy}>下一步</button> :
+                <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>{busy ? "保存中…" : "保存卷宗"}</button>}
             </div>
           </motion.div>
         </motion.div>

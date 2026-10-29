@@ -1,48 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  FolderOpen,
-  FolderKanban,
-  MessageSquareText,
-  Network,
-  ShieldCheck,
-  TrendingUp,
-  UserCog,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
+import { MessageSquareText, ShieldCheck } from "lucide-react";
+import { Suspense } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { visibleWorkspaceViews } from "../data/workspaceViews";
 import { EASE, pageVariants, useMotionPreference, useSessionEntrance } from "../motion";
 import { ROLE_LABELS, type UserRole } from "../types";
-
-const ChatPanel = lazy(() => import("./ChatPage").then((module) => ({ default: module.ChatPage })));
-const TrendPanel = lazy(() => import("./TrendPage").then((module) => ({ default: module.TrendPage })));
-const MatchPanel = lazy(() => import("./MatchPage").then((module) => ({ default: module.MatchPage })));
-const ReviewPanel = lazy(() => import("./ReviewPage").then((module) => ({ default: module.ReviewPage })));
-const DossierPanel = lazy(() => import("../components/DossierWorkbench").then((module) => ({ default: module.DossierWorkbench })));
-const LibraryPanel = lazy(() => import("./LibraryPage").then((module) => ({ default: module.LibraryPage })));
-const AdminPanel = lazy(() => import("./AdminPage").then((module) => ({ default: module.AdminPage })));
-const KnowledgeGraphPanel = lazy(() => import("./KnowledgeGraphPage").then((module) => ({ default: module.KnowledgeGraphPage })));
-
-interface WorkspaceView {
-  path: string;
-  title: string;
-  icon: LucideIcon;
-  permission?: string;
-  component: LazyExoticComponent<ComponentType>;
-}
-
-const WORKSPACE_VIEWS: WorkspaceView[] = [
-  { path: "/dossiers", title: "课题卷宗", icon: FolderKanban, permission: "review", component: DossierPanel },
-  { path: "/review", title: "本子预审", icon: ShieldCheck, permission: "review", component: ReviewPanel },
-  { path: "/match", title: "查重匹配", icon: Users, permission: "tool", component: MatchPanel },
-  { path: "/chat", title: "智能问答", icon: MessageSquareText, component: ChatPanel },
-  { path: "/graph", title: "知识图谱", icon: Network, component: KnowledgeGraphPanel },
-  { path: "/trend", title: "文献趋势", icon: TrendingUp, component: TrendPanel },
-  { path: "/library", title: "文档中心", icon: FolderOpen, component: LibraryPanel },
-  { path: "/admin", title: "用户管理", icon: UserCog, permission: "admin", component: AdminPanel },
-];
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -69,7 +32,7 @@ export function WelcomePage() {
   const location = useLocation();
   const reduce = useMotionPreference();
   const unfold = useSessionEntrance("yanxin.dossier-entrance");
-  const entries = WORKSPACE_VIEWS.filter((item) => !item.permission || can(item.permission));
+  const entries = visibleWorkspaceViews(can);
   const defaultPath = can("review") ? "/review" : "/chat";
   const requested = entries.find((item) => item.path === location.pathname);
   if (location.pathname !== "/welcome" && !requested) {

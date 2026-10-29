@@ -3,21 +3,12 @@ import { LogOut, Menu, Upload, UserRound } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { WORKSPACE_VIEWS } from "../data/workspaceViews";
 import { modelLabel } from "../generation";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
 
-const META: Record<string, { title: string; sub: string }> = {
-  "/welcome": { title: "工作台", sub: "围绕当前卷宗连续办理" },
-  "/chat": { title: "智能问答", sub: "根据资料回答，可查看引用依据" },
-  "/trend": { title: "文献趋势", sub: "查看文献数量和主题变化" },
-  "/graph": { title: "知识图谱", sub: "探索科研治理概念与关系" },
-  "/match": { title: "查重匹配", sub: "检查文本相似度并匹配专家" },
-  "/dossiers": { title: "课题卷宗", sub: "归集申报材料并核对材料情况" },
-  "/review": { title: "本子预审", sub: "检查申报书并提供核对依据" },
-  "/library": { title: "文档中心", sub: "阅读并管理申报书、政策与文献" },
-  "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },
-};
+const WELCOME_META = { title: "工作台", description: "围绕当前卷宗连续办理" };
 
 // 窄屏先核验真实抽屉动画：关闭与导航会批处理，不能只读取 navOpen 初值。
 function RouteArrival({ title, navOpen }: { title: string; navOpen: boolean }) {
@@ -62,7 +53,12 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
       document.removeEventListener("keydown", onKey);
     };
   }, [userOpen]);
-  const meta = META[pathname] ?? META["/chat"];
+  const workspaceView = WORKSPACE_VIEWS.find((item) => item.path === pathname);
+  const meta = pathname === "/welcome"
+    ? WELCOME_META
+    : workspaceView
+      ? { title: workspaceView.title, description: workspaceView.description }
+      : WELCOME_META;
   const online = Boolean(health?.llm.configured);
   const roleLabel = auth ? ROLE_LABELS[auth.role as UserRole] ?? auth.role : "";
   // 演示账号的 display_name 与角色标签同名，直接用登录名避免出现「管理员 / 管理员」两行重复
@@ -77,7 +73,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
     <header className={`topbar ${pathname === "/welcome" ? "" : "is-task"}`} onDragStart={(event) => event.preventDefault()}>
       <div className="topbar-title" key={`title:${pathname}`}>
         <h1>{meta.title}</h1>
-        <p>{meta.sub}</p>
+        <p>{meta.description}</p>
         <div className="mobile-model-status" aria-label="当前模型配置">
           当前配置：{online && health ? modelLabel(health.llm) : "离线演示"}
         </div>

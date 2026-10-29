@@ -4,6 +4,9 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
   test(`@smoke ${role} 登录、导航权限与服务端边界`, async ({ page, context }) => {
     await loginUI(page, role);
     const nav = page.locator('.nav');
+    const sidebarPaths = await nav.locator('a').evaluateAll(items => items.map(item => item.getAttribute('href')));
+    const workspacePaths = await page.locator('.workspace-index a').evaluateAll(items => items.map(item => item.getAttribute('href')));
+    expect(sidebarPaths).toEqual(workspacePaths);
     await expect(nav.getByRole('link', { name: '用户管理' })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(nav.getByRole('link', { name: '查重匹配' })).toHaveCount(role === 'viewer' ? 0 : 1);
     await expect(nav.getByRole('link', { name: '课题卷宗' })).toHaveCount(role === 'viewer' ? 0 : 1);

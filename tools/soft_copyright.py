@@ -29,6 +29,7 @@ SECTIONS = [
 ]
 
 SKIP_DIRS = {"__pycache__", "node_modules", "dist", ".git"}
+SKIP_FILE_SUFFIXES = (".tmp.spec.ts",)
 SUFFIXES = {".py", ".ts", ".tsx", ".css"}
 
 
@@ -56,6 +57,8 @@ def collect() -> list[tuple[str, list[tuple[str, int]]]]:
                 if path.is_dir() or path.suffix not in SUFFIXES:
                     continue
                 if any(part in SKIP_DIRS for part in path.parts):
+                    continue
+                if path.name.endswith(SKIP_FILE_SUFFIXES):
                     continue
                 items.append((str(path.relative_to(ROOT)), _lines(path)))
         items.sort(key=lambda item: item[0])

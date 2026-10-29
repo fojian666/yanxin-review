@@ -21,7 +21,7 @@ export default defineConfig({
     navigationTimeout: 15_000,
   },
   projects: [
-    { name: 'desktop', testIgnore: '**/mobile.spec.ts' },
+    { name: 'desktop', testIgnore: ['**/mobile.spec.ts', '**/*.tmp.spec.ts'] },
     { name: 'mobile', testMatch: '**/mobile.spec.ts', use: { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true } },
   ],
 });
