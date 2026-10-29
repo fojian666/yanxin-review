@@ -3,6 +3,7 @@ import { test, expect, navigate } from './fixtures';
 test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', async ({ app: page, documents, context }, testInfo) => {
   await navigate(page, '本子预审');
   await expect(page.getByRole('heading', { name: '建立第一份课题卷宗' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /新建.*卷宗/ })).toHaveCount(1);
   await page.getByRole('button', { name: '新建课题卷宗' }).click();
 
   const dialog = page.getByRole('dialog', { name: '新建卷宗' });
@@ -13,6 +14,14 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await dialog.getByRole('button', { name: '保存卷宗' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '2026 自然资源科研诚信测试卷宗' })).toBeVisible();
+  await expect(page.getByLabel('当前课题卷宗')).toHaveCount(1);
+  await expect(page.getByLabel('切换卷宗')).toHaveCount(0);
+  const workspaceSelect = page.getByLabel('当前课题卷宗');
+  const dossierId = await workspaceSelect.inputValue();
+  await workspaceSelect.selectOption('');
+  await expect(page.getByRole('heading', { name: '选择或新建课题卷宗' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建课题卷宗' })).toBeVisible();
+  await workspaceSelect.selectOption(dossierId);
   await page.locator('.dossier-process summary').click();
   await expect(page.locator('.dossier-process ol li')).toHaveCount(6);
   await expect(page.locator('.dossier-process li.is-current')).toContainText('立项申请');
@@ -62,6 +71,21 @@ test('手机卷宗体检不横向溢出且表单可操作', async ({ app: page, 
   await navigate(page, '本子预审');
   await page.getByRole('button', { name: '新建课题卷宗' }).click();
   const dialog = page.getByRole('dialog', { name: '新建卷宗' });
+  await expect(dialog.locator('..')).toHaveCSS('position', 'fixed');
+  await expect(dialog.locator('..')).toHaveCSS('opacity', '1');
+  await page.screenshot({ path: testInfo.outputPath('dossier-modal-open.png') });
+  const initial = await dialog.evaluate((el) => {
+    const header = el.querySelector('.modal-head')!.getBoundingClientRect();
+    const label = el.querySelector('.field span')!.getBoundingClientRect();
+    return { scrollTop: el.scrollTop, headerBottom: header.bottom, labelTop: label.top };
+  });
+  expect(initial.scrollTop).toBe(0);
+  expect(initial.labelTop).toBeGreaterThanOrEqual(initial.headerBottom);
+  await dialog.hover();
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => dialog.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await page.mouse.wheel(0, -1000);
+  await expect.poll(() => dialog.evaluate((el) => el.scrollTop)).toBe(0);
   await dialog.getByLabel('课题名称').fill('手机端卷宗测试');
   await dialog.getByLabel('申报 / 承担单位（可选）').fill('移动测试单位');
   await dialog.getByRole('button', { name: '保存卷宗' }).click();

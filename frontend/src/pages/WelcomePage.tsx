@@ -57,7 +57,6 @@ export function WelcomePage() {
     docs,
     dossiers,
     loading,
-    openUpload,
     activeDocId,
     setActiveDocId,
     activeDossierId,
@@ -133,7 +132,7 @@ export function WelcomePage() {
             </select>
           )}
         </div>
-        <div className="welcome-actions">
+        {location.pathname === "/welcome" && <div className="welcome-actions">
           <Link
             className="btn btn-primary"
             to={primaryPath}
@@ -141,8 +140,7 @@ export function WelcomePage() {
           >
             {can("review") ? <><ShieldCheck size={16} />预审当前卷宗</> : <><MessageSquareText size={16} />用此卷宗提问</>}
           </Link>
-          {can("upload") && <button className="btn btn-ghost" type="button" onClick={() => openUpload()}>{dossiers.length ? "上传卷宗资料" : "上传新卷宗"}</button>}
-        </div>
+        </div>}
         </div>
         <div className="workspace-register" role="group" aria-label="资料库概况">
           <div>

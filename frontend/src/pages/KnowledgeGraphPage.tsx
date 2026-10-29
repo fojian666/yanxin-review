@@ -305,9 +305,6 @@ export function KnowledgeGraphPage() {
           <span><strong>{GRAPH_STATS.links}</strong>关系</span>
           <span><strong>{GRAPH_STATS.categories}</strong>知识域</span>
         </div>
-        <button type="button" className="btn btn-primary" onClick={askModel}>
-          <Sparkles size={15} />让大模型解读
-        </button>
       </section>
 
       <div className="kg-workbench">

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import type { Dossier, DossierPhase, DossierPlanType } from "../types";
@@ -81,7 +82,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
     root.style.overflow = "hidden";
     body.style.overflow = "hidden";
     requestAnimationFrame(() => {
-      if (!card?.contains(document.activeElement)) card?.focus();
+      if (!card?.contains(document.activeElement)) card?.focus({ preventScroll: true });
     });
     return () => {
       document.removeEventListener("keydown", onKey);
@@ -140,7 +141,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -173,7 +174,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
             <div className="form-grid">
               <label className="field span-2">
                 <span>课题名称</span>
-                <input value={name} onChange={(event) => setName(event.target.value)} maxLength={160} autoFocus />
+                <input value={name} onChange={(event) => setName(event.target.value)} maxLength={160} />
               </label>
               <label className="field">
                 <span>申报年度</span>
@@ -242,6 +243,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

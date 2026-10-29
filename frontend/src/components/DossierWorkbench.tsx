@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
-  ChevronDown,
   FilePlus2,
   FolderOpen,
   Loader2,
@@ -172,34 +171,17 @@ export function DossierWorkbench() {
       <header className="dossier-workbench-head">
         <div>
           <span className="dossier-kicker"><FolderOpen size={15} />卷宗编目</span>
-          <h2>{dossier?.name ?? "建立第一份课题卷宗"}</h2>
+          <h2>{dossier?.name ?? (dossiers.length ? "选择或新建课题卷宗" : "建立第一份课题卷宗")}</h2>
           <p>
             {dossier
               ? `${dossier.year ?? "年度未填"} · ${dossier.plan_type_label} · ${dossier.phase_label}`
-              : "将申请书、盖章件和后续材料归入同一课题，逐项核对缺项。"}
+              : dossiers.length ? "从工作区顶部选择已有卷宗，或新建一份课题卷宗。" : "将申请书、盖章件和后续材料归入同一课题，逐项核对缺项。"}
           </p>
         </div>
         <div className="dossier-workbench-actions">
-          {dossiers.length > 0 && (
-            <label className="dossier-select">
-              <span className="sr-only">切换卷宗</span>
-              <select
-                className="select"
-                value={activeDossierId}
-                onChange={(event) => {
-                  const next = dossiers.find((item) => item.id === event.target.value);
-                  if (next) chooseDossier(next);
-                }}
-              >
-                {dossiers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
-              <ChevronDown size={14} aria-hidden="true" />
-            </label>
-          )}
-          {can("upload") && (
+          {dossier && can("upload") && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setModalOpen(true)}>
-              {dossier ? <Pencil size={14} /> : <Plus size={14} />}
-              {dossier ? "编辑卷宗" : "新建卷宗"}
+              <Pencil size={14} />编辑卷宗
             </button>
           )}
         </div>
@@ -209,7 +191,7 @@ export function DossierWorkbench() {
         <div className="dossier-empty">
           <FilePlus2 size={28} aria-hidden="true" />
           <div>
-            <strong>先建立卷宗，再做材料体检</strong>
+            <strong>{dossiers.length ? "选择卷宗后查看材料体检" : "先建立卷宗，再做材料体检"}</strong>
             <p>登记课题后，可把现有文档归入申请书、盖章件、承诺书、合同和验收材料。</p>
           </div>
           {can("upload") && <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>新建课题卷宗</button>}

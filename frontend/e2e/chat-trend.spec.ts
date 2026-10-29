@@ -220,3 +220,23 @@ test('问答输入区选择模型与强度并随请求独立发送', async ({ ap
   await expect(page.locator('.chat-model-controls')).toContainText('deepseek-v4-pro');
   await expect(page.getByRole('button', { name: '选项加载失败，重试' })).toBeVisible();
 });
+
+
+test('长文档名称在不同宽度保持单行且选择菜单可用', async ({ app: page, documents }) => {
+  await navigate(page, '智能问答');
+  await page.locator('.scope-btn').click();
+  await page.locator('.scope-option').filter({ hasText: documents[0].name }).locator('input').check();
+  await page.locator('.scope-btn').click();
+  for (const width of [320, 375, 680, 900, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 800 });
+    const layout = await page.locator('.scope-label').evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { whiteSpace: style.whiteSpace, height: el.getBoundingClientRect().height, fontSize: parseFloat(style.fontSize) };
+    });
+    expect(layout.whiteSpace).toBe('nowrap');
+    expect(layout.height).toBeLessThanOrEqual(layout.fontSize * 2);
+    await page.locator('.scope-btn').click();
+    await expect(page.locator('.scope-menu')).toBeVisible();
+    await page.locator('.scope-btn').click();
+  }
+});
