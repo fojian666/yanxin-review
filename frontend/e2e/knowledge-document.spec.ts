@@ -13,6 +13,13 @@ test("@smoke 知识图谱统计、检索、领域筛选、路径推演与大模�
   await integrityDomain.click();
   await expect(integrityDomain).toHaveAttribute("aria-pressed", "true");
 
+  await page.getByLabel("检索知识图谱").fill("持续检查");
+  await expect(page.locator(".kg-search-results").getByRole("button", { name: /过程管理/ })).toBeVisible();
+  await page.getByLabel("检索知识图谱").fill("申报受理");
+  await page.locator(".kg-search-results").getByRole("button", { name: /申报受理/ }).click();
+  await page.getByRole("button", { name: "从这里推理" }).click();
+  await expect(page.getByLabel("起点")).toHaveValue("intake");
+
   await page.getByLabel("检索知识图谱").fill("补充耕地");
   const result = page.locator(".kg-search-results").getByRole("button", { name: /储备补充耕地/ });
   await expect(result).toBeVisible();
@@ -78,6 +85,14 @@ test("平板任务态让知识图谱优先进入首屏", async ({ app: page }, t
   expect(canvasBox && canvasBox.y).toBeLessThan(460);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: testInfo.outputPath("knowledge-graph-tablet.png") });
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await expect.poll(async () => {
+    const controls = await page.locator(".kg-control").first().boundingBox();
+    const graph = await page.locator(".kg-canvas-panel").boundingBox();
+    const details = await page.locator(".kg-detail").boundingBox();
+    return !!(controls && graph && details && controls.x < graph.x && graph.x < details.x);
+  }).toBeTruthy();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
 });
 
 test("快速切换文档时旧正文响应不会覆盖当前文档", async ({ app: page, documents }) => {

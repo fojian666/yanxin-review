@@ -46,7 +46,7 @@
      51 frontend/src/motion.ts
     176 frontend/src/pages/AdminPage.tsx
     592 frontend/src/pages/ChatPage.tsx
-    503 frontend/src/pages/KnowledgeGraphPage.tsx
+    504 frontend/src/pages/KnowledgeGraphPage.tsx
     378 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
     507 frontend/src/pages/MatchPage.tsx
@@ -55,7 +55,7 @@
     175 frontend/src/pages/WelcomePage.tsx
    3171 frontend/src/styles.css
     307 frontend/src/types.ts
-  10161 total
+  10162 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -76,16 +76,16 @@
     222 frontend/e2e/chat-trend.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    103 frontend/e2e/knowledge-document.spec.ts
+    118 frontend/e2e/knowledge-document.spec.ts
     170 frontend/e2e/library.spec.ts
     168 frontend/e2e/mobile.spec.ts
     193 frontend/e2e/review-match.spec.ts
     124 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      27 frontend/playwright.config.ts
-   1316 total
+   1331 total
 合计
-  20433 total（74 个文件）
+  20449 total（74 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

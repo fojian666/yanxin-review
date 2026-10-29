@@ -18,7 +18,6 @@ import {
   GRAPH_STATS,
   KNOWLEDGE_LINKS,
   KNOWLEDGE_NODES,
-  PATH_OPTIONS,
   findShortestPath,
   getNeighbors,
   getNode,
@@ -118,8 +117,11 @@ export function KnowledgeGraphPage() {
   const searchResults = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     if (!query) return [];
+    const relatedIds = new Set(KNOWLEDGE_LINKS.filter((relation) =>
+      relation.rel.toLocaleLowerCase().includes(query)
+    ).flatMap((relation) => [relation.source, relation.target]));
     return KNOWLEDGE_NODES.filter((item) =>
-      [item.name, item.id, item.desc, ...Object.entries(item.props ?? {}).flat()]
+      relatedIds.has(item.id) || [item.name, item.id, item.desc, ...Object.entries(item.props ?? {}).flat()]
         .join(" ")
         .toLocaleLowerCase()
         .includes(query)
@@ -171,16 +173,16 @@ export function KnowledgeGraphPage() {
             show: true,
             position: "right",
             distance: 5,
-            color: dimmed ? "#608078" : isSelected ? "#fff8dc" : "#d7e6e1",
-            fontSize: isRoot || HUBS.has(item.id) ? 10 : 9,
+            color: dimmed ? "#8d9e96" : isSelected ? "#174d43" : "#314b43",
+            fontSize: isRoot || HUBS.has(item.id) ? 11 : 10,
             fontWeight: isRoot || isSelected ? 600 : 400,
-            textBorderColor: "#102926",
+            textBorderColor: "#f8f7ef",
             textBorderWidth: 2,
             opacity: dimmed ? 0.28 : 1,
           },
           emphasis: {
             itemStyle: { borderColor: "#fff6d5", borderWidth: 2.5, shadowBlur: 24 },
-            label: { color: "#fff", fontSize: 11 },
+            label: { color: "#173d36", fontSize: 11 },
           },
         };
       }),
@@ -204,7 +206,7 @@ export function KnowledgeGraphPage() {
             color: meta.color,
             fontSize: 10,
             fontWeight: 600,
-            backgroundColor: "#132e2a",
+            backgroundColor: "#fbfaf4",
             borderColor: `${meta.color}88`,
             borderWidth: 1,
             borderRadius: 4,
@@ -227,9 +229,9 @@ export function KnowledgeGraphPage() {
         target: item.target,
         value: item.rel,
         lineStyle: {
-          color: isPath ? "#6ce0c2" : isAdjacent ? "#c9e7df" : CATEGORY_META[source.category].color,
+          color: isPath ? "#166c59" : isAdjacent ? "#477e6e" : CATEGORY_META[source.category].color,
           width: isPath ? 2.8 : isAdjacent ? 1.5 : 0.7,
-          opacity: dimmed ? 0.025 : searchDim ? 0.04 : isPath ? 0.95 : isAdjacent ? 0.48 : 0.15,
+          opacity: dimmed ? 0.025 : searchDim ? 0.04 : isPath ? 0.95 : isAdjacent ? 0.68 : 0.3,
           curveness: 0.08,
         },
       };
@@ -240,9 +242,9 @@ export function KnowledgeGraphPage() {
       animationDuration: reduce ? 0 : 620,
       animationDurationUpdate: reduce ? 0 : 360,
       tooltip: {
-        backgroundColor: "#102723",
-        borderColor: "#3e6d62",
-        textStyle: { color: "#eef7f3", fontSize: 12 },
+        backgroundColor: "#fffdf7",
+        borderColor: "#a6bbb0",
+        textStyle: { color: "#263f37", fontSize: 12 },
         confine: true,
         formatter: (raw: unknown) => {
           const data = (raw as { data?: { nodeId?: string } }).data;
@@ -295,14 +297,13 @@ export function KnowledgeGraphPage() {
           <span className="kg-summary-icon" aria-hidden="true"><Network size={22} /></span>
           <div>
             <strong>科研治理语义网络</strong>
-            <span>从制度、证据和业务对象追到可核对的原文与政策依据。</span>
+            <span>人工整理科研治理概念及关系，供探索与核对。</span>
           </div>
         </div>
         <div className="kg-stats">
           <span><strong>{GRAPH_STATS.nodes}</strong>实体</span>
           <span><strong>{GRAPH_STATS.links}</strong>关系</span>
           <span><strong>{GRAPH_STATS.categories}</strong>知识域</span>
-          <span><strong>{GRAPH_STATS.sources}</strong>来源</span>
         </div>
         <button type="button" className="btn btn-primary" onClick={askModel}>
           <Sparkles size={15} />让大模型解读
@@ -353,13 +354,13 @@ export function KnowledgeGraphPage() {
               <label>
                 <span>起点</span>
                 <select className="select" value={pathFrom} onChange={(event) => { setPathFrom(event.target.value); setPath(null); }}>
-                  {PATH_OPTIONS.map((id) => <option key={id} value={id}>{getNode(id)?.name}</option>)}
+                  {KNOWLEDGE_NODES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </label>
               <label>
                 <span>终点</span>
                 <select className="select" value={pathTo} onChange={(event) => { setPathTo(event.target.value); setPath(null); }}>
-                  {PATH_OPTIONS.map((id) => <option key={id} value={id}>{getNode(id)?.name}</option>)}
+                  {KNOWLEDGE_NODES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </label>
             </div>
@@ -453,7 +454,7 @@ export function KnowledgeGraphPage() {
               <span style={{ background: CATEGORY_META[selected.category].color }}>{selected.name.slice(0, 1)}</span>
               <div>
                 <h2>{selected.name}</h2>
-                <p>{selected.id} · {selected.source}</p>
+                <p>{selected.source}</p>
               </div>
             </div>
             <p className="kg-detail-desc">{selected.desc}</p>
