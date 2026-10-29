@@ -33,17 +33,18 @@
     127 frontend/src/components/DocumentDirectory.tsx
     178 frontend/src/components/DocumentReader.tsx
     260 frontend/src/components/DossierModal.tsx
-    533 frontend/src/components/DossierWorkbench.tsx
+    468 frontend/src/components/DossierWorkbench.tsx
     135 frontend/src/components/EChart.tsx
      18 frontend/src/components/EmptyState.tsx
      50 frontend/src/components/ErrorBoundary.tsx
-    115 frontend/src/components/KeywordGraph.tsx
+    121 frontend/src/components/KeywordGraph.tsx
     104 frontend/src/components/KpiCard.tsx
      84 frontend/src/components/Markdown.tsx
     170 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
     175 frontend/src/components/Topbar.tsx
     293 frontend/src/components/UploadModal.tsx
+    211 frontend/src/components/WorkDeck.tsx
     421 frontend/src/data/knowledge.ts
      59 frontend/src/data/proposalWorkflow.ts
      97 frontend/src/data/workspaceViews.tsx
@@ -51,18 +52,18 @@
      16 frontend/src/generation.ts
      10 frontend/src/main.tsx
      51 frontend/src/motion.ts
-    176 frontend/src/pages/AdminPage.tsx
+    131 frontend/src/pages/AdminPage.tsx
     592 frontend/src/pages/ChatPage.tsx
-    514 frontend/src/pages/KnowledgeGraphPage.tsx
+    535 frontend/src/pages/KnowledgeGraphPage.tsx
     395 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
-    507 frontend/src/pages/MatchPage.tsx
-    469 frontend/src/pages/ReviewPage.tsx
-    430 frontend/src/pages/TrendPage.tsx
-    192 frontend/src/pages/WelcomePage.tsx
-   4248 frontend/src/styles.css
+    416 frontend/src/pages/MatchPage.tsx
+    559 frontend/src/pages/ReviewPage.tsx
+    205 frontend/src/pages/TrendPage.tsx
+    204 frontend/src/pages/WelcomePage.tsx
+   5582 frontend/src/styles.css
     390 frontend/src/types.ts
-  12554 total
+  13802 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -81,22 +82,22 @@
     174 tools/soft_copyright.py
    1007 total
 浏览器回归（TypeScript/Python）
-    112 frontend/e2e/auth.spec.ts
-    242 frontend/e2e/chat-trend.spec.ts
+    114 frontend/e2e/auth.spec.ts
+    246 frontend/e2e/chat-trend.spec.ts
     215 frontend/e2e/dossier.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
     243 frontend/e2e/knowledge-document.spec.ts
     170 frontend/e2e/library.spec.ts
-    168 frontend/e2e/mobile.spec.ts
-    193 frontend/e2e/review-match.spec.ts
-    124 frontend/e2e/route-arrival.spec.ts
+    172 frontend/e2e/mobile.spec.ts
+    237 frontend/e2e/review-match.spec.ts
+    155 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
-     32 frontend/e2e/zoom-layout.spec.ts
+     60 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   1729 total
+   1842 total
 合计
-  24714 total（85 个文件）
+  26075 total（86 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

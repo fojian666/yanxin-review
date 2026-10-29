@@ -90,14 +90,15 @@ test('中文输入法回车不发送，Shift+Enter换行', async ({ app: page })
 test('@smoke 趋势主题、年份联动与2D视图', async ({ app: page }) => {
   await navigate(page, '文献趋势');
   await expect(page.locator('.notice')).toContainText('演示数据');
-  await page.getByRole('button', { name: '2D', exact: true }).click();
-  await expect(page.getByRole('button', { name: '2D', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('分析主题').fill('大模型');
   await page.getByLabel('起始年份').selectOption('2023');
   await page.getByLabel('结束年份').selectOption('2025');
   const pending = page.waitForResponse(r => r.url().endsWith('/api/trends') && r.request().postDataJSON().query === '大模型');
   await page.getByLabel('分析主题').press('Enter'); expect((await pending).ok()).toBeTruthy();
+  await page.getByRole('button', { name: '2D', exact: true }).click();
+  await expect(page.getByRole('button', { name: '2D', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.chart-2d').first()).toBeVisible();
+  await page.getByRole('tab', { name: '分析设置', exact: true }).click();
   const starts = await page.getByLabel('起始年份').locator('option').allTextContents();
   const ends = await page.getByLabel('结束年份').locator('option').allTextContents();
   expect(Math.max(...starts.map(Number))).toBeLessThanOrEqual(2025);
@@ -113,6 +114,7 @@ test('无WebGL回退2D且正常显示统计', async ({ app: page }) => {
     } as typeof original;
   });
   await page.goto('/trend');
+  await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
   await expect(page.getByRole('button', { name: '3D', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: '2D', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.chart-2d').first()).toBeVisible();
@@ -125,6 +127,7 @@ test('趋势失败可重试，真实空文献库正常显示', async ({ app: pag
   await page.unroute('**/api/trends'); await context.request.delete('/api/papers/sample');
   await page.reload();
   await expect(page.locator('.kpi').first()).toContainText('0');
+  await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
   // 先让空库3D类目轴完成绘制，不能抢先切2D绕过 formatter 回归。
   if (await page.getByRole('button', { name: '3D', exact: true }).isEnabled()) {
     await expect(page.locator('.chart-3d canvas')).toHaveCount(2);
@@ -135,6 +138,7 @@ test('趋势失败可重试，真实空文献库正常显示', async ({ app: pag
   await expect(page.locator('.error-panel')).toHaveCount(0);
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect(page.locator('.chart-2d').first()).toBeVisible();
+  await page.getByRole('tab', { name: '分析设置', exact: true }).click();
   await expect(page.locator('.kpi').first()).toContainText('0');
   await page.screenshot({ path: test.info().outputPath('empty-library-after.png'), fullPage: true });
 });

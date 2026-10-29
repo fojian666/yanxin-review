@@ -111,7 +111,7 @@ test('清理演示数据保留自建文档、文献、专家与公开政策', as
   expect(docs.documents.filter((doc: { source: string }) => doc.source === 'public')).toHaveLength(2);
   await navigate(page, '查重匹配');
   page.once('dialog', dialog => dialog.accept());
-  await page.getByText('管理专家库', { exact: false }).click();
+  await page.getByRole('tab', { name: '专家库', exact: true }).click();
   await page.getByRole('button', { name: '移除演示专家' }).click();
   await expect(page.getByRole('row').filter({ hasText: '示例专家A' })).toHaveCount(0);
   await expect(page.getByRole('row').filter({ hasText: 'E2E保留专家' })).toBeVisible();

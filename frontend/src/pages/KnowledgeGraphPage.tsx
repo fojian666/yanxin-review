@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -97,12 +98,24 @@ function pathPairs(path: KnowledgeNode[] | null) {
 export function KnowledgeGraphPage() {
   const [params] = useSearchParams();
   const [view, setView] = useState<"keywords" | "curated">(params.get("focus") ? "curated" : "keywords");
+  const reduce = useMotionPreference();
   return <div className="graph-views">
     <div className="graph-view-switch" role="group" aria-label="图谱类型">
       <button type="button" aria-pressed={view === "keywords"} onClick={() => setView("keywords")}>文档关键词</button>
       <button type="button" aria-pressed={view === "curated"} onClick={() => setView("curated")}>人工知识图谱</button>
     </div>
-    {view === "keywords" ? <KeywordGraph /> : <CuratedGraph />}
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={view}
+        className="graph-view-stage"
+        initial={reduce ? false : { opacity: 0.78, x: view === "curated" ? 14 : -14 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={reduce ? { opacity: 1 } : { opacity: 0, x: view === "keywords" ? -8 : 8 }}
+        transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {view === "keywords" ? <KeywordGraph /> : <CuratedGraph />}
+      </motion.div>
+    </AnimatePresence>
   </div>;
 }
 
@@ -118,6 +131,7 @@ function CuratedGraph() {
   const [pathTo, setPathTo] = useState("humanReview");
   const [path, setPath] = useState<KnowledgeNode[] | null>(null);
   const [pathError, setPathError] = useState("");
+  const [compactPane, setCompactPane] = useState<"graph" | "controls" | "detail">("graph");
 
   useEffect(() => {
     if (focus && getNode(focus)) setSelectedId(focus);
@@ -143,6 +157,7 @@ function CuratedGraph() {
 
   const chooseNode = (id: string) => {
     setSelectedId(id);
+    if (window.matchMedia("(max-width: 1050px)").matches) setCompactPane("detail");
     const next = new URLSearchParams(params);
     next.set("focus", id);
     setParams(next);
@@ -320,7 +335,13 @@ function CuratedGraph() {
         </div>
       </section>
 
-      <div className="kg-workbench">
+      <div className="kg-compact-switch" role="group" aria-label="知识图谱区域">
+        <button type="button" aria-pressed={compactPane === "graph"} onClick={() => setCompactPane("graph")}>语义星图</button>
+        <button type="button" aria-pressed={compactPane === "controls"} onClick={() => setCompactPane("controls")}>筛选与路径</button>
+        <button type="button" aria-pressed={compactPane === "detail"} onClick={() => setCompactPane("detail")}>实体详情</button>
+      </div>
+
+      <div className="kg-workbench" data-compact-pane={compactPane}>
         <aside className="kg-side">
           <section className="panel kg-control">
             <div className="kg-panel-head">

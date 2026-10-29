@@ -28,6 +28,7 @@ export function KeywordGraph() {
   const [retry, setRetry] = useState(0);
   const [limit, setLimit] = useState(100);
   const [dossierId, setDossierId] = useState("");
+  const [compactPane, setCompactPane] = useState<"graph" | "list" | "detail">("graph");
   // 文档列表变化时重读；服务端按分块内容缓存提词，删除后不会保留旧节点。
   const revision = docs.map((doc) => `${doc.id}:${doc.chunk_count}:${doc.status}`).sort().join("|");
   const materialsRevision = dossiers.find((dossier) => dossier.id === dossierId)?.materials.map((item) => item.doc_id).sort().join("|") ?? "";
@@ -101,15 +102,20 @@ export function KeywordGraph() {
     </div>
     </section>
     {dossierId && <p className="keyword-scope-note">包含卷宗内所有版本的材料</p>}
-    {error ? <div className="panel keyword-graph-message" role="alert">图谱读取失败：{error} <button type="button" className="link-btn" onClick={() => setRetry((n) => n + 1)}>重试</button></div> : loading || !data ? <div className="panel keyword-graph-message" role="status">正在整理文档关键词…</div> : !data.nodes.length ? <div className="panel keyword-graph-message">当前范围暂无可提取的关键词，请先添加可读取文本的文档。</div> :
-    <div className="kg-workbench">
+    {error ? <div className="panel keyword-graph-message" role="alert">图谱读取失败：{error} <button type="button" className="link-btn" onClick={() => setRetry((n) => n + 1)}>重试</button></div> : loading || !data ? <div className="panel keyword-graph-message" role="status">正在整理文档关键词…</div> : !data.nodes.length ? <div className="panel keyword-graph-message">当前范围暂无可提取的关键词，请先添加可读取文本的文档。</div> : <>
+    <div className="kg-compact-switch" role="group" aria-label="关键词图谱区域">
+      <button type="button" aria-pressed={compactPane === "graph"} onClick={() => setCompactPane("graph")}>关键词星图</button>
+      <button type="button" aria-pressed={compactPane === "list"} onClick={() => setCompactPane("list")}>关键词列表</button>
+      <button type="button" aria-pressed={compactPane === "detail"} onClick={() => setCompactPane("detail")}>关键词详情</button>
+    </div>
+    <div className="kg-workbench" data-compact-pane={compactPane}>
       <aside className="panel keyword-list-panel">
         <div className="kg-panel-head"><span><Search size={16} />关键词</span><span>{visible.length} / {data.nodes.length}</span></div>
         <label className="keyword-search"><span className="sr-only">搜索关键词</span><input className="select" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索关键词" /></label>
-        <div className="keyword-list">{visible.map((node) => <button key={node.id} type="button" className={node.id === selected ? "is-active" : ""} aria-pressed={node.id === selected} onClick={() => setSelected(node.id)}><span>{node.name}</span><small>{node.chunk_count} 段</small></button>)}{!visible.length && <p>未找到匹配关键词</p>}</div>
+        <div className="keyword-list">{visible.map((node) => <button key={node.id} type="button" className={node.id === selected ? "is-active" : ""} aria-pressed={node.id === selected} onClick={() => { setSelected(node.id); if (window.matchMedia("(max-width: 1050px)").matches) setCompactPane("detail"); }}><span>{node.name}</span><small>{node.chunk_count} 段</small></button>)}{!visible.length && <p>未找到匹配关键词</p>}</div>
       </aside>
-      <section className="kg-canvas-panel" aria-label="文档关键词星图"><div className="kg-canvas-head"><div><Network size={17} /><strong>关键词关联</strong></div><span className="keyword-method">{data.method}</span></div><div className="kg-canvas"><EChart option={option} height="100%" className="kg-chart" ariaLabel={`文档关键词星图，${data.nodes.length} 个关键词，${data.links.length} 条关联。可使用关键词列表查看来源。`} onClick={(raw) => { const id = (raw as { data?: { nodeId?: string } }).data?.nodeId; if (id) setSelected(id); }} /><p className="kg-canvas-hint">文字重叠时自动避让 · 悬停查看词语 · 滚轮缩放</p></div></section>
+      <section className="kg-canvas-panel" aria-label="文档关键词星图"><div className="kg-canvas-head"><div><Network size={17} /><strong>关键词关联</strong></div><span className="keyword-method">{data.method}</span></div><div className="kg-canvas"><EChart option={option} height="100%" className="kg-chart" ariaLabel={`文档关键词星图，${data.nodes.length} 个关键词，${data.links.length} 条关联。可使用关键词列表查看来源。`} onClick={(raw) => { const id = (raw as { data?: { nodeId?: string } }).data?.nodeId; if (id) { setSelected(id); if (window.matchMedia("(max-width: 1050px)").matches) setCompactPane("detail"); } }} /><p className="kg-canvas-hint">文字重叠时自动避让 · 悬停查看词语 · 滚轮缩放</p></div></section>
       <aside className="panel keyword-detail"><div className="kg-panel-head"><span><BookOpen size={17} />关键词详情</span></div>{activeNode && <div className="keyword-detail-body"><h2>{activeNode.name}</h2><p>{activeNode.cluster === null ? "未聚类" : `聚类 ${activeNode.cluster}`} · 出现在 {activeNode.chunk_count} 个文本分块中</p><h3>相近关键词 · 共现相似度</h3><div className="keyword-neighbors">{links.length ? links.slice(0, 12).map((link) => { const other = link.source === selected ? link.target : link.source; return <button type="button" key={other} onClick={() => setSelected(other)}>{other}<small>{Math.round(link.similarity * 100)}%</small></button>; }) : <p>暂无足够的共现关联</p>}</div><h3>原文来源</h3>{activeNode.sources.map((source) => <div className="keyword-source" key={`${source.doc_id}:${source.chunk_idx}`}><Link to={`/library?doc=${encodeURIComponent(source.doc_id)}`}>{source.doc_name}</Link><small>{source.section || "正文"}{source.page ? ` · 第 ${source.page} 页` : ""}</small><p>{source.excerpt}</p></div>)}<p className="keyword-caveat">分组与关联根据文本共现自动计算，不代表因果、引用或人工认定的分类。</p></div>}</aside>
-    </div>}
+    </div></>}
   </div>;
 }

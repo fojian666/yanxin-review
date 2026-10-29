@@ -292,7 +292,7 @@ export function ChatPage() {
   };
 
   return (
-    <div className="chat-layout">
+    <div className={`chat-layout chat-pane-${mobilePane}`}>
       <div className="chat-mobile-panes" aria-label="问答区域">
         <button type="button" aria-pressed={mobilePane === "chat"} onClick={() => setMobilePane("chat")}>问答</button>
         <button type="button" aria-pressed={mobilePane === "sources"} onClick={() => setMobilePane("sources")}>证据与引用 {citations.length > 0 && `(${citations.length})`}</button>

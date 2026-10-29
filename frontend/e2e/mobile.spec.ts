@@ -1,10 +1,13 @@
 import { test, expect, navigate, downloadText, loginUI } from './fixtures';
 
 test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }, testInfo) => {
+  await page.goto('/welcome');
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBeTruthy();
   for (const label of ['智能问答', '知识图谱', '文献趋势', '查重匹配', '课题卷宗', '本子预审', '文档中心']) {
     await navigate(page, label);
     await expect(page.locator('.app-shell')).not.toHaveClass(/nav-open/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), `${label} 页面纵向溢出`).toBeTruthy();
     await expect(page.locator('.page-skeleton')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`mobile-${label}.png`) });
   }
@@ -41,8 +44,8 @@ test('手机上传弹窗焦点不逃出，关闭恢复焦点', async ({ app: pag
 test('手机匹配证据换行与实际报告下载', async ({ app: page, documents }, testInfo) => {
   await navigate(page, '查重匹配'); await page.getByLabel('当前卷宗').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
-  await page.locator('.excluded-box summary').click(); await expect(page.locator('.excluded-list')).toContainText('原名一致');
   await expect(page.locator('.expert-card').last()).toHaveCSS('opacity', '1');
+  await page.getByRole('tab', { name: '回避边界', exact: true }).click(); await expect(page.locator('.match-deck-excluded')).toContainText('原名一致');
   await page.screenshot({ path: testInfo.outputPath('mobile-evidence.png'), fullPage: true });
   expect(await page.locator('.exclusion-evidence').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth))).toBeTruthy();
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出结果' }).click(), testInfo); expect(text).toContain(documents[0].name);
@@ -50,6 +53,7 @@ test('手机匹配证据换行与实际报告下载', async ({ app: page, docume
 
 test('正常动效登录撤幕与运行时减少动态效果', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' }); await loginUI(page); await navigate(page, '文献趋势');
+  await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
   if (await page.getByRole('button', { name: '3D', exact: true }).isEnabled()) {
     await page.getByRole('button', { name: '3D', exact: true }).click();
     const rotation = page.getByRole('button', { name: '自动旋转', exact: true });
@@ -139,7 +143,7 @@ test('手机预审完成时不抢占上传弹窗焦点', async ({ app: page }) =
   const dialog = page.getByRole('dialog', { name: '上传文档' });
   await expect(dialog).toBeVisible();
   release();
-  await expect(page.getByRole('region', { name: '预审报告' }).locator('.report-head')).toHaveCount(1);
+  await expect(page.getByRole('region', { name: '预审报告' })).toHaveCount(0);
   await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBeTruthy();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
@@ -161,8 +165,8 @@ for (const method of ['触摸', '键盘'] as const) test(`手机预审期间${me
   else await page.keyboard.press('PageDown');
   release();
   await expect(page.locator('.review-ready')).toContainText('预审已完成');
-  const report = page.getByRole('region', { name: '预审报告' });
-  await expect(report).not.toBeFocused();
+  await expect(page.getByRole('region', { name: '预审报告' })).toHaveCount(0);
   await page.getByRole('button', { name: '查看报告', exact: true }).click();
+  const report = page.getByRole('region', { name: '预审报告' });
   await expect(report).toBeFocused();
 });

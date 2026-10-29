@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageSquareText, ShieldCheck } from "lucide-react";
+import { FolderKanban, MessageSquareText, ShieldCheck } from "lucide-react";
 import { Suspense } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
@@ -52,6 +52,7 @@ export function WelcomePage() {
   const name = named ? display : role;
   const showBadge = named && Boolean(role);
   const primaryPath = can("review") ? "/review" : "/chat";
+  const isOverview = location.pathname === "/welcome";
 
   return (
     <div className={`welcome-home workspace-home ${location.pathname === "/welcome" ? "is-overview" : "is-task"}`}>
@@ -142,7 +143,7 @@ export function WelcomePage() {
 
       <nav className="welcome-entries workspace-index" aria-label="工作区功能">
         {entries.map(({ path, title, icon: Icon }, index) => {
-          const isActive = index === activeIndex;
+          const isActive = !isOverview && index === activeIndex;
           return (
             <Link
               key={path}
@@ -160,28 +161,39 @@ export function WelcomePage() {
       </nav>
 
       <div className="workspace-stage">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={active.path}
-            className="workspace-stage-body"
-            variants={pageVariants}
-            initial={reduce ? false : "initial"}
-            animate="animate"
-            exit={reduce ? { opacity: 1, transition: { duration: 0 } } : "exit"}
-          >
-            <Suspense
-              fallback={
-                <div className="page-skeleton" role="status">
-                  <span className="sr-only">正在加载工作区…</span>
-                  <div className="skeleton skeleton-title" aria-hidden="true" />
-                  <div className="skeleton" aria-hidden="true" />
-                </div>
-              }
+        {isOverview ? (
+          <section className="workspace-overview-deck" aria-label="当前工作面提示">
+            <div className="workspace-overview-mark" aria-hidden="true"><FolderKanban size={22} /></div>
+            <div>
+              <span>当前卷宗已载入</span>
+              <strong>{selectedDossier?.name ?? selectedDoc?.name ?? "尚未选择资料"}</strong>
+              <p>{selectedDossier ? `${selectedDossier.plan_type_label} · ${selectedDossier.phase_label} · 已归卷 ${selectedDossier.current_material_count} 份材料` : "从上方选择课题卷宗或单独申报书，再从功能索引进入具体工作面。"}</p>
+            </div>
+          </section>
+        ) : (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={active.path}
+              className="workspace-stage-body"
+              variants={pageVariants}
+              initial={reduce ? false : "initial"}
+              animate="animate"
+              exit={reduce ? { opacity: 1, transition: { duration: 0 } } : "exit"}
             >
-              <SelectedPanel />
-            </Suspense>
-          </motion.div>
-        </AnimatePresence>
+              <Suspense
+                fallback={
+                  <div className="page-skeleton" role="status">
+                    <span className="sr-only">正在加载工作区…</span>
+                    <div className="skeleton skeleton-title" aria-hidden="true" />
+                    <div className="skeleton" aria-hidden="true" />
+                  </div>
+                }
+              >
+                <SelectedPanel />
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
 
       <p className="welcome-disclaimer">

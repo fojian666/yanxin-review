@@ -13,7 +13,8 @@ import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
-import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
+import { InlinePager, WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
+import { EASE, SPRING, useMotionPreference } from "../motion";
 import type { CheckStatus, ReviewReport } from "../types";
 
 const STEPS = ["解析文档结构", "检查形式完整性", "核对诚信与规范", "文本查重比对", "生成预审报告"];
@@ -23,6 +24,16 @@ const STATUS_LABELS: Record<CheckStatus, string> = {
   warn: "关注",
   fail: "风险",
 };
+
+type ReviewSection = "run" | "summary" | "checks" | "findings" | "boundaries";
+
+const REVIEW_STEPS: WorkDeckStep<ReviewSection>[] = [
+  { id: "run", label: "运行预审", hint: "选择本子并执行检查" },
+  { id: "summary", label: "结论概览", hint: "风险分类与生成来源" },
+  { id: "checks", label: "检查项", hint: "逐项查看依据" },
+  { id: "findings", label: "查重与追问", hint: "命中片段与人工问题" },
+  { id: "boundaries", label: "边界与导出", hint: "能力范围与报告输出" },
+];
 
 export function ReviewPage() {
   const { docs, toast, activeDocId, setActiveDocId, setActiveDossierId } = useApp();
@@ -34,6 +45,10 @@ export function ReviewPage() {
   const [step, setStep] = useState(-1);
   const [error, setError] = useState("");
   const [reportReady, setReportReady] = useState(false);
+  const [section, setSection] = useState<ReviewSection>("run");
+  const [checkPage, setCheckPage] = useState(0);
+  const [findingPage, setFindingPage] = useState(0);
+  const [boundaryPage, setBoundaryPage] = useState(0);
   // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(() => new Set());
   useEffect(() => setExpandedEvidence(new Set()), [report]);
@@ -97,6 +112,10 @@ export function ReviewPage() {
     setReport(null);
     setReportReady(false);
     setError("");
+    setSection("run");
+    setCheckPage(0);
+    setFindingPage(0);
+    setBoundaryPage(0);
   }, [activeDocId, sortedDocs]);
 
   useEffect(() => {
@@ -121,9 +140,11 @@ export function ReviewPage() {
   }, [busy]);
 
   const focusReport = () => {
-    const target = reportRef.current;
-    target?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-    target?.focus({ preventScroll: true });
+    setSection("summary");
+    requestAnimationFrame(() => {
+      const target = reportRef.current;
+      target?.focus({ preventScroll: true });
+    });
     setReportReady(false);
   };
 
@@ -136,6 +157,11 @@ export function ReviewPage() {
       return;
     }
     focusReport();
+  }, [report]);
+
+  useEffect(() => {
+    if (!report || window.matchMedia("(max-width: 680px)").matches) return;
+    setSection("summary");
   }, [report]);
 
   const run = async () => {
@@ -152,6 +178,9 @@ export function ReviewPage() {
     setBusy(true);
     setError("");
     setReport(null);
+    setCheckPage(0);
+    setFindingPage(0);
+    setBoundaryPage(0);
     try {
       const result = await api.review(docId);
       if (requestId !== requestSequence.current) return;
@@ -160,6 +189,7 @@ export function ReviewPage() {
     } catch (err) {
       if (requestId !== requestSequence.current) return;
       setError((err as Error).message);
+      setSection("summary");
       toast(`预审失败：${(err as Error).message}`, "error");
     } finally {
       if (requestId === requestSequence.current) {
@@ -220,175 +250,235 @@ export function ReviewPage() {
     URL.revokeObjectURL(url);
   };
 
+  const flattenedChecks = report?.sections.flatMap((reportSection, sectionIndex) =>
+    reportSection.items.map((item, itemIndex) => ({
+      section: reportSection,
+      item,
+      key: `${reportSection.key}-${itemIndex}`,
+      sectionIndex,
+      itemIndex,
+    }))
+  ) ?? [];
+  const visibleCheckIndex = Math.min(checkPage, Math.max(0, flattenedChecks.length - 1));
+  const currentCheck = flattenedChecks[visibleCheckIndex];
+  const findings = report
+    ? [
+        ...report.duplicate.matches.map((match, index) => ({ type: "duplicate" as const, match, key: `duplicate-${index}` })),
+        ...report.questions.map((question, index) => ({ type: "question" as const, question, key: `question-${index}` })),
+      ]
+    : [];
+  const visibleFindingIndex = Math.min(findingPage, Math.max(0, findings.length - 1));
+  const currentFinding = findings[visibleFindingIndex];
+  const limitations = report?.limitations ?? [];
+  const visibleBoundaryIndex = Math.min(boundaryPage, Math.max(0, limitations.length - 1));
+
   return (
-    <div className="review-workspace">
-      <div className="review-layout">
-        <div className="panel review-control">
-        <h2>本子预审</h2>
-        <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
-          {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
-        </button>
-        {reportReady && <div className="review-ready" role="status">预审已完成 <button type="button" className="btn btn-ghost btn-sm" onClick={focusReport}>查看报告</button></div>}
-        <div className={`review-steps ${busy ? "is-running" : ""}`}>
-          <div className="steps-track">
-            <motion.div
-              className="steps-fill"
-              animate={{ scaleY: progress / 100 }}
-              style={{ originY: 0 }}
-              transition={{ duration: reduce ? 0 : 0.22, ease: EASE }}
-            />
-          </div>
-          {STEPS.map((label, index) => (
-            <div
-              key={label}
-              className={`step ${busy && step === index ? "active" : ""} ${
-                report || (!busy && step > index) ? "done" : ""
-              }`}
-            >
-              <span />
-              {label}
+    <div className="review-workspace review-deck-workspace">
+      <WorkDeck
+        className="review-deck"
+        steps={REVIEW_STEPS}
+        active={section}
+        onChange={setSection}
+        ariaLabel="预审工作台"
+        panels={{
+          run: (
+            <div className="review-run-page">
+              <div className="panel review-control">
+                <h2>本子预审</h2>
+                <p className="review-run-doc">{docId ? `准备检查：${sortedDocs.find((doc) => doc.id === docId)?.name ?? "已选文档"}` : "请先从上方选择申报书。"}</p>
+                <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
+                  {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
+                </button>
+                {reportReady && <div className="review-ready" role="status">预审已完成 <button type="button" className="btn btn-ghost btn-sm" onClick={focusReport}>查看报告</button></div>}
+                <div className={`review-steps ${busy ? "is-running" : ""}`}>
+                  <div className="steps-track">
+                    <motion.div
+                      className="steps-fill"
+                      animate={{ scaleY: progress / 100 }}
+                      style={{ originY: 0 }}
+                      transition={{ duration: reduce ? 0 : 0.22, ease: EASE }}
+                    />
+                  </div>
+                  {STEPS.map((label, index) => (
+                    <div
+                      key={label}
+                      className={`step ${busy && step === index ? "active" : ""} ${report || (!busy && step > index) ? "done" : ""}`}
+                    >
+                      <span />
+                      {label}
+                    </div>
+                  ))}
+                </div>
+                <div className="control-note">
+                  <strong>边界</strong>
+                  <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策引用须人工核对。</p>
+                </div>
+              </div>
+            </div>
+          ),
+          summary: (
+            <div className="review-report review-summary-page" role="region" aria-label="预审报告" tabIndex={0} ref={reportRef}>
+              {report ? (
+                <>
+                  <ReportHeader report={report} onExport={exportReport} />
+                  <ReportSummary report={report} />
+                  {report.warning && <div className="llm-warning">{report.warning}</div>}
+                </>
+              ) : (
+                <EmptyState
+                  tall
+                  icon={<FileSearch size={42} />}
+                  title={error ? "预审失败" : "预审报告将在这里显示"}
+                  description={error || (!sortedDocs.length ? "请先上传申报书。" : docId ? "已选择文档，请回到“运行预审”执行检查。" : "请先选择待审文档。")}
+                />
+              )}
+            </div>
+          ),
+          checks: (
+            <div className="review-report review-check-page" role="region" aria-label="检查项" tabIndex={0}>
+              {currentCheck ? (
+                <div className="section-block">
+                  <div className="section-head">
+                    <h3>{currentCheck.section.title}</h3>
+                    <StatusPill status={currentCheck.section.status} />
+                  </div>
+                  <div className="check-item">
+                    <div className="check-top">
+                      <div>
+                        <div className="check-label">{currentCheck.item.label}</div>
+                        <div className="check-detail">{currentCheck.item.detail}</div>
+                      </div>
+                      <StatusPill status={currentCheck.item.status} />
+                    </div>
+                    {currentCheck.item.evidence && (
+                      <div className="check-evidence">
+                        {expandedEvidence.has(currentCheck.key) ? currentCheck.item.evidence_full || currentCheck.item.evidence : currentCheck.item.evidence}
+                      </div>
+                    )}
+                    {(currentCheck.item.evidence_full || "").length > currentCheck.item.evidence.length && (
+                      <button
+                        type="button"
+                        className="source-toggle"
+                        aria-expanded={expandedEvidence.has(currentCheck.key)}
+                        onClick={() => toggleEvidence(currentCheck.key)}
+                      >
+                        {expandedEvidence.has(currentCheck.key) ? "收起原文" : `展开全文（${(currentCheck.item.evidence_full || "").length} 字）`}
+                      </button>
+                    )}
+                  </div>
+                  <InlinePager label="检查项" index={visibleCheckIndex} total={flattenedChecks.length} onChange={setCheckPage} />
+                </div>
+              ) : (
+                <EmptyState icon={<FileSearch size={38} />} description="完成预审后，在这里逐项查看检查结果。" />
+              )}
+            </div>
+          ),
+          findings: (
+            <div className="review-report review-finding-page" role="region" aria-label="查重与追问" tabIndex={0}>
+              {currentFinding ? (
+                currentFinding.type === "duplicate" ? (
+                  <div className="section-block">
+                    <div className="section-head">
+                      <h3>查重命中</h3>
+                      <span className="muted">相似度不等于抄袭，需人工判断</span>
+                    </div>
+                    <div className="check-label">{currentFinding.match.matched_doc_name} · 相似度 {currentFinding.match.similarity.toFixed(2)}</div>
+                    <div className="check-evidence">本子：{currentFinding.match.source_snippet}<br />比对：{currentFinding.match.matched_snippet}</div>
+                  </div>
+                ) : (
+                  <div className="section-block">
+                    <div className="section-head"><h3>建议核实的问题</h3><span className="muted">{visibleFindingIndex + 1} / {findings.length}</span></div>
+                    <div className="check-item review-question-card">{currentFinding.question}</div>
+                  </div>
+                )
+              ) : (
+                <EmptyState icon={<FileSearch size={38} />} description="完成预审后，查重命中与建议追问将在这里逐项查看。" />
+              )}
+              <InlinePager label="查重与追问" index={visibleFindingIndex} total={findings.length} onChange={setFindingPage} />
+            </div>
+          ),
+          boundaries: (
+            <div className="review-report review-boundaries-page" role="region" aria-label="边界与导出" tabIndex={0}>
+              {report ? (
+                <>
+                  <div className="section-block">
+                    <div className="section-head"><h3>能力边界</h3></div>
+                    {limitations.length ? (
+                      <>
+                        <ul className="report-limits questions"><li>{limitations[visibleBoundaryIndex]}</li></ul>
+                        <InlinePager label="检查边界" index={visibleBoundaryIndex} total={limitations.length} onChange={setBoundaryPage} />
+                      </>
+                    ) : <p className="muted">本次结果由模型辅助生成，仍须核对原始材料。</p>}
+                    <p className="disclaimer">{report.disclaimer}</p>
+                  </div>
+                  <div className="report-actions">
+                    <motion.button className="btn btn-ghost" onClick={exportReport} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                      <Download size={16} />导出 Markdown
+                    </motion.button>
+                    <motion.button className="btn btn-primary" onClick={() => window.print()} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                      <Printer size={16} />打印 / 存为 PDF
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                <EmptyState icon={<FileSearch size={38} />} description="完成预审后，在这里查看能力边界并导出报告。" />
+              )}
+            </div>
+          ),
+        }}
+      />
+      {report && <ReviewPrintReport report={report} />}
+    </div>
+  );
+}
+
+function ReviewPrintReport({ report }: { report: ReviewReport }) {
+  return (
+    <article className="review-print-only" aria-hidden="true">
+      <h1>预审报告：{report.doc.name}</h1>
+      <p>
+        风险等级：{report.overall.risk_level} · {generationLabel(report.generation, "规则预审")} ·{" "}
+        {report.overall.generated_at.replace("T", " ")}
+      </p>
+      <h2>总体判断</h2>
+      <p>{report.overall.summary}</p>
+      {report.warning && <p>{report.warning}</p>}
+      {report.sections.map((reportSection) => (
+        <section key={reportSection.key}>
+          <h2>{reportSection.title}（{STATUS_LABELS[reportSection.status]}）</h2>
+          {reportSection.items.map((item, index) => (
+            <div className="print-check-item" key={`${reportSection.key}-${index}`}>
+              <h3>{item.label}（{STATUS_LABELS[item.status]}）</h3>
+              <p>{item.detail}</p>
+              {(item.evidence_full || item.evidence) && <p>依据：{item.evidence_full || item.evidence}</p>}
             </div>
           ))}
-        </div>
-        <div className="control-note">
-          <strong>边界</strong>
-          <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策引用须人工核对。</p>
-        </div>
-        </div>
-
-        <div className="panel review-report" role="region" aria-label="预审报告" tabIndex={0} ref={reportRef}>
-        <AnimatePresence mode="wait" initial={false}>
-          {!report ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.34, ease: EASE }}
-            >
-              <EmptyState
-                tall
-                icon={<FileSearch size={42} />}
-                title={error ? "预审失败" : "预审报告将在这里显示"}
-                description={
-                  error ||
-                  (!sortedDocs.length
-                    ? "请先上传申报书。"
-                    : docId
-                      ? "已选择文档，点击「开始预审」。"
-                      : "请先选择待审文档。")
-                }
-              />
-            </motion.div>
-          ) : (
-            <motion.div
-              key={report.overall.generated_at}
-              className="report-unveiling"
-              initial={reduce ? false : { opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: reduce ? 0 : 0.22, ease: EASE }}
-            >
-            <ReportHeader report={report} onExport={exportReport} />
-            <ReportSummary report={report} />
-            {report.warning && <div className="llm-warning">{report.warning}</div>}
-            {report.sections.map((section, sectionIndex) => (
-              <motion.div
-                className="section-block"
-                key={section.key}
-                initial={reduce ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: reduce ? 0 : 0.24, ease: EASE, delay: reduce ? 0 : Math.min(sectionIndex * 0.04, 0.16) }}
-              >
-                <div className="section-head">
-                  <h3>{section.title}</h3>
-                  <StatusPill status={section.status} />
-                </div>
-                {section.items.map((item, index) => {
-                  const key = `${section.key}-${index}`;
-                  const expanded = expandedEvidence.has(key);
-                  const full = item.evidence_full || "";
-                  const hasMore = full.length > item.evidence.length;
-                  return (
-                    <div className="check-item" key={key}>
-                      <div className="check-top">
-                        <div>
-                          <div className="check-label">{item.label}</div>
-                          <div className="check-detail">{item.detail}</div>
-                        </div>
-                        <StatusPill status={item.status} />
-                      </div>
-                      {item.evidence && (
-                        <div className="check-evidence">{expanded ? full : item.evidence}</div>
-                      )}
-                      {hasMore && (
-                        <button
-                          type="button"
-                          className="source-toggle"
-                          aria-expanded={expanded}
-                          onClick={() => toggleEvidence(key)}
-                        >
-                          {expanded ? "收起原文" : `展开全文（${full.length} 字）`}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </motion.div>
-            ))}
-            {report.duplicate.matches.length > 0 && (
-              <div className="section-block">
-                <div className="section-head">
-                  <h3>查重命中详情</h3>
-                  <span className="muted">相似度不等于抄袭，需人工判断</span>
-                </div>
-                {report.duplicate.matches.map((match, index) => (
-                  <div className="check-item" key={`${match.matched_doc_name}-${index}`}>
-                    <div className="check-label">
-                      {match.matched_doc_name} · 相似度 {match.similarity.toFixed(2)}
-                    </div>
-                    <div className="check-evidence">
-                      本子：{match.source_snippet}
-                      <br />
-                      比对：{match.matched_snippet}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="section-block">
-              <div className="section-head">
-                <h3>建议向申报人/评审专家核实的问题</h3>
-                <span className="muted">{report.questions.length} 条</span>
-              </div>
-              <motion.div
-                className="check-item"
-                variants={staggerContainer}
-                initial="initial"
-                animate="animate"
-              >
-                <ol className="questions">
-                  {report.questions.map((question) => (
-                    <motion.li key={question} variants={staggerItem}>{question}</motion.li>
-                  ))}
-                </ol>
-              </motion.div>
+        </section>
+      ))}
+      {report.duplicate.matches.length > 0 && (
+        <section>
+          <h2>查重命中</h2>
+          {report.duplicate.matches.map((match, index) => (
+            <div className="print-check-item" key={`${match.matched_doc_name}-${index}`}>
+              <h3>{match.matched_doc_name} · 相似度 {match.similarity.toFixed(2)}</h3>
+              <p>本子：{match.source_snippet}</p>
+              <p>比对：{match.matched_snippet}</p>
             </div>
-            <div className="report-actions">
-              <motion.button className="btn btn-ghost" onClick={exportReport} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-                <Download size={16} />导出 Markdown
-              </motion.button>
-              <motion.button className="btn btn-primary" onClick={() => window.print()} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-                <Printer size={16} />打印 / 存为 PDF
-              </motion.button>
-            </div>
-            <div className="disclaimer">{report.disclaimer}</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        </div>
-      </div>
-    </div>
+          ))}
+        </section>
+      )}
+      <section>
+        <h2>建议核实的问题</h2>
+        <ol>{report.questions.map((question) => <li key={question}>{question}</li>)}</ol>
+      </section>
+      {(report.limitations?.length ?? 0) > 0 && (
+        <section>
+          <h2>能力边界</h2>
+          <ol>{report.limitations!.map((item) => <li key={item}>{item}</li>)}</ol>
+        </section>
+      )}
+      <p>{report.disclaimer}</p>
+    </article>
   );
 }
 

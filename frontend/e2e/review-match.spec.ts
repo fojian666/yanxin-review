@@ -1,4 +1,35 @@
+import type { Page } from '@playwright/test';
 import { test, expect, navigate, downloadText } from './fixtures';
+
+async function showReviewCheck(page: Page, title: string, selector = '.review-check-page h3') {
+  await page.getByRole('tab', { name: '检查项', exact: true }).click();
+  const target = page.locator(selector).filter({ hasText: title });
+  const pager = page.getByRole('group', { name: '检查项分页' });
+  for (let index = 0; index < 30; index += 1) {
+    if (await target.isVisible().catch(() => false)) return;
+    const next = pager.getByRole('button', { name: '下一项' });
+    if (!(await next.isEnabled())) break;
+    const before = await pager.locator('span').innerText();
+    await next.click();
+    await expect(pager.locator('span')).not.toHaveText(before);
+  }
+  await expect(target).toBeVisible();
+}
+
+async function showExcludedExpert(page: Page, name: string) {
+  await page.getByRole('tab', { name: '回避边界', exact: true }).click();
+  const pager = page.getByRole('group', { name: '排除专家分页' });
+  const target = page.locator('.match-deck-excluded').getByText(name, { exact: true });
+  for (let index = 0; index < 30; index += 1) {
+    if (await target.isVisible().catch(() => false)) return;
+    const next = pager.getByRole('button', { name: '下一项' });
+    if (!(await next.isEnabled())) break;
+    const before = await pager.locator('span').innerText();
+    await next.click();
+    await expect(pager.locator('span')).not.toHaveText(before);
+  }
+  await expect(target).toBeVisible();
+}
 
 test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: page, documents }, testInfo) => {
   await page.goto(`/review?doc=${documents[0].id}`);
@@ -6,16 +37,24 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
   await expect(page.locator('.report-head')).toContainText('规则预审');
-  await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
   await expect(page.locator('.report-seal')).toHaveText('待人工复核');
+  await page.screenshot({ path: testInfo.outputPath('review-summary-desktop.png') });
+  await showReviewCheck(page, '文本查重');
+  await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
   await expect(page.locator('.report-limits')).not.toBeEmpty();
-  await page.screenshot({ path: testInfo.outputPath('review-desktop.png') });
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
   expect(text).toContain(documents[0].name);
   expect(text).toContain('能力边界');
   expect(text).toContain('文本查重');
   expect(text).toContain('离线规则与检索');
   expect(text).toContain('须经专家和管理人员复核');
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.review-print-only')).toBeVisible();
+  await expect(page.locator('.review-print-only')).toContainText('形式完整性');
+  await expect(page.locator('.review-print-only')).toContainText('建议核实的问题');
+  await expect(page.locator('.work-deck')).toBeHidden();
+  await page.emulateMedia({ media: 'screen' });
   await page.getByLabel('当前卷宗').selectOption(documents[1].id);
   await expect(page.locator('.report-head')).toHaveCount(0);
   await page.getByRole('button', { name: '开始预审' }).click();
@@ -38,6 +77,7 @@ test('预审慢请求期间阻止重复运行，错误后可重试', async ({ ap
   await expect(page.getByRole('heading', { name: '预审失败', exact: true })).toBeVisible();
   expect(calls).toBe(1);
   await page.unroute('**/api/review');
+  await page.getByRole('tab', { name: '运行预审', exact: true }).click();
   await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
 });
@@ -74,9 +114,9 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
   await page.screenshot({ path: testInfo.outputPath('match-desktop.png') });
-  await page.locator('.excluded-box summary').click();
-  await expect(page.locator('.excluded-list')).toContainText('示例专家A');
-  await expect(page.locator('.excluded-list')).toContainText('与申报单位存在同单位回避');
+  await page.getByRole('tab', { name: '回避边界', exact: true }).click();
+  await expect(page.locator('.match-deck-excluded')).toContainText('示例专家A');
+  await expect(page.locator('.match-deck-excluded')).toContainText('与申报单位存在同单位回避');
   await expect(page.locator('.exclusion-evidence').first()).toContainText('原名一致');
   await expect(page.locator('.expert-card').filter({ hasText: '示例专家A' })).toHaveCount(0);
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出结果' }).click(), testInfo);
@@ -85,7 +125,7 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   expect(text).toContain('相似度不等于抄袭');
   await page.getByLabel('当前卷宗').selectOption(documents[1].id);
   await expect(page.getByRole('button', { name: '导出结果' })).toBeDisabled();
-  await expect(page.locator('.excluded-box')).toHaveCount(0);
+  await expect(page.locator('.match-deck-excluded')).toHaveCount(0);
 });
 
 test('匹配锁定文档，离页后旧请求不覆盖新本子结果', async ({ app: page, documents, context }) => {
@@ -138,16 +178,17 @@ test('匹配请求失败后恢复，缺申报信息独立告警', async ({ app: 
 
 test('专家CSV导入、归一回避和模板下载', async ({ app: page, documents }, testInfo) => {
   await navigate(page, '查重匹配');
-  await page.getByText('管理专家库', { exact: false }).click();
+  await page.getByRole('tab', { name: '专家库', exact: true }).click();
   const template = await downloadText(page, () => page.getByRole('button', { name: '下载 CSV 模板' }).click(), testInfo);
   expect(template).toContain('回避单位');
   await page.locator('input[type=file]').setInputFiles({ name: '专家.csv', mimeType: 'text/csv', buffer: Buffer.from('姓名,单位,学科,研究方向,在研项目数,是否可评审\nE2E归一专家,沄州 大学资源环境学院,科研诚信,数据治理,1,是\n') });
+  await expect(page.locator('.toast')).toContainText('已导入');
+  await page.getByRole('tab', { name: '专家库', exact: true }).click();
   await expect(page.getByRole('row').filter({ hasText: 'E2E归一专家' })).toBeVisible();
   await page.getByLabel('当前卷宗').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
-  await page.locator('.excluded-box summary').click();
-  await expect(page.locator('.excluded-list').getByText('E2E归一专家', { exact: true })).toBeVisible();
-  await expect(page.locator('.excluded-list')).toContainText('排版归一后一致');
+  await showExcludedExpert(page, 'E2E归一专家');
+  await expect(page.locator('.match-deck-excluded')).toContainText('排版归一后一致');
 });
 
 test('真实空专家库仍展示回避边界与可解释空态', async ({ app: page, documents, context }) => {
@@ -176,6 +217,7 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   await page.route('**/api/review', route => route.fulfill({ json: report }));
   await page.goto(`/review?doc=${documents[0].id}`);
   await page.getByRole('button', { name: '开始预审' }).click();
+  await showReviewCheck(page, item.label, '.review-check-page .check-label');
   const row = page.locator('.check-item').filter({ hasText: item.label });
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
   await row.getByRole('button', { name: /展开全文/ }).click();
@@ -183,9 +225,11 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   await expect(row.getByRole('button', { name: '收起原文' })).toHaveAttribute('aria-expanded', 'true');
   await row.getByRole('button', { name: '收起原文' }).click();
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
+  await page.getByRole('tab', { name: '结论概览', exact: true }).click();
+  await expect(page.locator('.report-meta .generation-source')).toContainText('DeepSeek · deepseek-flash');
+  await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
   expect(text).toContain('生成来源：DeepSeek · deepseek-flash');
-  await expect(page.locator('.report-meta .generation-source')).toContainText('DeepSeek · deepseek-flash');
   expect(text).toContain(item.label);
   expect(text).toContain(item.evidence);
   expect(text).toContain('人工核对');

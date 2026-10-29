@@ -15,6 +15,12 @@ test('单页工作区切换功能时保留卷宗上下文', async ({ app: page }
   await expect(page).toHaveURL(/\/library$/);
   await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('文档中心');
   expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
+  await navigate(page, '本子预审');
+  const runTab = page.getByRole('tab', { name: '运行预审', exact: true });
+  await runTab.focus();
+  await runTab.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: '结论概览', exact: true })).toBeFocused();
+  await expect(page.getByRole('tab', { name: '结论概览', exact: true })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('长桌面工作区卷宗栏文字与操作不重叠', async ({ app: page }, testInfo) => {
@@ -120,5 +126,30 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
       expect(audit.drawerRights.length).toBeGreaterThan(0);
       expect(Math.max(...audit.drawerRights), '翻卷开始前抽屉必须完全退场').toBeLessThanOrEqual(1);
     }
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect.poll(() => page.evaluate(() => matchMedia('(prefers-reduced-motion: no-preference)').matches)).toBeTruthy();
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await navigate(page, '本子预审');
+    await page.getByRole('tab', { name: '结论概览', exact: true }).click();
+    await expect(page.locator('.review-deck .work-deck-panel').last()).toHaveAttribute('data-direction', 'next');
+    const entering = await page.locator('.review-deck .work-deck-panel').last().evaluate(async element => {
+      const samples: Array<{ animations: number; transform: string; opacity: number }> = [];
+      for (let index = 0; index < 5; index += 1) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const style = getComputedStyle(element);
+        samples.push({ animations: element.getAnimations({ subtree: false }).length, transform: style.transform, opacity: Number(style.opacity) });
+      }
+      return samples;
+    });
+    expect(entering.some(sample => sample.animations > 0 || sample.transform !== 'none')).toBeTruthy();
+    expect(entering.every(sample => sample.opacity > 0)).toBeTruthy();
+    await expect.poll(() => page.locator('.review-deck .work-deck-panel').last().evaluate(element => element.getAnimations({ subtree: false }).filter(animation => animation.playState === 'running').length)).toBe(0);
+    await page.getByRole('tab', { name: '运行预审', exact: true }).click();
+    await expect(page.locator('.review-deck .work-deck-panel').last()).toHaveAttribute('data-direction', 'prev');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await page.getByRole('tab', { name: '结论概览', exact: true }).click();
+    await expect.poll(() => page.locator('.review-deck .work-deck-panel').last().evaluate(element => element.getAnimations({ subtree: false }).filter(animation => animation.playState === 'running').length)).toBe(0);
   });
 }

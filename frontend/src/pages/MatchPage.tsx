@@ -18,13 +18,24 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
 import { KpiCard } from "../components/KpiCard";
-import { EASE, staggerContainer, staggerItem } from "../motion";
+import { InlinePager, WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
+import { EASE, staggerItem } from "../motion";
 import type { Expert, ExpertCandidate, ToolCheckResult } from "../types";
 
 const EXPERT_TEMPLATE =
   "姓名,单位,职称,学科,研究方向,代表性成果,回避单位,回避人员,在研项目数,是否可评审\n" +
   "示例专家A,示例大学A,教授,科研管理,科研诚信;科技政策,主持科研诚信相关课题（示例）,示例大学B,,1,是\n" +
   "示例专家B,示例大学B,教授,计算机科学,语义查重;文本挖掘,发表语义查重论文（示例）,,,2,是\n";
+
+type MatchSection = "run" | "duplicates" | "experts" | "boundaries" | "library";
+
+const MATCH_STEPS: WorkDeckStep<MatchSection>[] = [
+  { id: "run", label: "运行检查", hint: "查重与匹配总览" },
+  { id: "duplicates", label: "查重结果", hint: "逐项查看相似段落" },
+  { id: "experts", label: "专家候选", hint: "排序、理由与约束" },
+  { id: "boundaries", label: "回避边界", hint: "排除原因与免责声明" },
+  { id: "library", label: "专家库", hint: "CSV 导入与数据核对" },
+];
 
 function scoreClass(score: number) {
   if (score >= 0.55) return "status-fail";
@@ -45,6 +56,10 @@ export function MatchPage() {
   const [experts, setExperts] = useState<Expert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [section, setSection] = useState<MatchSection>("run");
+  const [duplicatePage, setDuplicatePage] = useState(0);
+  const [expertPage, setExpertPage] = useState(0);
+  const [boundaryPage, setBoundaryPage] = useState(0);
   const loadingRef = useRef(false);
   const checkIdRef = useRef(0);
   const csvRef = useRef<HTMLInputElement>(null);
@@ -76,6 +91,7 @@ export function MatchPage() {
       setDocId("");
       setResult(null);
       setError("");
+      setSection("run");
       return;
     }
     if (!sortedDocs.some((doc) => doc.id === activeDocId)) return;
@@ -85,6 +101,10 @@ export function MatchPage() {
     setDocId(activeDocId);
     setResult(null);
     setError("");
+    setSection("run");
+    setDuplicatePage(0);
+    setExpertPage(0);
+    setBoundaryPage(0);
   }, [activeDocId, sortedDocs]);
 
   const run = async () => {
@@ -101,6 +121,10 @@ export function MatchPage() {
       const data = await api.toolCheck(docId);
       if (token !== checkIdRef.current) return;  // 期间已改选或重跑，丢弃过期结果
       setResult(data);
+      setDuplicatePage(0);
+      setExpertPage(0);
+      setBoundaryPage(0);
+      setSection("experts");
     } catch (err) {
       if (token !== checkIdRef.current) return;
       setError((err as Error).message);
@@ -199,283 +223,168 @@ export function MatchPage() {
 
   const duplicate = result?.duplicate;
   const match = result?.match;
+  const duplicateMatches = duplicate?.matches ?? [];
+  const visibleDuplicateIndex = Math.min(duplicatePage, Math.max(0, duplicateMatches.length - 1));
+  const currentDuplicate = duplicateMatches[visibleDuplicateIndex];
+  const candidates = match?.candidates ?? [];
+  const visibleExpertIndex = Math.min(expertPage, Math.max(0, candidates.length - 1));
+  const currentCandidate = candidates[visibleExpertIndex];
+  const excluded = match?.excluded ?? [];
+  const visibleBoundaryIndex = Math.min(boundaryPage, Math.max(0, excluded.length - 1));
+  const currentExcluded = excluded[visibleBoundaryIndex];
 
   return (
-    <div className="match-page">
-      <div className="panel match-hero">
-        <div className="match-hero-copy">
-          <h2>查重与专家匹配</h2>
-          <p>
-            比对文本相似段落，并根据专业领域、回避条件和负载匹配专家。
-          </p>
-        </div>
-        <div className="match-controls">
-          <div className="match-actions">
-            <button className="btn btn-primary" onClick={() => void run()} disabled={loading || !docId}>
-              {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />运行一体化检查</>}
-            </button>
-            <button className="btn btn-ghost" onClick={exportReport} disabled={!result}>
-              <Download size={16} />导出结果
-            </button>
-          </div>
-          <div className="match-summary-line">
-            {match ? match.summary : "选定一份本子，查重与匹配随即展开。"}
-          </div>
-        </div>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {error && (
-          <motion.div
-            className="panel error-panel"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.22, ease: EASE }}
-          >
-            <AlertTriangle size={18} />{error}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="kpi-grid">
-        <KpiCard
-          label="最高相似度"
-          value={duplicate ? `${Math.round(duplicate.highest * 100)}%` : "—"}
-          sub={duplicate ? `高相似 ${duplicate.high_count} · 关注 ${duplicate.watch_count}` : "尚未检查"}
-          tone={duplicate?.high_count ? "gold" : "teal"}
-        />
-        <KpiCard
-          label="查重命中"
-          value={duplicate ? duplicate.matches.length : 0}
-          suffix="个"
-          sub="仅统计已入库文档"
-        />
-        <KpiCard
-          label="候选专家"
-          value={match ? match.candidates.length : 0}
-          suffix="位"
-          sub={match ? `满足约束 ${match.available_count} / ${match.total_experts}` : "尚未匹配"}
-          tone="gold"
-        />
-        <KpiCard
-          label="已排除专家"
-          value={match ? match.excluded.length : 0}
-          suffix="位"
-          sub="负载 / 回避 / 不可评审"
-        />
-      </div>
-
-      <div className="match-grid">
-        <div className="panel match-panel">
-          <div className="panel-head">
-            <div>
-              <h2>文本查重</h2>
-              <p>段落级相似度，附原文证据；相似不等于抄袭，须人工复核</p>
-            </div>
-            <span className={`status-pill ${!duplicate ? "status-idle" : duplicate.high_count ? "status-fail" : duplicate.watch_count ? "status-warn" : "status-pass"}`}>
-              {duplicate ? (duplicate.high_count ? "高风险" : duplicate.watch_count ? "需关注" : "未发现高相似") : "待检查"}
-            </span>
-          </div>
-          <AnimatePresence mode="wait" initial={false}>
-            {!result ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: EASE }}
-              >
-                <EmptyState
-                  icon={<FileSearch size={38} />}
-                  description="运行检查后，与已入库文档的相似段落与证据将列于此。"
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key={`duplicate-${result.generated_at}-${result.doc.id}`}
-                className="match-body"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.28, ease: EASE }}
-              >
-              <div className="match-callout">{duplicate?.summary}</div>
-              {duplicate?.matches.length ? (
-                <motion.div variants={staggerContainer} initial="initial" animate="animate">
-                  {duplicate.matches.map((item, index) => (
-                    <motion.div className="duplicate-card" key={`${item.matched_doc_id}-${index}`} variants={staggerItem}>
-                      <div className="duplicate-head">
-                        <div>
-                          <div className="duplicate-title">{item.matched_doc_name}</div>
-                          <div className="muted">最高段落相似度 {item.similarity.toFixed(2)}</div>
-                        </div>
-                        <span className={`status-pill ${scoreClass(item.similarity)}`}>
-                          {item.similarity >= 0.55 ? "高相似" : item.similarity >= 0.3 ? "关注" : "低相似"}
-                        </span>
-                      </div>
-                      <div className="check-evidence">本子：{item.source_snippet}</div>
-                      <div className="check-evidence">比对：{item.matched_snippet}</div>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <EmptyState icon={<CheckCircle2 size={34} />} description="当前已入库文档范围内未发现相似文档；入库范围越大，查重越有效。" />
-              )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="panel match-panel">
-          <div className="panel-head">
-            <div>
-              <h2>专家匹配</h2>
-              <p>方向语义、关键词与学科三路加权，约束前置，排序可解释</p>
-            </div>
-            <span className="count-badge">{match?.candidates.length ?? 0}</span>
-          </div>
-          <AnimatePresence mode="wait" initial={false}>
-            {!result ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: EASE }}
-              >
-                <EmptyState
-                  icon={<Users size={38} />}
-                  description="运行检查后，候选专家、匹配理由与排除原因将列于此。"
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key={`experts-${result.generated_at}-${result.doc.id}`}
-                className="match-body"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.28, ease: EASE }}
-              >
-              <div className="match-callout">
-                <strong>申报单位：</strong>{match?.applicant.institutions.join("、") || "未识别"}
-                <br />
-                <strong>负责人：</strong>{match?.applicant.people.join("、") || "未识别"}
-              </div>
-              {match?.applicant_warning && (
-                <div className="match-constraint-warning" role="status">
-                  <AlertTriangle size={16} aria-hidden="true" />
-                  <span>{match.applicant_warning}</span>
+    <div className="match-page match-deck-workspace">
+      <WorkDeck
+        className="match-deck"
+        steps={MATCH_STEPS}
+        active={section}
+        onChange={setSection}
+        ariaLabel="查重匹配工作台"
+        status={<button type="button" className="btn btn-ghost btn-sm" onClick={exportReport} disabled={!result}><Download size={14} />导出结果</button>}
+        panels={{
+          run: (
+            <div className="match-run-page">
+              <div className="panel match-hero">
+                <div className="match-hero-copy">
+                  <h2>查重与专家匹配</h2>
+                  <p>比对文本相似段落，并根据专业领域、回避条件和负载匹配专家。</p>
                 </div>
-              )}
-              <p className="match-method-note">{match?.institution_match_note}</p>
-              <div className="keyword-chips">
-                {match?.proposal_keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}
-              </div>
-              {match?.candidates.length ? (
-                <motion.div variants={staggerContainer} initial="initial" animate="animate">
-                  {match.candidates.map((candidate, index) => (
-                    <ExpertCard key={candidate.expert.id} candidate={candidate} index={index} />
-                  ))}
-                </motion.div>
-              ) : (
-                <EmptyState icon={<UserX size={34} />} description="暂无满足约束的候选专家，请检查专家库或回避 / 负载设置。" />
-              )}
-              {match?.excluded.length ? (
-                <details className="excluded-box">
-                  <summary><UserX size={14} />已排除 {match.excluded.length} 位（负载 / 回避 / 不可评审）</summary>
-                  <div className="excluded-list">
-                    {match.excluded.map((item) => (
-                      <div key={`${item.name}-${item.institution}-${item.reason}`}>
-                        <strong>{item.name}</strong>（{item.institution}）：{item.reason}
-                        <p className="exclusion-evidence">{item.evidence}</p>
-                      </div>
-                    ))}
+                <div className="match-controls">
+                  <div className="match-actions">
+                    <button className="btn btn-primary" onClick={() => void run()} disabled={loading || !docId}>
+                      {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />运行一体化检查</>}
+                    </button>
                   </div>
-                </details>
-              ) : null}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      <details className="expert-library">
-        <summary>管理专家库 <span>{experts.length} 位</span></summary>
-      <div className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>专家库</h2>
-            <p>供专家画像匹配之用；不采集性别、年龄等敏感属性。演示专家可一键移除。</p>
-          </div>
-          <div className="head-actions">
-            <span className="count-badge">{experts.length}</span>
-            <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
-              <Download size={14} />下载 CSV 模板
-            </button>
-            {can("import") && (
-            <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}>
-              <Upload size={14} />导入专家 CSV
-            </button>
-            )}
-            <input
-              ref={csvRef}
-              type="file"
-              accept=".csv"
-              hidden
-              onChange={(event) => {
-                void importExperts(event.target.files?.[0]);
-                event.target.value = "";
-              }}
-            />
-            {can("remove-sample") && (
-            <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSamples()}>
-              <Trash2 size={14} />移除演示专家
-            </button>
-            )}
-          </div>
-        </div>
-        <div className="table-wrap scroll-area">
-          {experts.length === 0 ? (
-            <EmptyState icon={<Users size={38} />} description="专家库尚空，导入一份专家 CSV 即成册。" />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr><th>姓名</th><th>单位</th><th>学科</th><th>研究方向</th><th>在研</th><th>状态</th></tr>
-              </thead>
-              <tbody>
-                {experts.map((expert, index) => {
-                  const status = expertStatus(expert);
-                  return (
-                    <motion.tr
-                      key={expert.id}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.015, 0.18) }}
-                    >
-                      <td>
-                        <div className="doc-title">{expert.name}</div>
-                        {expert.is_sample ? <span className="badge-sample">演示</span> : null}
-                      </td>
-                      <td>{expert.institution}</td>
-                      <td>{expert.discipline}</td>
-                      <td>{expert.research_areas}</td>
-                      <td>{expert.workload}</td>
-                      <td><span className={`status-pill ${status.cls}`}>{status.label}</span></td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      </details>
-      <div className="disclaimer">
-        工具输出仅供科研管理与评审辅助，不构成重复申报认定或专家抽取结论；所有结果须人工复核。
-      </div>
+                  <div className="match-summary-line">{match ? match.summary : "选定一份本子，查重与匹配随即展开。"}</div>
+                </div>
+              </div>
+              <AnimatePresence initial={false}>
+                {error && (
+                  <motion.div
+                    className="panel error-panel"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: EASE }}
+                  >
+                    <AlertTriangle size={18} />{error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <div className="kpi-grid">
+                <KpiCard label="最高相似度" value={duplicate ? `${Math.round(duplicate.highest * 100)}%` : "—"} sub={duplicate ? `高相似 ${duplicate.high_count} · 关注 ${duplicate.watch_count}` : "尚未检查"} tone={duplicate?.high_count ? "gold" : "teal"} />
+                <KpiCard label="查重命中" value={duplicate ? duplicate.matches.length : 0} suffix="个" sub="仅统计已入库文档" />
+                <KpiCard label="候选专家" value={match ? match.candidates.length : 0} suffix="位" sub={match ? `满足约束 ${match.available_count} / ${match.total_experts}` : "尚未匹配"} tone="gold" />
+                <KpiCard label="已排除专家" value={match ? match.excluded.length : 0} suffix="位" sub="负载 / 回避 / 不可评审" />
+              </div>
+            </div>
+          ),
+          duplicates: (
+            <div className="panel match-panel match-deck-page">
+              <div className="panel-head">
+                <div><h2>文本查重</h2><p>段落级相似度，附原文证据；相似不等于抄袭，须人工复核</p></div>
+                <span className={`status-pill ${!duplicate ? "status-idle" : duplicate.high_count ? "status-fail" : duplicate.watch_count ? "status-warn" : "status-pass"}`}>
+                  {duplicate ? (duplicate.high_count ? "高风险" : duplicate.watch_count ? "需关注" : "未发现高相似") : "待检查"}
+                </span>
+              </div>
+              {currentDuplicate ? (
+                <>
+                  <div className="match-callout">{duplicate?.summary}</div>
+                  <div className="duplicate-card">
+                    <div className="duplicate-head">
+                      <div><div className="duplicate-title">{currentDuplicate.matched_doc_name}</div><div className="muted">最高段落相似度 {currentDuplicate.similarity.toFixed(2)}</div></div>
+                      <span className={`status-pill ${scoreClass(currentDuplicate.similarity)}`}>{currentDuplicate.similarity >= 0.55 ? "高相似" : currentDuplicate.similarity >= 0.3 ? "关注" : "低相似"}</span>
+                    </div>
+                    <div className="check-evidence">本子：{currentDuplicate.source_snippet}</div>
+                    <div className="check-evidence">比对：{currentDuplicate.matched_snippet}</div>
+                  </div>
+                  <InlinePager label="查重结果" index={visibleDuplicateIndex} total={duplicateMatches.length} onChange={setDuplicatePage} />
+                </>
+              ) : result ? (
+                <EmptyState icon={<CheckCircle2 size={34} />} description="当前已入库文档范围内未发现相似文档；入库范围越大，查重越有效。" />
+              ) : (
+                <EmptyState icon={<FileSearch size={38} />} description="运行检查后，与已入库文档的相似段落与证据将列于此。" />
+              )}
+            </div>
+          ),
+          experts: (
+            <div className="panel match-panel match-deck-page">
+              <div className="panel-head"><div><h2>专家匹配</h2><p>方向语义、关键词与学科三路加权，约束前置，排序可解释</p></div><span className="count-badge">{candidates.length}</span></div>
+              {result && match ? (
+                <>
+                  <div className="match-callout"><strong>申报单位：</strong>{match.applicant.institutions.join("、") || "未识别"}<br /><strong>负责人：</strong>{match.applicant.people.join("、") || "未识别"}</div>
+                  {match.applicant_warning && <div className="match-constraint-warning" role="status"><AlertTriangle size={16} aria-hidden="true" /><span>{match.applicant_warning}</span></div>}
+                  <p className="match-method-note">{match.institution_match_note}</p>
+                  <div className="keyword-chips">{match.proposal_keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}</div>
+                  {currentCandidate ? (
+                    <>
+                      <div className="expert-card-list"><ExpertCard candidate={currentCandidate} index={visibleExpertIndex} /></div>
+                      <InlinePager label="专家候选" index={visibleExpertIndex} total={candidates.length} onChange={setExpertPage} />
+                    </>
+                  ) : <EmptyState icon={<UserX size={34} />} description="暂无满足约束的候选专家，请检查专家库或回避 / 负载设置。" />}
+                </>
+              ) : <EmptyState icon={<Users size={38} />} description="运行检查后，候选专家、匹配理由与排除原因将列于此。" />}
+            </div>
+          ),
+          boundaries: (
+            <div className="panel match-panel match-deck-page">
+              <div className="panel-head"><div><h2>回避与边界</h2><p>排除原因保留双方原名与比较依据</p></div><UserCheck size={18} /></div>
+              {result && match ? (
+                <>
+                  <div className="match-callout"><strong>匹配口径：</strong>{match.institution_match_note}</div>
+                  {currentExcluded ? (
+                    <>
+                      <div className="excluded-list match-deck-excluded" key={`${currentExcluded.name}-${currentExcluded.institution}`}>
+                        <div>
+                          <strong>{currentExcluded.name}</strong>（{currentExcluded.institution}）：{currentExcluded.reason}
+                          <p className="exclusion-evidence">{currentExcluded.evidence}</p>
+                        </div>
+                      </div>
+                      <InlinePager label="排除专家" index={visibleBoundaryIndex} total={excluded.length} onChange={setBoundaryPage} />
+                    </>
+                  ) : <EmptyState icon={<ShieldCheck size={32} />} description="本次没有因负载或回避条件被排除的专家。" />}
+                  <div className="disclaimer">{result.disclaimer}</div>
+                </>
+              ) : <EmptyState icon={<ShieldCheck size={38} />} description="运行检查后，在这里核对排除原因和能力边界。" />}
+            </div>
+          ),
+          library: (
+            <div className="panel match-deck-page match-expert-library-page">
+              <div className="panel-head">
+                <div><h2>专家库</h2><p>供专家画像匹配之用；不采集性别、年龄等敏感属性。</p></div>
+                <div className="head-actions">
+                  <span className="count-badge">{experts.length}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}><Download size={14} />下载 CSV 模板</button>
+                  {can("import") && <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}><Upload size={14} />导入专家 CSV</button>}
+                  <input ref={csvRef} type="file" accept=".csv" hidden onChange={(event) => { void importExperts(event.target.files?.[0]); event.target.value = ""; }} />
+                  {can("remove-sample") && <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSamples()}><Trash2 size={14} />移除演示专家</button>}
+                </div>
+              </div>
+              <div className="table-wrap match-expert-table">
+                {experts.length === 0 ? (
+                  <EmptyState icon={<Users size={38} />} description="专家库尚空，导入一份专家 CSV 即成册。" />
+                ) : (
+                  <table className="data-table">
+                    <thead><tr><th>姓名</th><th>单位</th><th>学科</th><th>研究方向</th><th>在研</th><th>状态</th></tr></thead>
+                    <tbody>
+                      {experts.map((expert, index) => {
+                        const status = expertStatus(expert);
+                        return (
+                          <motion.tr key={expert.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.015, 0.18) }}>
+                            <td><div className="doc-title">{expert.name}</div>{expert.is_sample ? <span className="badge-sample">演示</span> : null}</td>
+                            <td>{expert.institution}</td><td>{expert.discipline}</td><td>{expert.research_areas}</td><td>{expert.workload}</td><td><span className={`status-pill ${status.cls}`}>{status.label}</span></td>
+                          </motion.tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          ),
+        }}
+      />
     </div>
   );
 }
