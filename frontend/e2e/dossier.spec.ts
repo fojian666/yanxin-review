@@ -1,6 +1,11 @@
 import { test, expect, navigate } from './fixtures';
 
 test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', async ({ app: page, documents, context }, testInfo) => {
+  const stats = page.getByRole('group', { name: '卷宗和文档概况' });
+  const docCounter = stats.locator('div').filter({ hasText: '在册文档' }).locator('strong');
+  await expect(docCounter).toHaveText(/^\d+$/);
+  const docCount = await docCounter.innerText();
+  await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('0');
   await navigate(page, '本子预审');
   await expect(page.getByRole('heading', { name: '建立第一份课题卷宗' })).toBeVisible();
   await expect(page.getByRole('button', { name: /新建.*卷宗/ })).toHaveCount(1);
@@ -14,6 +19,8 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await dialog.getByRole('button', { name: '保存卷宗' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '2026 自然资源科研诚信测试卷宗' })).toBeVisible();
+  await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('1');
+  await expect(stats.locator('div').filter({ hasText: '在册文档' }).locator('strong')).toHaveText(docCount);
   await expect(page.getByLabel('当前课题卷宗')).toHaveCount(1);
   await expect(page.getByLabel('切换卷宗')).toHaveCount(0);
   const workspaceSelect = page.getByLabel('当前课题卷宗');
@@ -69,6 +76,8 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await editDialog.getByRole('button', { name: '删除卷宗' }).click();
   await expect(editDialog).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '建立第一份课题卷宗' })).toBeVisible();
+  await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('0');
+  await expect(stats.locator('div').filter({ hasText: '在册文档' }).locator('strong')).toHaveText(docCount);
   const remaining = await (await context.request.get('/api/documents')).json();
   expect(remaining.documents.map((item: { id: string }) => item.id)).toEqual(
     expect.arrayContaining(documents.map((item) => item.id))

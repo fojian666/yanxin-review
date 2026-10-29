@@ -2388,7 +2388,6 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   border: 1px solid var(--line);
   border-radius: var(--radius) var(--radius) 0 0;
   background:
-    linear-gradient(90deg, transparent 46px, rgba(181, 133, 60, .13) 47px, transparent 48px),
     linear-gradient(180deg, rgba(255,255,255,.52), rgba(249,246,239,.74)),
     var(--panel);
   box-shadow: var(--shadow);
@@ -2440,7 +2439,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .workspace-register {
   align-self: center;
   display: grid;
-  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
   align-items: center;
   gap: 0;
   min-width: 310px;
@@ -2605,7 +2604,6 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .workspace-ledger {
     padding: 18px 16px 16px;
     background:
-      linear-gradient(90deg, transparent 34px, rgba(181, 133, 60, .12) 35px, transparent 36px),
       linear-gradient(180deg, rgba(255,255,255,.48), rgba(249,246,239,.72)),
       var(--panel);
   }
@@ -2624,7 +2622,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     gap: 6px;
   }
   .workspace-register {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     padding: 8px 10px;
   }
   .workspace-register > div {
@@ -3181,11 +3179,29 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   background: #fffdf8;
   font-size: 12px;
 }
-.document-directory-group { margin-top: 14px; }
+.document-directory-category { margin-top: 16px; }
+.document-directory-category > summary { display: flex; align-items: center; min-height: 30px; cursor: pointer; list-style: none; }
+.document-directory-category > summary::-webkit-details-marker { display: none; }
+.document-directory-category > summary h2 { flex: 1; margin: 0 7px; color: var(--ink-2); font-size: 12px; font-weight: 650; }
+.document-directory-category > summary > svg { flex: 0 0 auto; color: var(--muted); transition: transform .2s ease; }
+.document-directory-category[open] > summary > svg { transform: rotate(90deg); }
+.document-directory-group { margin: 7px 0 0 8px; padding-left: 8px; border-left: 1px solid var(--line); }
+.document-directory-category[open] > .document-directory-group,
+.document-directory-group[open] > button { animation: directoryDrawerEnter .2s ease-out both; }
+@keyframes directoryDrawerEnter { from { transform: translateX(-4px); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .document-directory-category > summary > svg, .document-directory-group summary > svg { transition: none; }
+  .document-directory-category[open] > .document-directory-group, .document-directory-group[open] > button { animation: none; }
+}
+.document-directory-group summary { display: flex; align-items: center; cursor: pointer; list-style: none; }
+.document-directory-group summary::-webkit-details-marker { display: none; }
+.document-directory-group summary > svg { flex: 0 0 auto; color: var(--muted); transition: transform .2s ease; }
+.document-directory-group[open] summary > svg { transform: rotate(90deg); }
 .document-directory-group h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex: 1;
   margin: 0 7px 5px;
   color: var(--muted);
   font-size: 10px;

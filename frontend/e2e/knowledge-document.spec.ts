@@ -145,3 +145,46 @@ test("快速切换文档时旧正文响应不会覆盖当前文档", async ({ ap
   await page.waitForTimeout(250);
   await expect(page.locator(".document-reader-head h2")).toHaveText(documents[1].name);
 });
+
+test('文档二级分类按卷宗角色展示，跨卷宗同角色不重复', async ({ app: page, documents, context }, testInfo) => {
+  const listed = await (await context.request.get('/api/documents')).json();
+  const policy = listed.documents.find((doc: { kind: string }) => doc.kind === 'policy');
+  expect(policy).toBeTruthy();
+  for (const [name, role] of [['分类测试甲', 'integrity_pledge'], ['分类测试乙', 'integrity_pledge'], ['分类测试丙', 'contract']]) {
+    const created = await context.request.post('/api/dossiers', { data: { name } });
+    expect(created.ok()).toBeTruthy();
+    const { dossier } = await created.json();
+    const attached = await context.request.post(`/api/dossiers/${dossier.id}/documents`, {
+      data: { doc_id: documents[0].id, role },
+    });
+    expect(attached.ok()).toBeTruthy();
+    if (name === '分类测试甲') {
+      const reference = await context.request.post(`/api/dossiers/${dossier.id}/documents`, { data: { doc_id: policy.id, role: 'other' } });
+      expect(reference.ok()).toBeTruthy();
+    }
+  }
+  await page.goto('/library');
+  const directory = page.locator('.document-directory');
+  await expect(directory.getByRole('heading', { name: '课题材料', exact: true })).toBeVisible();
+  await expect(directory.getByRole('heading', { name: '公共与参考资料', exact: true })).toBeVisible();
+  for (const role of ['诚信承诺书', '合同']) {
+    const group = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: new RegExp(`^${role}\\s`) }) });
+    await expect(group.getByRole('button', { name: new RegExp(documents[0].name) })).toHaveCount(1);
+  }
+  const proposalGroup = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^申请书\s/ }) });
+  await expect(proposalGroup.getByRole('button', { name: new RegExp(documents[1].name) })).toBeVisible();
+  await expect(directory.getByRole('heading', { name: /^政策\s/ })).toBeVisible();
+  const otherGroup = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^其他材料\s/ }) });
+  await expect(otherGroup.getByRole('button').filter({ hasText: policy.name })).toHaveCount(1);
+  const projectCategory = directory.locator('.document-directory-category').filter({ has: page.getByRole('heading', { name: '课题材料', exact: true }) });
+  await projectCategory.locator(':scope > summary').click();
+  await expect(projectCategory.locator('.document-directory-group').first()).toBeHidden();
+  await projectCategory.locator(':scope > summary').click();
+  const contract = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) });
+  await contract.locator('summary').click();
+  await expect(contract.getByRole('button', { name: new RegExp(documents[0].name) })).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath('document-categories.png') });
+  await directory.getByLabel('筛选文档').fill(documents[0].name);
+  await expect(directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) }).getByRole('button', { name: new RegExp(documents[0].name) })).toBeVisible();
+  await expect(directory.getByRole('button', { name: new RegExp(documents[1].name) })).toHaveCount(0);
+});

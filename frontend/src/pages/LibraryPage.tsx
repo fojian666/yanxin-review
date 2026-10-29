@@ -29,6 +29,8 @@ export function LibraryPage() {
   const {
     health,
     docs,
+    dossiers,
+    dossierOptions,
     papers,
     refreshDocs,
     refreshPapers,
@@ -273,6 +275,8 @@ export function LibraryPage() {
           <div id="document-directory-panel">
             <DocumentDirectory
               docs={orderedDocs}
+              dossiers={dossiers}
+              materialRoles={dossierOptions?.material_roles ?? []}
               selectedId={selected?.id || ""}
               query={documentQuery}
               onQueryChange={setDocumentQuery}

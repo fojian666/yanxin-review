@@ -154,10 +154,14 @@ export function WelcomePage() {
           </Link>
         </div>}
         </div>
-        <div className="workspace-register" role="group" aria-label="资料库概况">
+        <div className="workspace-register" role="group" aria-label="卷宗和文档概况">
           <div>
             <strong>{loading ? "读取中" : docs.length}</strong>
-            <span>在册资料</span>
+            <span>在册文档</span>
+          </div>
+          <div>
+            <strong>{loading ? "读取中" : dossiers.length}</strong>
+            <span>课题卷宗</span>
           </div>
           <div>
             <strong>{proposalCount}</strong>
