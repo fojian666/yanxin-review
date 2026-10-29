@@ -26,9 +26,9 @@ def _chunk_terms(text: str) -> tuple[str, ...]:
     ))
 
 
-def build_keyword_graph(limit: int = 100) -> dict:
+def build_keyword_graph(limit: int = 100, doc_ids: set[str] | None = None) -> dict:
     """按分块出现次数选词，再按词的分块共现余弦计算关联。"""
-    docs = {doc["id"]: doc for doc in db.list_documents()}
+    docs = {doc["id"]: doc for doc in db.list_documents() if doc_ids is None or doc["id"] in doc_ids}
     contexts = []
     counts: Counter[str] = Counter()
     sources: dict[str, list[dict]] = defaultdict(list)
@@ -53,7 +53,8 @@ def build_keyword_graph(limit: int = 100) -> dict:
                     "chunk_idx": chunk["idx"], "section": chunk.get("section") or "",
                     "page": chunk.get("page"), "excerpt": text[start:start + 150],
                 })
-    chosen = sorted(counts, key=lambda term: (-counts[term], term))[:max(0, min(limit, 100))]
+    limit = max(1, min(limit, 500))
+    chosen = sorted(counts, key=lambda term: (-counts[term], term))[:limit]
     selected = set(chosen)
     pairs: Counter[tuple[str, str]] = Counter()
     for terms in contexts:
@@ -78,5 +79,5 @@ def build_keyword_graph(limit: int = 100) -> dict:
         "links": links,
         "method": "分块关键词共现余弦",
         "document_count": len(indexed_documents),
-        "limit": 100,
+        "limit": limit,
     }

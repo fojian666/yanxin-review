@@ -3534,6 +3534,10 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .graph-view-switch { display: flex; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
 .graph-view-switch button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 3px; background: transparent; color: var(--muted); font-size: 13px; }
 .graph-view-switch button[aria-pressed="true"] { background: var(--teal-soft); color: var(--teal-deep); font-weight: 600; }
+.keyword-graph-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
+.keyword-graph-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; min-width: 0; }
+.keyword-graph-controls select { width: min(300px, 100%); min-width: 145px; }
+.keyword-scope-note { margin: 0; color: var(--muted); font-size: 12px; }
 .keyword-list-panel, .keyword-detail { min-width: 0; padding: 0; overflow: hidden; }
 .keyword-search { display: block; padding: 9px 10px; }
 .keyword-search .select { height: 36px; }
@@ -3556,9 +3560,13 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .keyword-source p { margin: 5px 0 0; color: var(--ink-2); font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; }
 .keyword-caveat { padding-top: 9px; border-top: 1px solid var(--line); }
 @media (max-width: 900px) { .keyword-list { max-height: 240px; } .keyword-detail { max-height: none; } }
-@media (max-width: 680px) { .graph-view-switch { width: 100%; } .graph-view-switch button { flex: 1; min-height: 44px; } }
+@media (max-width: 680px) { .graph-view-switch { width: 100%; } .graph-view-switch button { flex: 1; min-height: 44px; } .keyword-graph-controls label { flex: 1 1 140px; } .keyword-graph-controls select { width: 100%; min-width: 0; } }
 
 @media (min-width: 681px) and (max-width: 900px) {
   .graph-views .kg-summary { flex-wrap: nowrap; align-items: center; }
   .graph-views .kg-stats { order: 0; width: auto; }
+  .keyword-graph .kg-summary-title div > span { display: none; }
+  .keyword-graph-controls { flex-wrap: nowrap; gap: 8px; }
+  .keyword-graph-controls label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .keyword-graph-controls select { min-width: 110px; width: 125px; }
 }

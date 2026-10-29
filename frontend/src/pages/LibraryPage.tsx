@@ -48,6 +48,11 @@ export function LibraryPage() {
   const csvRef = useRef<HTMLInputElement>(null);
   const readerRef = useRef<HTMLElement>(null);
   const contentRequest = useRef(0);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [dragging, setDragging] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [documentQuery, setDocumentQuery] = useState("");
@@ -164,7 +169,7 @@ export function LibraryPage() {
       const nextParams = new URLSearchParams(params);
       if (fallback) nextParams.set("doc", fallback.id);
       else nextParams.delete("doc");
-      setParams(nextParams, { replace: true });
+      if (mounted.current) setParams(nextParams, { replace: true });
       toast("文档已删除");
     } catch (err) {
       toast(`删除失败：${(err as Error).message}`, "error");

@@ -130,7 +130,11 @@ export const api = {
   createUser: (payload: { username: string; password: string; role: string; display_name: string }) =>
     request<{ ok: boolean }>("/auth/users", jsonOptions(payload)),
   health: () => request<Health>("/health"),
-  keywordGraph: () => request<KeywordGraphData>("/knowledge/keywords"),
+  keywordGraph: (limit = 100, dossierId = "") => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (dossierId) params.set("dossier_id", dossierId);
+    return request<KeywordGraphData>(`/knowledge/keywords?${params}`);
+  },
   documents: () => request<{ documents: DocItem[] }>("/documents"),
   documentContent: (docId: string) =>
     request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import uvicorn
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -379,8 +379,13 @@ def create_user(payload: CreateUserRequest):
 
 
 @app.get("/api/knowledge/keywords")
-def knowledge_keywords():
-    return keyword_graph.build_keyword_graph()
+def knowledge_keywords(limit: int = Query(100, ge=1, le=500), dossier_id: str | None = None):
+    doc_ids = None
+    if dossier_id is not None:
+        if not db.get_dossier(dossier_id):
+            raise HTTPException(status_code=404, detail="卷宗不存在")
+        doc_ids = {item["doc_id"] for item in db.list_dossier_documents(dossier_id)}
+    return keyword_graph.build_keyword_graph(limit, doc_ids)
 
 
 @app.get("/api/dossiers/options")

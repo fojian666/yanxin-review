@@ -30,8 +30,17 @@ def test_keyword_graph_uses_actual_context_and_ignores_orphans(monkeypatch):
 def test_keyword_graph_limits_nodes_and_deduplicates_links(monkeypatch):
     monkeypatch.setattr(keyword_graph.db, "list_documents", lambda: [{"id": "one", "name": "演示"}])
     monkeypatch.setattr(keyword_graph.db, "get_chunks", lambda: [{"doc_id": "one", "idx": 0, "text": "正文"}])
-    monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: tuple(f"词条{i}" for i in range(120)))
-    result = keyword_graph.build_keyword_graph(limit=120)
-    assert len(result["nodes"]) == 100
+    monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: tuple(f"词条{i}" for i in range(510)))
+    result = keyword_graph.build_keyword_graph(limit=600)
+    assert len(result["nodes"]) == 500 and result["limit"] == 500
+    assert len(keyword_graph.build_keyword_graph(limit=20)["nodes"]) == 20
     assert len(result["links"]) == len({(link["source"], link["target"]) for link in result["links"]})
     assert all(0 < link["similarity"] <= 1 for link in result["links"])
+
+
+def test_keyword_graph_scope_excludes_unrelated_documents(monkeypatch):
+    monkeypatch.setattr(keyword_graph.db, "list_documents", lambda: [{"id": "a", "name": "甲"}, {"id": "b", "name": "乙"}])
+    monkeypatch.setattr(keyword_graph.db, "get_chunks", lambda: [{"doc_id": "a", "idx": 0, "text": "甲文"}, {"doc_id": "b", "idx": 0, "text": "乙文"}])
+    monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: (text,))
+    assert [node["name"] for node in keyword_graph.build_keyword_graph(doc_ids={"a"})["nodes"]] == ["甲文"]
+    assert keyword_graph.build_keyword_graph(doc_ids=set())["nodes"] == []

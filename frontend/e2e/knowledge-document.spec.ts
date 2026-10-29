@@ -196,6 +196,20 @@ test('文档关键词星图显示真实关键词和来源，上传后更新', as
   await navigate(page, '知识图谱');
   await expect(page.locator('.keyword-graph .kg-stats')).toContainText('100关键词');
   await expect(page.locator('.keyword-list button')).toHaveCount(100);
+  await page.getByLabel('关键词数量').selectOption('20');
+  await expect(page.locator('.keyword-list button')).toHaveCount(20);
+  await page.getByLabel('关键词数量').selectOption('500');
+  await expect.poll(async () => page.locator('.keyword-list button').count()).toBeGreaterThan(100);
+  await page.getByLabel('关键词数量').selectOption('100');
+  await expect(page.locator('.keyword-list button')).toHaveCount(100);
+  const scope = page.getByLabel('查看范围');
+  if (await scope.locator('option').count() > 1) {
+    const dossierId = await scope.locator('option').nth(1).getAttribute('value');
+    await scope.selectOption(dossierId!);
+    await expect(page.getByText('包含卷宗内所有版本的材料')).toBeVisible();
+    await scope.selectOption('');
+    await expect(page.locator('.keyword-list button')).toHaveCount(100);
+  }
   await expect(page.locator('.keyword-source a').first()).toBeVisible();
   await expect(page.locator('.keyword-caveat')).toContainText('不代表因果');
   const sources = page.locator('.keyword-graph .kg-stats span').last().locator('strong');
@@ -210,10 +224,18 @@ test('文档关键词星图显示真实关键词和来源，上传后更新', as
   await expect(sources).toHaveText(String(before + 1));
   await navigate(page, '文档中心');
   await page.locator('.document-directory').getByRole('button', { name: /图谱更新/ }).click();
+  let finishDelete!: () => void;
+  const deleteGate = new Promise<void>((resolve) => { finishDelete = resolve; });
+  await page.route('**/api/documents/*', async (route) => {
+    if (route.request().method() === 'DELETE') await deleteGate;
+    await route.continue();
+  });
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '删除文档', exact: true }).click();
-  await expect(page.getByText('文档已删除', { exact: true })).toBeVisible();
   await navigate(page, '知识图谱');
+  finishDelete();
+  await expect(page.getByText('文档已删除', { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/graph$/);
   await expect(sources).toHaveText(String(before));
   await page.getByRole('button', { name: '人工知识图谱' }).click();
   await expect(page.locator('.kg-stats')).toContainText('48实体');

@@ -8,7 +8,7 @@ import type { KeywordGraphData } from "../types";
 import { EChart } from "./EChart";
 
 export function KeywordGraph() {
-  const { docs } = useApp();
+  const { docs, dossiers } = useApp();
   const reduce = useMotionPreference();
   const [data, setData] = useState<KeywordGraphData | null>(null);
   const [error, setError] = useState("");
@@ -16,13 +16,17 @@ export function KeywordGraph() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const [retry, setRetry] = useState(0);
+  const [limit, setLimit] = useState(100);
+  const [dossierId, setDossierId] = useState("");
   // 文档列表变化时重读；服务端按分块内容缓存提词，删除后不会保留旧节点。
   const revision = docs.map((doc) => `${doc.id}:${doc.chunk_count}:${doc.status}`).sort().join("|");
+  const materialsRevision = dossiers.find((dossier) => dossier.id === dossierId)?.materials.map((item) => item.doc_id).sort().join("|") ?? "";
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
-    api.keywordGraph().then((result) => {
+    setData(null);
+    api.keywordGraph(limit, dossierId).then((result) => {
       if (!active) return;
       setData(result);
       setSelected((current) => result.nodes.some((node) => node.id === current) ? current : result.nodes[0]?.id ?? "");
@@ -30,7 +34,7 @@ export function KeywordGraph() {
       if (active) { setError((err as Error).message); setData(null); }
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [revision, retry]);
+  }, [revision, materialsRevision, limit, dossierId, retry]);
   const activeNode = data?.nodes.find((node) => node.id === selected);
   const visible = data?.nodes.filter((node) => node.name.toLowerCase().includes(query.trim().toLowerCase())) ?? [];
   const links = (data?.links.filter((link) => link.source === selected || link.target === selected) ?? [])
@@ -57,12 +61,12 @@ export function KeywordGraph() {
             x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.72,
             symbolSize: 9 + Math.min(13, Math.sqrt(node.chunk_count) * 2),
             itemStyle: { color: colors[index % colors.length], opacity: dim ? 0.18 : 1, borderColor: active ? "#fff7db" : "#fffdf8", borderWidth: active ? 3 : 1 },
-            label: { show: true, position: "right", color: "#314b43", fontSize: active || adjacent.has(node.id) ? 11 : 10, opacity: dim ? 0.2 : 1 },
+            label: { show: nodes.length <= 100 || index < 20 || active || adjacent.has(node.id) || (!!query.trim() && matching.has(node.id)), position: "right", color: "#314b43", fontSize: active || adjacent.has(node.id) ? 11 : 10, opacity: dim ? 0.2 : 1 },
           };
         }),
         links: (data?.links ?? []).map((link) => ({
           source: link.source, target: link.target,
-          lineStyle: { color: "#397c6c", width: link.source === selected || link.target === selected ? 1.7 : 0.7, opacity: link.source === selected || link.target === selected ? 0.65 : 0.17, curveness: 0.08 },
+          lineStyle: { color: "#397c6c", width: link.source === selected || link.target === selected ? 1.7 : 0.7, opacity: link.source === selected || link.target === selected ? 0.65 : nodes.length > 100 ? 0.06 : 0.17, curveness: 0.08 },
         })),
         emphasis: { focus: "adjacency" },
       }],
@@ -73,8 +77,13 @@ export function KeywordGraph() {
     <section className="kg-summary" aria-label="关键词图谱概况">
       <div className="kg-summary-title"><span className="kg-summary-icon" aria-hidden="true"><Network size={22} /></span><div><strong>文档关键词星图</strong><span>从已收录文本提词，连线表示分块上下文相近，需结合原文核对。</span></div></div>
       <div className="kg-stats"><span><strong>{data?.nodes.length ?? "—"}</strong>关键词</span><span><strong>{data?.links.length ?? "—"}</strong>关联</span><span><strong>{data?.document_count ?? "—"}</strong>来源文档</span></div>
+    <div className="keyword-graph-controls" aria-label="星图范围与数量">
+      <label><span>查看范围</span><select className="select" value={dossierId} onChange={(event) => setDossierId(event.target.value)}><option value="">整个知识库</option>{dossiers.map((dossier) => <option key={dossier.id} value={dossier.id}>{dossier.name}</option>)}</select></label>
+      <label><span>关键词数量</span><select className="select" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>{[10, 20, 50, 100, 200, 500].map((count) => <option key={count} value={count}>最多 {count} 个</option>)}</select></label>
+    </div>
     </section>
-    {error ? <div className="panel keyword-graph-message" role="alert">图谱读取失败：{error} <button type="button" className="link-btn" onClick={() => setRetry((n) => n + 1)}>重试</button></div> : loading && !data ? <div className="panel keyword-graph-message" role="status">正在整理文档关键词…</div> : !data?.nodes.length ? <div className="panel keyword-graph-message">暂无可提取的关键词，请先上传可读取文本的文档。</div> :
+    {dossierId && <p className="keyword-scope-note">包含卷宗内所有版本的材料</p>}
+    {error ? <div className="panel keyword-graph-message" role="alert">图谱读取失败：{error} <button type="button" className="link-btn" onClick={() => setRetry((n) => n + 1)}>重试</button></div> : loading || !data ? <div className="panel keyword-graph-message" role="status">正在整理文档关键词…</div> : !data.nodes.length ? <div className="panel keyword-graph-message">当前范围暂无可提取的关键词，请先添加可读取文本的文档。</div> :
     <div className="kg-workbench">
       <aside className="panel keyword-list-panel">
         <div className="kg-panel-head"><span><Search size={16} />关键词</span><span>{visible.length} / {data.nodes.length}</span></div>
