@@ -1,7 +1,8 @@
 import { test, expect, navigate } from './fixtures';
 
 test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', async ({ app: page, documents, context }, testInfo) => {
-  const stats = page.getByRole('group', { name: '卷宗和文档概况' });
+  // 概况仅在工作台展示，切入任务后仍验证其共享状态同步。
+  const stats = page.locator('.workspace-register');
   const docCounter = stats.locator('div').filter({ hasText: '在册文档' }).locator('strong');
   await expect(docCounter).toHaveText(/^\d+$/);
   const docCount = await docCounter.innerText();
@@ -46,10 +47,12 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await page.screenshot({ path: testInfo.outputPath('dossier-collapsed.png') });
   await page.getByRole('button', { name: '展开详情' }).click();
   await expect(page.locator('#dossier-details')).toBeVisible();
+  await page.getByRole('button', { name: '课题流程', exact: true }).click();
   await page.locator('.dossier-process summary').click();
   await expect(page.locator('.dossier-process ol li')).toHaveCount(6);
   await expect(page.locator('.dossier-process li.is-current')).toContainText('立项申请');
 
+  await page.getByRole('button', { name: '卷宗材料', exact: true }).click();
   await page.getByLabel('选择要归卷的资料').selectOption(documents[0].id);
   await page.getByLabel('材料角色').selectOption('proposal_text');
   await page.getByRole('button', { name: '归入卷宗' }).click();
@@ -61,10 +64,13 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   const scanRow = page.locator('.dossier-material-row').filter({ hasText: documents[1].name });
   await expect(scanRow).toContainText('盖章申请书');
   await expect(scanRow.getByLabel('人工确认')).not.toBeChecked();
+  await page.getByRole('button', { name: '材料体检', exact: true }).click();
   await expect(page.locator('.dossier-check-item').filter({ hasText: '申请书（盖章扫描件）' })).toContainText('不是 PDF');
 
+  await page.getByRole('button', { name: '卷宗材料', exact: true }).click();
   await scanRow.getByLabel('人工确认').click();
   await expect(scanRow).toContainText('manager 已确认');
+  await page.getByRole('button', { name: '材料体检', exact: true }).click();
   await expect(page.locator('.dossier-check-item').filter({ hasText: '申请书（盖章扫描件）' })).toContainText('不是 PDF');
   for (const width of [1440, 1920, 2560]) {
     await page.setViewportSize({ width, height: 1000 });

@@ -36,6 +36,7 @@ export function DossierWorkbench() {
   const [checklist, setChecklist] = useState<DossierChecklist | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [section, setSection] = useState<"materials" | "checklist" | "workflow">("materials");
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -227,6 +228,12 @@ export function DossierWorkbench() {
           </div>
 
           <div id="dossier-details" hidden={!expanded}>
+          <nav className="dossier-section-switch" aria-label="卷宗内容">
+            {([ ["materials", "卷宗材料"], ["checklist", "材料体检"], ["workflow", "课题流程"] ] as const).map(([value, label]) => (
+              <button type="button" key={value} aria-pressed={section === value} onClick={() => setSection(value)}>{label}</button>
+            ))}
+          </nav>
+          <div hidden={section !== "workflow"}>
           <details className="dossier-process">
             <summary>
               <span>课题实施流程</span>
@@ -248,7 +255,9 @@ export function DossierWorkbench() {
               流程节点用于材料导航，不代表官方系统已受理、推荐、立项或验收。
             </p>
           </details>
+          </div>
 
+          <div hidden={section !== "materials"}>
           {can("upload") && (
             <div className="dossier-attach">
               <div>
@@ -350,7 +359,9 @@ export function DossierWorkbench() {
               </div>
             </details>
           )}
+          </div>
 
+          <div hidden={section !== "checklist"}>
           <div className="dossier-checklist">
             <div className="dossier-section-title">
               <div>
@@ -400,6 +411,7 @@ export function DossierWorkbench() {
             ) : loading ? (
               <div className="dossier-loading" role="status"><Loader2 size={18} className="spin" /> 正在生成材料体检…</div>
             ) : null}
+          </div>
           </div>
           </div>
         </>
