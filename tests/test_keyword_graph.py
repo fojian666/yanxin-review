@@ -44,3 +44,21 @@ def test_keyword_graph_scope_excludes_unrelated_documents(monkeypatch):
     monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: (text,))
     assert [node["name"] for node in keyword_graph.build_keyword_graph(doc_ids={"a"})["nodes"]] == ["甲文"]
     assert keyword_graph.build_keyword_graph(doc_ids=set())["nodes"] == []
+
+
+def test_clusters_follow_strong_links_and_leave_isolated_terms_unclassified():
+    terms = ["甲", "乙", "丙", "丁", "戊", "己", "孤立"]
+    links = [
+        {"source": a, "target": b, "similarity": weight}
+        for a, b, weight in [
+            ("甲", "乙", 0.9), ("甲", "丙", 0.9), ("乙", "丙", 0.9),
+            ("丁", "戊", 0.9), ("丁", "己", 0.9), ("戊", "己", 0.9),
+            ("丙", "丁", 0.2),
+        ]
+    ]
+    groups = keyword_graph._cluster_terms(terms, links)
+    assert groups["甲"] == groups["乙"] == groups["丙"]
+    assert groups["丁"] == groups["戊"] == groups["己"]
+    assert groups["甲"] != groups["丁"]
+    assert groups["孤立"] is None
+    assert keyword_graph._cluster_terms(terms, links) == groups

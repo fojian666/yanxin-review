@@ -12,7 +12,7 @@
     362 rag/embeddings.py
     364 rag/experts.py
      33 rag/ingest.py
-     83 rag/keyword_graph.py
+    145 rag/keyword_graph.py
     294 rag/llm.py
     298 rag/parsers.py
     193 rag/qa.py
@@ -22,7 +22,7 @@
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   6598 total
+   6660 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     356 frontend/src/AppContext.tsx
@@ -37,7 +37,7 @@
     135 frontend/src/components/EChart.tsx
      18 frontend/src/components/EmptyState.tsx
      50 frontend/src/components/ErrorBoundary.tsx
-     97 frontend/src/components/KeywordGraph.tsx
+    106 frontend/src/components/KeywordGraph.tsx
     104 frontend/src/components/KpiCard.tsx
      84 frontend/src/components/Markdown.tsx
     188 frontend/src/components/Sidebar.tsx
@@ -61,18 +61,18 @@
     226 frontend/src/pages/WelcomePage.tsx
    3572 frontend/src/styles.css
     390 frontend/src/types.ts
-  11696 total
+  11705 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
      23 tests/test_docs.py
     317 tests/test_dossiers.py
-     46 tests/test_keyword_graph.py
+     64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
     433 tests/test_llm_provider.py
     401 tests/test_retrieval_embedding.py
    1110 tests/test_robustness.py
-   2746 total
+   2764 total
 工具（Python）
     205 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -85,7 +85,7 @@
     128 frontend/e2e/dossier.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    242 frontend/e2e/knowledge-document.spec.ts
+    243 frontend/e2e/knowledge-document.spec.ts
     170 frontend/e2e/library.spec.ts
     168 frontend/e2e/mobile.spec.ts
     193 frontend/e2e/review-match.spec.ts
@@ -93,9 +93,9 @@
      50 frontend/e2e/server.py
      32 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   1635 total
+   1636 total
 合计
-  23679 total（84 个文件）
+  23769 total（84 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

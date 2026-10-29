@@ -26,6 +26,67 @@ def _chunk_terms(text: str) -> tuple[str, ...]:
     ))
 
 
+def _cluster_terms(terms: list[str], links: list[dict]) -> dict[str, int | None]:
+    """按加权模块度局部优化分组；孤立词不强行归类。"""
+    neighbors: dict[str, dict[str, float]] = {term: {} for term in terms}
+    for link in links:
+        a, b, weight = link["source"], link["target"], link["similarity"]
+        neighbors[a][b] = weight
+        neighbors[b][a] = weight
+    degrees = {term: sum(edges.values()) for term, edges in neighbors.items()}
+    total = sum(degrees.values())
+    if not total:
+        return {term: None for term in terms}
+    labels = {term: term for term in terms}
+    strengths = dict(degrees)
+    for _ in range(20):
+        changed = False
+        for term in terms:
+            degree = degrees[term]
+            if not degree:
+                continue
+            old = labels[term]
+            strengths[old] -= degree
+            weights: Counter[str] = Counter()
+            for other, weight in neighbors[term].items():
+                weights[labels[other]] += weight
+            weights.setdefault(old, 0)
+            best = max(sorted(weights), key=lambda group: weights[group] - degree * strengths[group] / total)
+            strengths[best] += degree
+            labels[term] = best
+            changed |= best != old
+        if not changed:
+            break
+    # 合并仍有正模块度增益的相邻小组，避免大图碎成几十个零散小团。
+    while True:
+        between: Counter[tuple[str, str]] = Counter()
+        for link in links:
+            a, b = labels[link["source"]], labels[link["target"]]
+            if a != b:
+                between[tuple(sorted((a, b)))] += link["similarity"]
+        gains = [(weight - strengths[a] * strengths[b] / total, a, b) for (a, b), weight in between.items()]
+        if not gains:
+            break
+        gain, target, source = max(gains, key=lambda item: (item[0], item[1], item[2]))
+        if gain <= 1e-12:
+            break
+        for term in terms:
+            if labels[term] == source:
+                labels[term] = target
+        strengths[target] += strengths[source]
+        strengths[source] = 0
+    groups: dict[str, list[str]] = defaultdict(list)
+    for term in terms:
+        if degrees[term]:
+            groups[labels[term]].append(term)
+    ordered = sorted((group for group in groups.values() if len(group) > 1), key=lambda group: (-len(group), terms.index(group[0])))
+    result: dict[str, int | None] = {term: None for term in terms}
+    for index, group in enumerate(ordered):
+        for term in group:
+            result[term] = index + 1
+    return result
+
+
 def build_keyword_graph(limit: int = 100, doc_ids: set[str] | None = None) -> dict:
     """按分块出现次数选词，再按词的分块共现余弦计算关联。"""
     docs = {doc["id"]: doc for doc in db.list_documents() if doc_ids is None or doc["id"] in doc_ids}
@@ -74,8 +135,9 @@ def build_keyword_graph(limit: int = 100, doc_ids: set[str] | None = None) -> di
     for a, b in sorted(selected_pairs):
         common = pairs[(a, b)]
         links.append({"source": a, "target": b, "similarity": round(common / math.sqrt(counts[a] * counts[b]), 3), "shared_chunks": common})
+    clusters = _cluster_terms(chosen, links)
     return {
-        "nodes": [{"id": term, "name": term, "chunk_count": counts[term], "sources": sources[term]} for term in chosen],
+        "nodes": [{"id": term, "name": term, "chunk_count": counts[term], "sources": sources[term], "cluster": clusters[term]} for term in chosen],
         "links": links,
         "method": "分块关键词共现余弦",
         "document_count": len(indexed_documents),

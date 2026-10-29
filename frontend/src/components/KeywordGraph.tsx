@@ -43,39 +43,48 @@ export function KeywordGraph() {
     const nodes = data?.nodes ?? [];
     const matching = new Set(visible.map((item) => item.id));
     const adjacent = new Set(links.map((item) => item.source === selected ? item.target : item.source));
-    const colors = ["#0e7c6b", "#397d9a", "#b5853c", "#56855a", "#6d7083"];
+    const colors = ["#0e7c6b", "#397d9a", "#b5853c", "#56855a", "#6d7083", "#aa7060", "#7b809c", "#728a46"];
+    const groups = [...new Set(nodes.map((node) => node.cluster))].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
+    const columns = Math.ceil(Math.sqrt(groups.length * 1.5)) || 1;
+    const sizes = groups.map((group) => nodes.filter((node) => node.cluster === group).length);
+    const spacing = 100 + Math.sqrt(Math.max(1, ...sizes)) * 55;
+    const offsets = new Map<number | null, number>();
     return {
       backgroundColor: "transparent",
       animationDuration: reduce ? 0 : 400,
-      tooltip: { show: false },
+      tooltip: { show: true, renderMode: "richText", formatter: (params: { dataType?: string; name?: string }) => params.dataType === "node" ? params.name ?? "" : "" },
       series: [{
         type: "graph", layout: "none", roam: true, draggable: false,
         scaleLimit: { min: 0.45, max: 3 }, labelLayout: { hideOverlap: true },
-        data: nodes.map((node, index) => {
-          const angle = index * 2.39996;
-          const radius = 30 + Math.sqrt(index) * 39;
+        data: nodes.map((node) => {
+          const groupIndex = groups.indexOf(node.cluster);
+          const offset = offsets.get(node.cluster) ?? 0;
+          offsets.set(node.cluster, offset + 1);
+          const angle = offset * 2.39996;
+          const radius = Math.sqrt(offset) * 24;
           const dim = query.trim() && !matching.has(node.id);
           const active = node.id === selected;
           return {
             id: node.id, nodeId: node.id, name: node.name,
-            x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.72,
-            symbolSize: 9 + Math.min(13, Math.sqrt(node.chunk_count) * 2),
-            itemStyle: { color: colors[index % colors.length], opacity: dim ? 0.18 : 1, borderColor: active ? "#fff7db" : "#fffdf8", borderWidth: active ? 3 : 1 },
-            label: { show: nodes.length <= 100 || index < 20 || active || adjacent.has(node.id) || (!!query.trim() && matching.has(node.id)), position: "right", color: "#314b43", fontSize: active || adjacent.has(node.id) ? 11 : 10, opacity: dim ? 0.2 : 1 },
+            x: (groupIndex % columns) * spacing + Math.cos(angle) * radius,
+            y: Math.floor(groupIndex / columns) * spacing + Math.sin(angle) * radius,
+            symbolSize: nodes.length > 100 ? 5 + Math.min(7, Math.sqrt(node.chunk_count)) : 9 + Math.min(13, Math.sqrt(node.chunk_count) * 2),
+            itemStyle: { color: node.cluster === null ? "#a5aaa2" : colors[(node.cluster - 1) % colors.length], opacity: dim ? 0.18 : 1, borderColor: active ? "#fff7db" : "#fffdf8", borderWidth: active ? 3 : 1 },
+            label: { show: true, position: "right", color: "#314b43", fontSize: active || adjacent.has(node.id) ? 11 : 10, opacity: dim ? 0.2 : 1 },
           };
         }),
         links: (data?.links ?? []).map((link) => ({
           source: link.source, target: link.target,
           lineStyle: { color: "#397c6c", width: link.source === selected || link.target === selected ? 1.7 : 0.7, opacity: link.source === selected || link.target === selected ? 0.65 : nodes.length > 100 ? 0.06 : 0.17, curveness: 0.08 },
         })),
-        emphasis: { focus: "adjacency" },
+        emphasis: { focus: "adjacency", label: { show: true } },
       }],
     } as Record<string, unknown>;
   }, [data, links, query, reduce, selected, visible]);
 
   return <div className="knowledge-graph-page keyword-graph">
     <section className="kg-summary" aria-label="关键词图谱概况">
-      <div className="kg-summary-title"><span className="kg-summary-icon" aria-hidden="true"><Network size={22} /></span><div><strong>文档关键词星图</strong><span>从已收录文本提词，连线表示分块上下文相近，需结合原文核对。</span></div></div>
+      <div className="kg-summary-title"><span className="kg-summary-icon" aria-hidden="true"><Network size={22} /></span><div><strong>文档关键词星图</strong><span>按段落共现自动分组，组数较多时颜色循环使用。</span></div></div>
       <div className="kg-stats"><span><strong>{data?.nodes.length ?? "—"}</strong>关键词</span><span><strong>{data?.links.length ?? "—"}</strong>关联</span><span><strong>{data?.document_count ?? "—"}</strong>来源文档</span></div>
     <div className="keyword-graph-controls" aria-label="星图范围与数量">
       <label><span>查看范围</span><select className="select" value={dossierId} onChange={(event) => setDossierId(event.target.value)}><option value="">整个知识库</option>{dossiers.map((dossier) => <option key={dossier.id} value={dossier.id}>{dossier.name}</option>)}</select></label>
@@ -90,8 +99,8 @@ export function KeywordGraph() {
         <label className="keyword-search"><span className="sr-only">搜索关键词</span><input className="select" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索关键词" /></label>
         <div className="keyword-list">{visible.map((node) => <button key={node.id} type="button" className={node.id === selected ? "is-active" : ""} aria-pressed={node.id === selected} onClick={() => setSelected(node.id)}><span>{node.name}</span><small>{node.chunk_count} 段</small></button>)}{!visible.length && <p>未找到匹配关键词</p>}</div>
       </aside>
-      <section className="kg-canvas-panel" aria-label="文档关键词星图"><div className="kg-canvas-head"><div><Network size={17} /><strong>关键词关联</strong></div><span className="keyword-method">{data.method}</span></div><div className="kg-canvas"><EChart option={option} height="100%" className="kg-chart" ariaLabel={`文档关键词星图，${data.nodes.length} 个关键词，${data.links.length} 条关联。可使用关键词列表查看来源。`} onClick={(raw) => { const id = (raw as { data?: { nodeId?: string } }).data?.nodeId; if (id) setSelected(id); }} /><p className="kg-canvas-hint">点击关键词查看来源 · 拖动平移 · 滚轮缩放</p></div></section>
-      <aside className="panel keyword-detail"><div className="kg-panel-head"><span><BookOpen size={17} />关键词详情</span></div>{activeNode && <div className="keyword-detail-body"><h2>{activeNode.name}</h2><p>出现在 {activeNode.chunk_count} 个文本分块中</p><h3>相近关键词 · 共现相似度</h3><div className="keyword-neighbors">{links.length ? links.slice(0, 12).map((link) => { const other = link.source === selected ? link.target : link.source; return <button type="button" key={other} onClick={() => setSelected(other)}>{other}<small>{Math.round(link.similarity * 100)}%</small></button>; }) : <p>暂无足够的共现关联</p>}</div><h3>原文来源</h3>{activeNode.sources.map((source) => <div className="keyword-source" key={`${source.doc_id}:${source.chunk_idx}`}><Link to={`/library?doc=${encodeURIComponent(source.doc_id)}`}>{source.doc_name}</Link><small>{source.section || "正文"}{source.page ? ` · 第 ${source.page} 页` : ""}</small><p>{source.excerpt}</p></div>)}<p className="keyword-caveat">关联仅表示词语在相似文本分块中出现，不代表因果、引用或人工认定的关系。</p></div>}</aside>
+      <section className="kg-canvas-panel" aria-label="文档关键词星图"><div className="kg-canvas-head"><div><Network size={17} /><strong>关键词关联</strong></div><span className="keyword-method">{data.method}</span></div><div className="kg-canvas"><EChart option={option} height="100%" className="kg-chart" ariaLabel={`文档关键词星图，${data.nodes.length} 个关键词，${data.links.length} 条关联。可使用关键词列表查看来源。`} onClick={(raw) => { const id = (raw as { data?: { nodeId?: string } }).data?.nodeId; if (id) setSelected(id); }} /><p className="kg-canvas-hint">文字重叠时自动避让 · 悬停查看词语 · 滚轮缩放</p></div></section>
+      <aside className="panel keyword-detail"><div className="kg-panel-head"><span><BookOpen size={17} />关键词详情</span></div>{activeNode && <div className="keyword-detail-body"><h2>{activeNode.name}</h2><p>{activeNode.cluster === null ? "未聚类" : `聚类 ${activeNode.cluster}`} · 出现在 {activeNode.chunk_count} 个文本分块中</p><h3>相近关键词 · 共现相似度</h3><div className="keyword-neighbors">{links.length ? links.slice(0, 12).map((link) => { const other = link.source === selected ? link.target : link.source; return <button type="button" key={other} onClick={() => setSelected(other)}>{other}<small>{Math.round(link.similarity * 100)}%</small></button>; }) : <p>暂无足够的共现关联</p>}</div><h3>原文来源</h3>{activeNode.sources.map((source) => <div className="keyword-source" key={`${source.doc_id}:${source.chunk_idx}`}><Link to={`/library?doc=${encodeURIComponent(source.doc_id)}`}>{source.doc_name}</Link><small>{source.section || "正文"}{source.page ? ` · 第 ${source.page} 页` : ""}</small><p>{source.excerpt}</p></div>)}<p className="keyword-caveat">分组与关联根据文本共现自动计算，不代表因果、引用或人工认定的分类。</p></div>}</aside>
     </div>}
   </div>;
 }
