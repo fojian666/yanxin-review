@@ -1,11 +1,20 @@
 import { test, expect, navigate } from "./fixtures";
 
+async function expectCenteredIcon(page: import("@playwright/test").Page, selector: string) {
+  const container = await page.locator(selector).boundingBox();
+  const icon = await page.locator(`${selector} svg`).boundingBox();
+  expect(container && icon).toBeTruthy();
+  expect(Math.abs((container!.x + container!.width / 2) - (icon!.x + icon!.width / 2))).toBeLessThan(1);
+  expect(Math.abs((container!.y + container!.height / 2) - (icon!.y + icon!.height / 2))).toBeLessThan(1);
+}
+
 test("@smoke 知识图谱统计、检索、领域筛选、路径推演与大模型跳转", async ({ app: page }, testInfo) => {
   await navigate(page, "知识图谱");
   await expect(page.locator(".kg-stats")).toContainText("48实体");
   await expect(page.locator(".kg-stats")).toContainText("100关系");
   await expect(page.locator(".kg-stats")).toContainText("7知识域");
   await expect(page.locator(".kg-chart canvas")).toHaveCount(1);
+  await expectCenteredIcon(page, ".kg-summary-icon");
 
   const integrityDomain = page.locator(".kg-domain-list").getByRole("button", { name: /诚信与合规/ });
   await integrityDomain.click();
@@ -42,6 +51,7 @@ test("@smoke 知识图谱统计、检索、领域筛选、路径推演与大模�
 test("文档中心读取正文并按目录深链切换", async ({ app: page, documents }, testInfo) => {
   await page.goto(`/library?doc=${documents[0].id}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("文档中心");
+  await expectCenteredIcon(page, ".document-center-mark");
   await expect(page.locator(".document-reader-head h2")).toHaveText(documents[0].name);
   await expect(page.locator(".document-prose")).toContainText("科研诚信与自然资源数据治理研究");
   await expect(page.locator(".document-prose")).toContainText("研究内容");
@@ -56,6 +66,16 @@ test("文档中心读取正文并按目录深链切换", async ({ app: page, doc
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`doc=${documents[0].id}`));
   await expect(page.locator(".document-reader-head h2")).toHaveText(documents[0].name);
+
+  const directory = page.locator(".document-directory-shell");
+  await directory.scrollIntoViewIfNeeded();
+  await directory.hover();
+  await page.mouse.wheel(0, 1500);
+  await expect.poll(() => directory.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const lastProposal = page.locator(".document-directory-group").first().getByRole("button").last();
+  const lastName = await lastProposal.locator("strong").innerText();
+  await lastProposal.click();
+  await expect(page.locator(".document-reader-head h2")).toHaveText(lastName);
 
   await page.getByLabel("筛选文档").fill(documents[1].name);
   await expect(page.locator(".document-directory").getByRole("button", { name: new RegExp(documents[1].name) })).toBeVisible();
