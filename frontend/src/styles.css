@@ -2685,9 +2685,11 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   }
   .workspace-home.is-task .workspace-index {
     display: flex;
+    overflow-x: auto;
   }
   .workspace-home.is-task .workspace-tab {
     flex: 1 1 0;
+    min-width: 54px;
     min-height: 44px;
     padding: 0 4px;
     flex-direction: column;

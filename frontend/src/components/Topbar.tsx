@@ -13,6 +13,7 @@ const META: Record<string, { title: string; sub: string }> = {
   "/trend": { title: "文献趋势", sub: "查看文献数量和主题变化" },
   "/graph": { title: "知识图谱", sub: "探索科研治理概念与关系" },
   "/match": { title: "查重匹配", sub: "检查文本相似度并匹配专家" },
+  "/dossiers": { title: "课题卷宗", sub: "归集申报材料并核对材料情况" },
   "/review": { title: "本子预审", sub: "检查申报书并提供核对依据" },
   "/library": { title: "文档中心", sub: "阅读并管理申报书、政策与文献" },
   "/admin": { title: "用户管理", sub: "账号与角色管理（仅管理员可见）" },

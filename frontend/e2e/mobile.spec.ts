@@ -1,7 +1,7 @@
 import { test, expect, navigate, downloadText, loginUI } from './fixtures';
 
 test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }, testInfo) => {
-  for (const label of ['智能问答', '知识图谱', '文献趋势', '查重匹配', '本子预审', '文档中心']) {
+  for (const label of ['智能问答', '知识图谱', '文献趋势', '查重匹配', '课题卷宗', '本子预审', '文档中心']) {
     await navigate(page, label);
     await expect(page.locator('.app-shell')).not.toHaveClass(/nav-open/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();

@@ -6,6 +6,7 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     const nav = page.locator('.nav');
     await expect(nav.getByRole('link', { name: '用户管理' })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(nav.getByRole('link', { name: '查重匹配' })).toHaveCount(role === 'viewer' ? 0 : 1);
+    await expect(nav.getByRole('link', { name: '课题卷宗' })).toHaveCount(role === 'viewer' ? 0 : 1);
     await expect(page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true })).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
     await navigate(page, '文档中心');
     await expect(page.getByRole('button', { name: '删除文档', exact: true }).first()).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
@@ -15,6 +16,8 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     if (role === 'viewer') {
       expect((await context.request.post('/api/review', { data: { doc_id: 'missing' } })).status()).toBe(403);
       await page.goto('/match');
+      await expect(page).toHaveURL(/\/chat$/);
+      await page.goto('/dossiers');
       await expect(page).toHaveURL(/\/chat$/);
     }
     await page.locator('.user-trigger').click();

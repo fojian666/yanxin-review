@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FolderOpen,
+  FolderKanban,
   MessageSquareText,
   Network,
   ShieldCheck,
@@ -19,6 +20,7 @@ const ChatPanel = lazy(() => import("./ChatPage").then((module) => ({ default: m
 const TrendPanel = lazy(() => import("./TrendPage").then((module) => ({ default: module.TrendPage })));
 const MatchPanel = lazy(() => import("./MatchPage").then((module) => ({ default: module.MatchPage })));
 const ReviewPanel = lazy(() => import("./ReviewPage").then((module) => ({ default: module.ReviewPage })));
+const DossierPanel = lazy(() => import("../components/DossierWorkbench").then((module) => ({ default: module.DossierWorkbench })));
 const LibraryPanel = lazy(() => import("./LibraryPage").then((module) => ({ default: module.LibraryPage })));
 const AdminPanel = lazy(() => import("./AdminPage").then((module) => ({ default: module.AdminPage })));
 const KnowledgeGraphPanel = lazy(() => import("./KnowledgeGraphPage").then((module) => ({ default: module.KnowledgeGraphPage })));
@@ -32,6 +34,7 @@ interface WorkspaceView {
 }
 
 const WORKSPACE_VIEWS: WorkspaceView[] = [
+  { path: "/dossiers", title: "课题卷宗", icon: FolderKanban, permission: "review", component: DossierPanel },
   { path: "/review", title: "本子预审", icon: ShieldCheck, permission: "review", component: ReviewPanel },
   { path: "/match", title: "查重匹配", icon: Users, permission: "tool", component: MatchPanel },
   { path: "/chat", title: "智能问答", icon: MessageSquareText, component: ChatPanel },

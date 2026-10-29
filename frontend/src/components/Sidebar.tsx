@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight, FolderOpen, MessageSquareText, Network, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, FolderKanban, FolderOpen, MessageSquareText, Network, ShieldCheck, TrendingUp, UserCog, Users, type LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { to: "/trend", label: "文献趋势", icon: TrendingUp },
   { to: "/graph", label: "知识图谱", icon: Network },
   { to: "/match", label: "查重匹配", icon: Users, permission: "tool" },
+  { to: "/dossiers", label: "课题卷宗", icon: FolderKanban, permission: "review" },
   { to: "/review", label: "本子预审", icon: ShieldCheck, permission: "review" },
   { to: "/library", label: "文档中心", icon: FolderOpen },
 ];

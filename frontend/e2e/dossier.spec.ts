@@ -6,7 +6,7 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await expect(docCounter).toHaveText(/^\d+$/);
   const docCount = await docCounter.innerText();
   await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('0');
-  await navigate(page, '本子预审');
+  await navigate(page, '课题卷宗');
   await expect(page.getByRole('heading', { name: '建立第一份课题卷宗' })).toBeVisible();
   await expect(page.getByRole('button', { name: /新建.*卷宗/ })).toHaveCount(1);
   await page.getByRole('button', { name: '新建课题卷宗' }).click();
@@ -19,6 +19,9 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await dialog.getByRole('button', { name: '保存卷宗' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '2026 自然资源科研诚信测试卷宗' })).toBeVisible();
+  await page.getByRole('button', { name: '新建课题卷宗' }).click();
+  await expect(page.getByRole('dialog', { name: '新建卷宗' })).toBeVisible();
+  await page.getByRole('dialog', { name: '新建卷宗' }).getByRole('button', { name: '关闭' }).click();
   await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('1');
   await expect(stats.locator('div').filter({ hasText: '在册文档' }).locator('strong')).toHaveText(docCount);
   await expect(page.getByLabel('当前课题卷宗')).toHaveCount(1);
@@ -29,9 +32,14 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await expect(page.getByRole('heading', { name: '选择或新建课题卷宗' })).toBeVisible();
   await expect(page.getByRole('button', { name: '新建课题卷宗' })).toBeVisible();
   await workspaceSelect.selectOption(`doc:${documents[1].id}`);
+  await navigate(page, '本子预审');
+  await expect(page.locator('.dossier-workbench')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeEnabled();
   await workspaceSelect.selectOption(dossierId);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
+  await navigate(page, '课题卷宗');
+  await expect(page.getByLabel('当前课题卷宗')).toHaveValue(dossierId);
+  await expect(page.getByRole('button', { name: '开始预审' })).toHaveCount(0);
   const toggle = page.getByRole('button', { name: '收起详情' });
   await toggle.click();
   await expect(page.locator('#dossier-details')).toBeHidden();
@@ -86,7 +94,7 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
 
 test('手机卷宗体检不横向溢出且表单可操作', async ({ app: page, documents }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await navigate(page, '本子预审');
+  await navigate(page, '课题卷宗');
   await page.getByRole('button', { name: '新建课题卷宗' }).click();
   const dialog = page.getByRole('dialog', { name: '新建卷宗' });
   await expect(dialog.locator('..')).toHaveCSS('position', 'fixed');

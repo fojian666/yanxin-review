@@ -11,7 +11,6 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
-import { DossierWorkbench } from "../components/DossierWorkbench";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
 import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
@@ -223,7 +222,6 @@ export function ReviewPage() {
 
   return (
     <div className="review-workspace">
-      <DossierWorkbench />
       <div className="review-layout">
         <div className="panel review-control">
         <h2>本子预审</h2>

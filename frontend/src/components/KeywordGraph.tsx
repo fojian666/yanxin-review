@@ -7,6 +7,16 @@ import { useMotionPreference } from "../motion";
 import type { KeywordGraphData } from "../types";
 import { EChart } from "./EChart";
 
+// 每圈容纳 6、12、18… 个点，按固定顺序向外展开。
+function radialPosition(index: number, spacing: number): [number, number] {
+  if (index === 0) return [0, 0];
+  let ring = 1;
+  let remaining = index - 1;
+  while (remaining >= ring * 6) { remaining -= ring * 6; ring += 1; }
+  const angle = -Math.PI / 2 + (2 * Math.PI * remaining) / (ring * 6) + (ring % 2) * Math.PI / (ring * 6);
+  return [Math.cos(angle) * ring * spacing, Math.sin(angle) * ring * spacing];
+}
+
 export function KeywordGraph() {
   const { docs, dossiers } = useApp();
   const reduce = useMotionPreference();
@@ -45,9 +55,9 @@ export function KeywordGraph() {
     const adjacent = new Set(links.map((item) => item.source === selected ? item.target : item.source));
     const colors = ["#0e7c6b", "#397d9a", "#b5853c", "#56855a", "#6d7083", "#aa7060", "#7b809c", "#728a46"];
     const groups = [...new Set(nodes.map((node) => node.cluster))].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
-    const columns = Math.ceil(Math.sqrt(groups.length * 1.5)) || 1;
     const sizes = groups.map((group) => nodes.filter((node) => node.cluster === group).length);
-    const spacing = 100 + Math.sqrt(Math.max(1, ...sizes)) * 55;
+    const maxSize = Math.max(1, ...sizes);
+    const groupSpacing = 100 + Math.sqrt(maxSize) * 44;
     const offsets = new Map<number | null, number>();
     return {
       backgroundColor: "transparent",
@@ -60,17 +70,16 @@ export function KeywordGraph() {
           const groupIndex = groups.indexOf(node.cluster);
           const offset = offsets.get(node.cluster) ?? 0;
           offsets.set(node.cluster, offset + 1);
-          const angle = offset * 2.39996;
-          const radius = Math.sqrt(offset) * 24;
+          const [groupX, groupY] = radialPosition(groupIndex, groupSpacing);
+          const [localX, localY] = radialPosition(offset, 45);
           const dim = query.trim() && !matching.has(node.id);
           const active = node.id === selected;
           return {
             id: node.id, nodeId: node.id, name: node.name,
-            x: (groupIndex % columns) * spacing + Math.cos(angle) * radius,
-            y: Math.floor(groupIndex / columns) * spacing + Math.sin(angle) * radius,
-            symbolSize: nodes.length > 100 ? 5 + Math.min(7, Math.sqrt(node.chunk_count)) : 9 + Math.min(13, Math.sqrt(node.chunk_count) * 2),
+            x: groupX + localX, y: groupY + localY,
+            symbolSize: offset === 0 && node.cluster !== null ? 19 : nodes.length > 100 ? 6 + Math.min(7, Math.sqrt(node.chunk_count)) : 9 + Math.min(13, Math.sqrt(node.chunk_count) * 2),
             itemStyle: { color: node.cluster === null ? "#a5aaa2" : colors[(node.cluster - 1) % colors.length], opacity: dim ? 0.18 : 1, borderColor: active ? "#fff7db" : "#fffdf8", borderWidth: active ? 3 : 1 },
-            label: { show: true, position: "right", color: "#314b43", fontSize: active || adjacent.has(node.id) ? 11 : 10, opacity: dim ? 0.2 : 1 },
+            label: { show: true, position: "right", color: "#314b43", fontSize: active || adjacent.has(node.id) || offset === 0 ? 11 : 10, fontWeight: offset === 0 ? 600 : 400, opacity: dim ? 0.2 : 1 },
           };
         }),
         links: (data?.links ?? []).map((link) => ({

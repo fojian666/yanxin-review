@@ -38,6 +38,7 @@ export function DossierWorkbench() {
   const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState("");
   const [selectedRole, setSelectedRole] = useState("proposal_text");
   const [saving, setSaving] = useState("");
@@ -187,10 +188,11 @@ export function DossierWorkbench() {
             {expanded ? "收起详情" : "展开详情"}<ChevronDown size={14} className={expanded ? "dossier-chevron is-expanded" : "dossier-chevron"} />
           </button>}
           {dossier && can("upload") && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setModalOpen(true)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(true); setModalOpen(true); }}>
               <Pencil size={14} />编辑卷宗
             </button>
           )}
+          {dossier && can("upload") && <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditing(false); setModalOpen(true); }}><Plus size={14} />新建课题卷宗</button>}
         </div>
       </header>
 
@@ -201,7 +203,7 @@ export function DossierWorkbench() {
             <strong>{dossiers.length ? "选择卷宗后查看材料体检" : "先建立卷宗，再做材料体检"}</strong>
             <p>登记课题后，可把现有文档归入申请书、盖章件、承诺书、合同和验收材料。</p>
           </div>
-          {can("upload") && <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>新建课题卷宗</button>}
+          {can("upload") && <button type="button" className="btn btn-primary" onClick={() => { setEditing(false); setModalOpen(true); }}>新建课题卷宗</button>}
         </div>
       ) : (
         <>
@@ -405,7 +407,7 @@ export function DossierWorkbench() {
 
       <DossierModal
         open={modalOpen}
-        dossier={dossier}
+        dossier={editing ? dossier : null}
         onClose={() => setModalOpen(false)}
         onSaved={(next) => void saved(next)}
         onDeleted={() => {
