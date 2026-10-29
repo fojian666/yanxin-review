@@ -237,6 +237,8 @@ export function UploadModal() {
                   <option value="auto">自动判断</option>
                   <option value="proposal">本子 / 申报书</option>
                   <option value="policy">政策 / 管理办法</option>
+                  <option value="guide">流程 / 用户手册</option>
+                  <option value="template">空白模板</option>
                   <option value="paper">文献 / 论文</option>
                   <option value="other">其他资料</option>
                 </select>

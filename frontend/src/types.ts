@@ -157,6 +157,84 @@ export interface TrendData {
 
 export type CheckStatus = "pass" | "warn" | "fail";
 
+export type DossierPlanType = "directive" | "guidance";
+export type DossierPhase = "application" | "implementation" | "acceptance" | "closing";
+
+export interface DossierMaterial {
+  dossier_id: string;
+  doc_id: string;
+  doc_name: string;
+  doc_kind: string;
+  doc_status: string;
+  doc_warning: string | null;
+  doc_suffix: string;
+  role: string;
+  version: number;
+  is_current: boolean;
+  human_verified: boolean;
+  verified_by: string;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface Dossier {
+  id: string;
+  name: string;
+  year: number | null;
+  plan_type: DossierPlanType;
+  plan_type_label: string;
+  phase: DossierPhase;
+  phase_label: string;
+  applicant_unit: string;
+  leader: string;
+  supervisor: string;
+  materials: DossierMaterial[];
+  current_material_count: number;
+  verified_material_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DossierOption {
+  value: string;
+  label: string;
+  short?: string;
+  requires_verification?: boolean;
+}
+
+export interface DossierOptions {
+  plan_types: DossierOption[];
+  phases: DossierOption[];
+  material_roles: DossierOption[];
+}
+
+export interface DossierChecklistItem extends ReviewItem {
+  key: string;
+  role: string;
+  doc_id: string;
+  requires_human_verification: boolean;
+}
+
+export interface DossierChecklistSection {
+  key: string;
+  title: string;
+  status: CheckStatus;
+  items: DossierChecklistItem[];
+}
+
+export interface DossierChecklist {
+  dossier: Dossier;
+  overall: {
+    status: CheckStatus;
+    summary: string;
+    checked_items: number;
+    generated_at: string;
+  };
+  sections: DossierChecklistSection[];
+  limitations: string[];
+  disclaimer: string;
+}
+
 export interface ReviewItem {
   label: string;
   status: CheckStatus;

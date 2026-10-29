@@ -1,13 +1,14 @@
-源程序清单（首期原型 V1.9）
+源程序清单（首期原型 V2.0）
 
 后端（Python）
-    768 app.py
+    948 app.py
       1 rag/__init__.py
     207 rag/auth.py
     287 rag/config.py
     272 rag/corpus.py
-    417 rag/db.py
+    739 rag/db.py
     293 rag/demo_proposals.py
+    430 rag/dossiers.py
     362 rag/embeddings.py
     364 rag/experts.py
      33 rag/ingest.py
@@ -20,16 +21,18 @@
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   5572 total
+   6504 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
-    307 frontend/src/AppContext.tsx
-    273 frontend/src/api.ts
+    355 frontend/src/AppContext.tsx
+    312 frontend/src/api.ts
     363 frontend/src/charts/TrendCharts.tsx
      93 frontend/src/components/ChatModelControls.tsx
      81 frontend/src/components/CitationTrace.tsx
-     83 frontend/src/components/DocumentDirectory.tsx
-    176 frontend/src/components/DocumentReader.tsx
+     85 frontend/src/components/DocumentDirectory.tsx
+    178 frontend/src/components/DocumentReader.tsx
+    247 frontend/src/components/DossierModal.tsx
+    427 frontend/src/components/DossierWorkbench.tsx
     135 frontend/src/components/EChart.tsx
      18 frontend/src/components/EmptyState.tsx
      50 frontend/src/components/ErrorBoundary.tsx
@@ -38,8 +41,9 @@
     188 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
     178 frontend/src/components/Topbar.tsx
-    291 frontend/src/components/UploadModal.tsx
+    293 frontend/src/components/UploadModal.tsx
     421 frontend/src/data/knowledge.ts
+     59 frontend/src/data/proposalWorkflow.ts
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
      10 frontend/src/main.tsx
@@ -47,33 +51,35 @@
     176 frontend/src/pages/AdminPage.tsx
     592 frontend/src/pages/ChatPage.tsx
     504 frontend/src/pages/KnowledgeGraphPage.tsx
-    378 frontend/src/pages/LibraryPage.tsx
+    385 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
     507 frontend/src/pages/MatchPage.tsx
-    466 frontend/src/pages/ReviewPage.tsx
+    470 frontend/src/pages/ReviewPage.tsx
     430 frontend/src/pages/TrendPage.tsx
-    175 frontend/src/pages/WelcomePage.tsx
-   3172 frontend/src/styles.css
-    307 frontend/src/types.ts
-  10163 total
+    212 frontend/src/pages/WelcomePage.tsx
+   3518 frontend/src/styles.css
+    385 frontend/src/types.ts
+  11461 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
      23 tests/test_docs.py
+    308 tests/test_dossiers.py
      93 tests/test_llm_payload.py
     433 tests/test_llm_provider.py
     401 tests/test_retrieval_embedding.py
-   1108 tests/test_robustness.py
-   2381 total
+   1110 tests/test_robustness.py
+   2691 total
 工具（Python）
     205 tools/doc_check.py
     122 tools/eval_retrieval.py
     506 tools/fetch_corpus.py
-    170 tools/soft_copyright.py
-   1003 total
+    171 tools/soft_copyright.py
+   1004 total
 浏览器回归（TypeScript/Python）
     106 frontend/e2e/auth.spec.ts
     222 frontend/e2e/chat-trend.spec.ts
+     86 frontend/e2e/dossier.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
     138 frontend/e2e/knowledge-document.spec.ts
@@ -84,9 +90,9 @@
      50 frontend/e2e/server.py
      32 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   1383 total
+   1469 total
 合计
-  20502 total（75 个文件）
+  23129 total（81 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
@@ -94,5 +100,6 @@
 - 检索：rag/retrieval.py（TF-IDF 基线 + 向量接管）、rag/embeddings.py（嵌入后端与出口门禁）；
 - 政策语料：rag/corpus.py（导入）、tools/fetch_corpus.py（抓取清洗，唯一联网环节）；
 - 外部数据接入契约：rag/schemas.py、rag/ingest.py；
+- 课题卷宗：rag/dossiers.py（材料角色、计划类型体检与人工确认）、DossierWorkbench.tsx；
 - 解析安全：rag/parsers.py（DOCX 实体防护、PDF 页数上限、解压总量上限）；
 - 提交软著时按本清单导出前后各 30 页源程序（每页约 50 行），页眉标注软件名称/版本号/页码。

@@ -51,7 +51,19 @@ function greeting(): string {
 }
 
 export function WelcomePage() {
-  const { auth, can, docs, loading, openUpload, activeDocId, setActiveDocId, setSelectedDocs } = useApp();
+  const {
+    auth,
+    can,
+    docs,
+    dossiers,
+    loading,
+    openUpload,
+    activeDocId,
+    setActiveDocId,
+    activeDossierId,
+    setActiveDossierId,
+    setSelectedDocs,
+  } = useApp();
   const location = useLocation();
   const reduce = useMotionPreference();
   const unfold = useSessionEntrance("yanxin.dossier-entrance");
@@ -68,6 +80,7 @@ export function WelcomePage() {
   const proposalCount = docs.filter((doc) => doc.kind === "proposal").length;
   const policyCount = docs.filter((doc) => doc.kind === "policy").length;
   const selectedDoc = docs.find((doc) => doc.id === activeDocId);
+  const selectedDossier = dossiers.find((dossier) => dossier.id === activeDossierId);
   const role = auth ? ROLE_LABELS[auth.role as UserRole] : "";
   const display = auth?.display_name || auth?.username || "";
   const named = Boolean(display) && display !== role;
@@ -84,17 +97,41 @@ export function WelcomePage() {
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
         <div className="workspace-document-row">
-          <label htmlFor="workspace-document">当前卷宗</label>
-          <select
-            id="workspace-document"
-            className="select"
-            title={selectedDoc?.name || ""}
-            value={activeDocId}
-            onChange={(event) => setActiveDocId(event.target.value)}
-          >
-            <option value="">从资料库选择申报书</option>
-            {docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other").map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
-          </select>
+          <label htmlFor="workspace-document">{dossiers.length ? "当前课题卷宗" : "当前卷宗"}</label>
+          {dossiers.length ? (
+            <select
+              id="workspace-document"
+              className="select"
+              title={selectedDossier?.name || ""}
+              value={activeDossierId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setActiveDossierId(nextId);
+                const proposal = dossiers
+                  .find((dossier) => dossier.id === nextId)
+                  ?.materials.find((material) => material.role === "proposal_text" && material.is_current);
+                if (proposal) setActiveDocId(proposal.doc_id);
+              }}
+            >
+              <option value="">选择课题卷宗</option>
+              {dossiers.map((dossier) => (
+                <option key={dossier.id} value={dossier.id}>
+                  {dossier.name} · {dossier.plan_type_label} · {dossier.phase_label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              id="workspace-document"
+              className="select"
+              title={selectedDoc?.name || ""}
+              value={activeDocId}
+              onChange={(event) => setActiveDocId(event.target.value)}
+            >
+              <option value="">从资料库选择申报书</option>
+              {docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other").map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+            </select>
+          )}
         </div>
         <div className="welcome-actions">
           <Link
@@ -104,7 +141,7 @@ export function WelcomePage() {
           >
             {can("review") ? <><ShieldCheck size={16} />预审当前卷宗</> : <><MessageSquareText size={16} />用此卷宗提问</>}
           </Link>
-          {can("upload") && <button className="btn btn-ghost" type="button" onClick={() => openUpload()}>上传新卷宗</button>}
+          {can("upload") && <button className="btn btn-ghost" type="button" onClick={() => openUpload()}>{dossiers.length ? "上传卷宗资料" : "上传新卷宗"}</button>}
         </div>
         </div>
         <div className="workspace-register" role="group" aria-label="资料库概况">

@@ -128,7 +128,7 @@ EMBED_MIN_SCORE = float(os.getenv("EMBED_MIN_SCORE", "0.45"))
 ALLOW_EXTERNAL_EMBED = _env_flag("ALLOW_EXTERNAL_EMBED", False)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
-DOC_KINDS = {"auto", "proposal", "policy", "paper", "other"}
+DOC_KINDS = {"auto", "proposal", "policy", "guide", "template", "paper", "other"}
 
 
 def _is_public_host(url: str) -> bool:

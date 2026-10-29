@@ -11,6 +11,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
+import { DossierWorkbench } from "../components/DossierWorkbench";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
 import { EASE, SPRING, useMotionPreference, staggerContainer, staggerItem } from "../motion";
@@ -220,8 +221,10 @@ export function ReviewPage() {
   };
 
   return (
-    <div className="review-layout">
-      <div className="panel review-control">
+    <div className="review-workspace">
+      <DossierWorkbench />
+      <div className="review-layout">
+        <div className="panel review-control">
         <h2>本子预审</h2>
         <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
           {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
@@ -252,9 +255,9 @@ export function ReviewPage() {
           <strong>边界</strong>
           <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策引用须人工核对。</p>
         </div>
-      </div>
+        </div>
 
-      <div className="panel review-report" role="region" aria-label="预审报告" tabIndex={0} ref={reportRef}>
+        <div className="panel review-report" role="region" aria-label="预审报告" tabIndex={0} ref={reportRef}>
         <AnimatePresence mode="wait" initial={false}>
           {!report ? (
             <motion.div
@@ -384,6 +387,7 @@ export function ReviewPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
     </div>
   );

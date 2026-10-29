@@ -16,7 +16,14 @@ import { EmptyState } from "../components/EmptyState";
 import { EASE } from "../motion";
 import type { DocItem, DocumentContent } from "../types";
 
-const KIND_RANK: Record<string, number> = { proposal: 0, policy: 1, paper: 2, other: 3 };
+const KIND_RANK: Record<string, number> = {
+  proposal: 0,
+  guide: 1,
+  template: 2,
+  policy: 3,
+  paper: 4,
+  other: 5,
+};
 
 export function LibraryPage() {
   const {

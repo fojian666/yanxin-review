@@ -9,7 +9,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from rag import auth, config, db, qa, review, schemas, trends
+from rag import auth, config, db, dossiers as dossier_service, qa, review, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
 from rag.llm import LLMError, chat_options, generation_info, llm, resolve_chat_client
@@ -146,6 +146,36 @@ class CreateUserRequest(BaseModel):
     display_name: str = ""
 
 
+class DossierCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    year: int | None = Field(default=None, ge=1990, le=2035)
+    plan_type: Literal["directive", "guidance"] = "directive"
+    phase: Literal["application", "implementation", "acceptance", "closing"] = "application"
+    applicant_unit: str = Field(default="", max_length=160)
+    leader: str = Field(default="", max_length=80)
+    supervisor: str = Field(default="", max_length=160)
+
+
+class DossierUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    year: int | None = Field(default=None, ge=1990, le=2035)
+    plan_type: Literal["directive", "guidance"] | None = None
+    phase: Literal["application", "implementation", "acceptance", "closing"] | None = None
+    applicant_unit: str | None = Field(default=None, max_length=160)
+    leader: str | None = Field(default=None, max_length=80)
+    supervisor: str | None = Field(default=None, max_length=160)
+
+
+class DossierDocumentAttachRequest(BaseModel):
+    doc_id: str = Field(..., min_length=1, max_length=64)
+    role: str = Field(..., min_length=1, max_length=64)
+
+
+class DossierDocumentUpdateRequest(BaseModel):
+    human_verified: bool | None = None
+    is_current: bool | None = None
+
+
 def _require_ingest_token(
     x_ingest_token: str = Header(default="", alias="X-INGEST-Token"),
 ) -> None:
@@ -180,6 +210,10 @@ def ingest_guard(
 
 def _infer_kind(filename: str, text: str = "") -> str:
     name = (filename or "").lower()
+    if any(k in name for k in ("用户手册", "操作手册", "申报流程", "实施流程", "管理流程")):
+        return "guide"
+    if any(k in name for k in ("模板", "承诺书", "自评表", "评价表", "合同")):
+        return "template"
     if any(k in name for k in ("政策", "办法", "规定", "条例", "指南", "规范", "细则")):
         return "policy"
     if any(k in name for k in ("本子", "申请书", "申报书", "课题", "项目申报")):
@@ -337,6 +371,152 @@ def create_user(payload: CreateUserRequest):
             detail=f"无法创建用户（用户名已存在，或角色非法，或密码少于 {auth.MIN_PASSWORD_LEN} 位）",
         )
     return {"ok": True, "user": {"username": payload.username, "role": payload.role}}
+
+
+# ---------- 课题卷宗与材料归卷 ----------
+# 固定路径必须声明在 {dossier_id} 前，避免 options 被参数路由吃掉。
+
+
+@app.get("/api/dossiers/options")
+def dossier_options():
+    return dossier_service.options()
+
+
+@app.get("/api/dossiers")
+def dossiers():
+    return {
+        "dossiers": [
+            dossier_service.dossier_summary(dossier)
+            for dossier in db.list_dossiers()
+        ]
+    }
+
+
+@app.post(
+    "/api/dossiers",
+    dependencies=[Depends(require_role("manager", "admin"))],
+)
+def create_dossier(payload: DossierCreateRequest):
+    values = payload.model_dump()
+    dossier_service.validate(values)
+    dossier = db.insert_dossier(values)
+    return {"dossier": dossier_service.dossier_summary(dossier)}
+
+
+@app.get("/api/dossiers/{dossier_id}")
+def dossier_detail(dossier_id: str):
+    dossier = db.get_dossier(dossier_id)
+    if not dossier:
+        raise HTTPException(status_code=404, detail="卷宗不存在")
+    return {"dossier": dossier_service.dossier_summary(dossier)}
+
+
+@app.patch(
+    "/api/dossiers/{dossier_id}",
+    dependencies=[Depends(require_role("manager", "admin"))],
+)
+def update_dossier(dossier_id: str, payload: DossierUpdateRequest):
+    dossier = db.get_dossier(dossier_id)
+    if not dossier:
+        raise HTTPException(status_code=404, detail="卷宗不存在")
+    changes = payload.model_dump(exclude_unset=True)
+    non_nullable = {
+        "name",
+        "plan_type",
+        "phase",
+        "applicant_unit",
+        "leader",
+        "supervisor",
+    }
+    if any(key in changes and changes[key] is None for key in non_nullable):
+        raise HTTPException(status_code=400, detail="卷宗名称、阶段和文本字段不能设为空值")
+    values = {**dossier, **changes}
+    try:
+        dossier_service.validate(values)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    updated = db.update_dossier(dossier_id, changes)
+    return {"dossier": dossier_service.dossier_summary(updated or dossier)}
+
+
+@app.delete(
+    "/api/dossiers/{dossier_id}",
+    dependencies=[Depends(require_role("manager", "admin"))],
+)
+def remove_dossier(dossier_id: str):
+    removed = db.delete_dossier(dossier_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="卷宗不存在")
+    return {"ok": True, "removed": removed}
+
+
+@app.get("/api/dossiers/{dossier_id}/checklist")
+def dossier_checklist(dossier_id: str):
+    result = dossier_service.checklist(dossier_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="卷宗不存在")
+    return result
+
+
+@app.post(
+    "/api/dossiers/{dossier_id}/documents",
+    dependencies=[Depends(require_role("manager", "admin"))],
+)
+def attach_dossier_document(
+    dossier_id: str,
+    payload: DossierDocumentAttachRequest,
+):
+    try:
+        dossier_service.validate({"role": payload.role})
+        material = db.attach_dossier_document(
+            dossier_id, payload.doc_id, payload.role
+        )
+    except KeyError as exc:
+        message = "卷宗不存在" if exc.args[0] == "dossier" else "文档不存在"
+        raise HTTPException(status_code=404, detail=message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"material": material}
+
+
+@app.patch(
+    "/api/dossiers/{dossier_id}/documents/{doc_id}",
+    dependencies=[Depends(require_role("manager", "admin"))],
+)
+def update_dossier_document(
+    dossier_id: str,
+    doc_id: str,
+    payload: DossierDocumentUpdateRequest,
+    request: Request,
+):
+    if payload.human_verified is None and payload.is_current is None:
+        raise HTTPException(status_code=400, detail="没有需要更新的字段")
+    if payload.is_current is False:
+        raise HTTPException(
+            status_code=400,
+            detail="每个材料角色必须保留一个当前版本；请选择其他版本设为当前",
+        )
+    user = getattr(request.state, "user", {})
+    material = db.update_dossier_document(
+        dossier_id,
+        doc_id,
+        human_verified=payload.human_verified,
+        is_current=payload.is_current,
+        verified_by=str(user.get("username", "")),
+    )
+    if not material:
+        raise HTTPException(status_code=404, detail="卷宗材料不存在")
+    return {"material": material}
+
+
+@app.delete(
+    "/api/dossiers/{dossier_id}/documents/{doc_id}",
+    dependencies=[Depends(require_role("manager", "admin"))],
+)
+def detach_dossier_document(dossier_id: str, doc_id: str):
+    if not db.detach_dossier_document(dossier_id, doc_id):
+        raise HTTPException(status_code=404, detail="卷宗材料不存在")
+    return {"ok": True}
 
 
 @app.get("/api/documents")

@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 59 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（134 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 61 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（147 个测试函数，参数化展开 160 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -28,10 +28,11 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：27 条路由（含认证 6 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：31 条 API 路由（含认证 6 条、卷宗 11 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
-  db.py                SQLite（WAL）：documents/chunks/papers/experts/meta；导入去重 insert_*_if_new
+  db.py                SQLite（WAL）：documents/chunks/papers/experts/dossiers/dossier_documents/meta；导入去重 insert_*_if_new
+  dossiers.py          课题卷宗材料角色、计划类型/阶段体检、版本与人工确认规则
   parsers.py           DOCX（含脚注/尾注）/PDF（pdftotext，页码）/TXT/CSV 解析；60k 字截断保护
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
   retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
@@ -61,6 +62,7 @@ corpus/                随仓库交付的真实公文快照：sources.json（URL
 frontend/src/
   pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / KnowledgeGraph / Match(查重+专家匹配) / Review(预审) / Library(文档中心) / Admin(用户管理)
   data/knowledge.ts    科研治理知识图谱：48 实体、100 关系、7 知识域、搜索与最短路径
+  data/proposalWorkflow.ts  课题流程基线：指南、申请、评审、实施、验收、备案六个导航节点
   components/          DocumentDirectory(目录)、DocumentReader(书页正文)、EChart(关系图)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
   styles.css           全局尺度（正文 15px/控件 40px/侧栏 264）、登录页地形/网格/纸纹关键帧、状态动效类；
@@ -74,7 +76,7 @@ frontend/src/
 - **真实政策语料**：`corpus/` 下两部政府公开公文（科技部等22部门《科研失信行为调查处理规则》国科发监〔2022〕221号、江苏省《科技计划项目信用管理办法》苏科技规〔2022〕3号），`python3 -m rag.corpus` 导入为 `kind='policy'`、`source='public'`，溯源信息存 `corpus/sources.json` 与 `documents.meta_json`。**它不是演示数据**：`./run.sh` 启动时自动导入一次（幂等、失败不阻断）；直接用 `uvicorn` 起服务时需手动跑 `rag.corpus`。
 - 演示本子内置演示设计：P01/P02 同域含相似段落（查重演示）、P02/P07 同申报单位（同单位回避演示）、专家 K 负载满 / L 不可评审 / D 回避单位（排除演示）。
 - 重新播种演示数据：清 `meta` 表中 `seeded_papers` / `seeded_doc` / `seeded_experts` 对应键。
-- 外部真实数据入口：CSV 导入（界面）或 `POST /api/ingest/experts|papers`（JSON 推送，幂等）；契约自查 `GET /api/ingest/schema`。项目/诚信记录/政策版本 schema 已预留但**无存储**，勿提前建表。
+- 外部真实数据入口：CSV 导入（界面）或 `POST /api/ingest/experts|papers`（JSON 推送，幂等）；契约自查 `GET /api/ingest/schema`。本地课题卷宗与材料归卷已实现；外部项目/诚信记录/政策版本 schema 仍为只读契约预留。
 
 ## 不能破坏的约束（业务红线）
 
@@ -98,6 +100,7 @@ frontend/src/
 - 模型预审不得覆盖系统的政策引用（含完整证据与章条标签）和查重章节。OpenAI 预设不发千问扩展参数，显式 `LLM_THINKING_STYLE` 优先于预设。
 - 手动政策抓取仅固定政府来源 HTTPS、默认校验证书且不跟随重定向；失败保留快照，不得回退 HTTP 或关闭 TLS 校验。SHA256 只校验完整性，不证明来源真实性。`--force` 仅重建清单同来源，不自动清理历史政策。
 - 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
+- 卷宗体检只核对本地材料角色、当前版本、人工确认和可读取文本线索；同角色新材料自动成为当前版本。不得把“文件已上传”表述为公章、签字真实，也不得把本地检查表述为官方受理、评审、验收或结题状态。
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
@@ -121,4 +124,4 @@ frontend/src/
 
 智能问答模型与强度只在输入区选择，以请求级独立客户端生效，不修改全局客户端或预审/趋势；选择器目录由 `GET /api/chat/options` 下发，不返回密钥或接口地址。后台按供应商独立密钥和出口门禁验证白名单，未知模型/强度拒绝，模型缺能力或显式方言不匹配只开放默认。切页保持会话选择，退出/刷新重置。
 
-One Page 工作区：所有受保护路由共享同一卷宗上下文与功能索引，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。顶部只放一个当前申报书选择，预审与查重实时同步，工作台进入问答可带入选定本子但不限制问答多文档；知识图谱采用左控制、中星图、右详情，支持知识域筛选、实体搜索、邻接关系、最短路径和 `?focus=` 深链；文档中心采用左目录、右书页，正文只经认证接口读取有序文本块并隐藏本地路径，保留上传、删除、筛选、问答、预审和文献 CSV 管理。政策/文献不覆盖当前申报书，登出或刷新重置。手机进入具体任务后隐藏问候与重复指标，只保留卷宗选择及单行功能索引；问答与证据切换，引用定位转移焦点；手机预审完成时若弹窗或导航打开、或用户正在操作其他控件或滚动阅读，保留焦点并提供查看报告入口；桌面预审报告及用户列表独立滚动且键盘可达，打印报告不截断；专家库与代表性文献可展开。
+One Page 工作区：所有受保护路由共享同一卷宗上下文与功能索引，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。顶部只放一个课题卷宗选择；尚无卷宗时继续兼容单申报书选择。预审与查重实时同步，工作台进入问答可带入选定本子但不限制问答多文档；知识图谱采用左控制、中星图、右详情，支持知识域筛选、实体搜索、邻接关系、最短路径和 `?focus=` 深链；文档中心采用左目录、右书页，正文只经认证接口读取有序文本块并隐藏本地路径，保留上传、删除、筛选、问答、预审和文献 CSV 管理。课题卷宗面板按材料角色归卷，同角色新版本自动成为当前版本；盖章、签字和主管部门状态只能人工确认，计划类型决定申报指标和实施文件。手机进入具体任务后隐藏问候与重复指标，只保留卷宗选择及单行功能索引；问答与证据切换，引用定位转移焦点；手机预审完成时若弹窗或导航打开、或用户正在操作其他控件或滚动阅读，保留焦点并提供查看报告入口；桌面预审报告及用户列表独立滚动且键盘可达，打印报告不截断；专家库与代表性文献可展开。

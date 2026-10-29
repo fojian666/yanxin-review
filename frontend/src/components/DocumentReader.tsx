@@ -33,6 +33,8 @@ interface DocumentReaderProps {
 const KIND_LABELS: Record<string, string> = {
   proposal: "申报书",
   policy: "政策",
+  guide: "流程指南",
+  template: "空白模板",
   paper: "文献",
   other: "资料",
 };

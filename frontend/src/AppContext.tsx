@@ -14,7 +14,16 @@ import {
 } from "react";
 import { api } from "./api";
 import { EASE } from "./motion";
-import type { AuthUser, ChatMessage, Citation, DocItem, Health, Paper } from "./types";
+import type {
+  AuthUser,
+  ChatMessage,
+  Citation,
+  DocItem,
+  Dossier,
+  DossierOptions,
+  Health,
+  Paper,
+} from "./types";
 
 interface ToastState {
   id: number;
@@ -32,10 +41,14 @@ interface AppContextValue {
   toggleSidebar: () => void;
   health: Health | null;
   docs: DocItem[];
+  dossiers: Dossier[];
+  dossierOptions: DossierOptions | null;
   papers: Paper[];
   loading: boolean;
   activeDocId: string;
   setActiveDocId: (id: string) => void;
+  activeDossierId: string;
+  setActiveDossierId: (id: string) => void;
   selectedDocs: string[];
   setSelectedDocs: (ids: string[]) => void;
   chatMessages: ChatMessage[];
@@ -43,6 +56,7 @@ interface AppContextValue {
   chatCitations: Citation[];
   setChatCitations: Dispatch<SetStateAction<Citation[]>>;
   refreshDocs: () => Promise<void>;
+  refreshDossiers: () => Promise<void>;
   refreshPapers: () => Promise<void>;
   toast: (message: string, type?: "info" | "error") => void;
   chatSelection: ChatSelection;
@@ -88,8 +102,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chatSelection, setChatSelection] = useState<ChatSelection>({ model: "default", strength: "default" });
   const [health, setHealth] = useState<Health | null>(null);
   const [docs, setDocs] = useState<DocItem[]>([]);
+  const [dossiers, setDossiers] = useState<Dossier[]>([]);
+  const [dossierOptions, setDossierOptions] = useState<DossierOptions | null>(null);
   const [papers, setPapers] = useState<Paper[]>([]);
   const [activeDocId, setActiveDocId] = useState("");
+  const [activeDossierId, setActiveDossierId] = useState("");
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatCitations, setChatCitations] = useState<Citation[]>([]);
@@ -114,8 +131,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 会话切换时统一清理，避免上一位用户的问答/引用/上传态残留
   const resetSession = useCallback(() => {
     setDocs([]);
+    setDossiers([]);
+    setDossierOptions(null);
     setPapers([]);
     setActiveDocId("");
+    setActiveDossierId("");
     setSelectedDocs([]);
     setChatSelection({ model: "default", strength: "default" });
     setChatMessages([]);
@@ -134,6 +154,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return data.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
     });
     setSelectedDocs((current) => current.filter((id) => data.documents.some((d) => d.id === id)));
+  }, []);
+
+  const refreshDossiers = useCallback(async () => {
+    const data = await api.dossiers();
+    setDossiers(data.dossiers);
+    setActiveDossierId((current) => {
+      if (data.dossiers.some((dossier) => dossier.id === current)) return current;
+      return data.dossiers[0]?.id ?? "";
+    });
   }, []);
 
   const refreshPapers = useCallback(async () => {
@@ -175,10 +204,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadInitial = useCallback(async () => {
     try {
-      const [h, d, p] = await Promise.all([api.health(), api.documents(), api.papers()]);
+      const [h, d, ds, options, p] = await Promise.all([
+        api.health(),
+        api.documents(),
+        api.dossiers(),
+        api.dossierOptions(),
+        api.papers(),
+      ]);
       setHealth(h);
       setDocs(d.documents);
+      setDossiers(ds.dossiers);
+      setDossierOptions(options);
+      const firstDossier = ds.dossiers[0];
+      const firstProposal = firstDossier?.materials.find(
+        (material) => material.role === "proposal_text" && material.is_current
+      );
+      setActiveDossierId(firstDossier?.id ?? "");
       setActiveDocId((current) => {
+        if (firstProposal) return firstProposal.doc_id;
         if (d.documents.some((doc) => doc.id === current)) return current;
         return d.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
       });
@@ -253,10 +296,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleSidebar,
       health,
       docs,
+      dossiers,
+      dossierOptions,
       papers,
       loading,
       activeDocId,
       setActiveDocId,
+      activeDossierId,
+      setActiveDossierId,
       selectedDocs,
       setSelectedDocs,
       chatMessages,
@@ -264,6 +311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       chatCitations,
       setChatCitations,
       refreshDocs,
+      refreshDossiers,
       refreshPapers,
       toast,
       chatSelection,
@@ -274,7 +322,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openUpload,
       clearUploadSeed,
     }),
-    [activeDocId, chatSelection, auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
+    [activeDocId, activeDossierId, chatSelection, auth, authReady, login, logout, can, sidebarCollapsed, toggleSidebar, health, docs, dossiers, dossierOptions, papers, loading, selectedDocs, chatMessages, chatCitations, refreshDocs, refreshDossiers, refreshPapers, toast, uploadOpen, uploadSeedFile, openUpload, clearUploadSeed, resetSession]
   );
 
   return (

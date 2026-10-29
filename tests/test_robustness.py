@@ -262,6 +262,8 @@ def test_infer_kind_falls_back_to_content_sniffing():
     assert app_module._infer_kind("某文件.docx", "一、立项背景\n二、研究内容") == "proposal"
     assert app_module._infer_kind("某文件.docx", "这是一段普通文本。") == "other"
     assert app_module._infer_kind("管理办法.pdf", "") == "policy"
+    assert app_module._infer_kind("申报用户手册.docx", "") == "guide"
+    assert app_module._infer_kind("科研诚信承诺书.doc", "") == "template"
 
 
 def test_ingest_experts_and_papers_idempotent(tmp_path, monkeypatch):

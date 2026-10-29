@@ -4,6 +4,8 @@ import type { DocItem } from "../types";
 const GROUPS: { kind: string; label: string }[] = [
   { kind: "proposal", label: "申报书" },
   { kind: "policy", label: "政策" },
+  { kind: "guide", label: "流程与手册" },
+  { kind: "template", label: "空白模板" },
   { kind: "paper", label: "文献" },
   { kind: "other", label: "其他资料" },
 ];

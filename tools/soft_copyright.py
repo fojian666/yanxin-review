@@ -17,7 +17,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # 发版改这里；《软件说明书》的版本记录最后一行必须与它一致（doc_check 会校验）
-SOFTWARE_VERSION = "V1.9"
+SOFTWARE_VERSION = "V2.0"
 LIST_PATH = ROOT / "交付材料" / "01-软件著作权" / "源程序清单.txt"
 
 SECTIONS = [
@@ -85,6 +85,7 @@ def render() -> str:
         "- 检索：rag/retrieval.py（TF-IDF 基线 + 向量接管）、rag/embeddings.py（嵌入后端与出口门禁）；",
         "- 政策语料：rag/corpus.py（导入）、tools/fetch_corpus.py（抓取清洗，唯一联网环节）；",
         "- 外部数据接入契约：rag/schemas.py、rag/ingest.py；",
+        "- 课题卷宗：rag/dossiers.py（材料角色、计划类型体检与人工确认）、DossierWorkbench.tsx；",
         "- 解析安全：rag/parsers.py（DOCX 实体防护、PDF 页数上限、解压总量上限）；",
         "- 提交软著时按本清单导出前后各 30 页源程序（每页约 50 行），页眉标注软件名称/版本号/页码。",
     ]

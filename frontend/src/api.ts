@@ -6,6 +6,9 @@ import type {
   Citation,
   DocItem,
   DocumentContent,
+  Dossier,
+  DossierChecklist,
+  DossierOptions,
   Health,
   GenerationInfo,
   Paper,
@@ -59,9 +62,9 @@ async function request<T>(
   return data as T;
 }
 
-function jsonOptions(body: unknown): RequestInit {
+function jsonOptions(body: unknown, method = "POST"): RequestInit {
   return {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };
@@ -130,6 +133,42 @@ export const api = {
   documentContent: (docId: string) =>
     request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
+  dossiers: () => request<{ dossiers: Dossier[] }>("/dossiers"),
+  dossierOptions: () => request<DossierOptions>("/dossiers/options"),
+  createDossier: (payload: {
+    name: string;
+    year?: number | null;
+    plan_type: string;
+    phase: string;
+    applicant_unit?: string;
+    leader?: string;
+    supervisor?: string;
+  }) => request<{ dossier: Dossier }>("/dossiers", jsonOptions(payload)),
+  updateDossier: (id: string, payload: Record<string, unknown>) =>
+    request<{ dossier: Dossier }>(`/dossiers/${encodeURIComponent(id)}`, jsonOptions(payload, "PATCH")),
+  deleteDossier: (id: string) =>
+    request<{ ok: boolean }>(`/dossiers/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  dossierChecklist: (id: string) =>
+    request<DossierChecklist>(`/dossiers/${encodeURIComponent(id)}/checklist`),
+  attachDossierDocument: (dossierId: string, docId: string, role: string) =>
+    request<{ material: unknown }>(
+      `/dossiers/${encodeURIComponent(dossierId)}/documents`,
+      jsonOptions({ doc_id: docId, role })
+    ),
+  updateDossierDocument: (
+    dossierId: string,
+    docId: string,
+    payload: { human_verified?: boolean; is_current?: boolean }
+  ) =>
+    request<{ material: unknown }>(
+      `/dossiers/${encodeURIComponent(dossierId)}/documents/${encodeURIComponent(docId)}`,
+      jsonOptions(payload, "PATCH")
+    ),
+  detachDossierDocument: (dossierId: string, docId: string) =>
+    request<{ ok: boolean }>(
+      `/dossiers/${encodeURIComponent(dossierId)}/documents/${encodeURIComponent(docId)}`,
+      { method: "DELETE" }
+    ),
   review: (docId: string) =>
     request<ReviewReport>("/review", jsonOptions({ doc_id: docId })),
   trends: (query: string, startYear: number, endYear: number) =>

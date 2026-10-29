@@ -68,6 +68,34 @@ CREATE TABLE IF NOT EXISTS experts (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS dossiers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    year INTEGER,
+    plan_type TEXT NOT NULL DEFAULT 'directive',
+    phase TEXT NOT NULL DEFAULT 'application',
+    applicant_unit TEXT DEFAULT '',
+    leader TEXT DEFAULT '',
+    supervisor TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dossier_documents (
+    dossier_id TEXT NOT NULL,
+    doc_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    is_current INTEGER NOT NULL DEFAULT 1,
+    human_verified INTEGER NOT NULL DEFAULT 0,
+    verified_by TEXT DEFAULT '',
+    verified_at TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(dossier_id, doc_id),
+    FOREIGN KEY(dossier_id) REFERENCES dossiers(id) ON DELETE CASCADE,
+    FOREIGN KEY(doc_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -92,6 +120,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
 CREATE INDEX IF NOT EXISTS idx_papers_year ON papers(year);
 CREATE INDEX IF NOT EXISTS idx_experts_discipline ON experts(discipline);
+CREATE INDEX IF NOT EXISTS idx_dossier_documents_role
+    ON dossier_documents(dossier_id, role, is_current);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dossier_documents_version
+    ON dossier_documents(dossier_id, role, version);
 """
 
 
@@ -197,10 +229,300 @@ def delete_document(doc_id: str) -> dict[str, Any] | None:
     if not doc:
         return None
     with connect() as conn:
+        conn.execute("DELETE FROM dossier_documents WHERE doc_id = ?", (doc_id,))
         conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
         conn.execute("DELETE FROM papers WHERE doc_id = ?", (doc_id,))
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
     return doc
+
+
+def list_dossiers() -> list[dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM dossiers
+            ORDER BY updated_at DESC, created_at DESC
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_dossier(dossier_id: str) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM dossiers WHERE id = ?", (dossier_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def insert_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
+    stamp = now()
+    record = {
+        "id": dossier.get("id") or new_id(),
+        "name": dossier["name"],
+        "year": dossier.get("year"),
+        "plan_type": dossier.get("plan_type", "directive"),
+        "phase": dossier.get("phase", "application"),
+        "applicant_unit": dossier.get("applicant_unit", ""),
+        "leader": dossier.get("leader", ""),
+        "supervisor": dossier.get("supervisor", ""),
+        "created_at": stamp,
+        "updated_at": stamp,
+    }
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO dossiers
+            (id, name, year, plan_type, phase, applicant_unit, leader, supervisor,
+             created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record["id"],
+                record["name"],
+                record["year"],
+                record["plan_type"],
+                record["phase"],
+                record["applicant_unit"],
+                record["leader"],
+                record["supervisor"],
+                record["created_at"],
+                record["updated_at"],
+            ),
+        )
+    return record
+
+
+def update_dossier(dossier_id: str, changes: dict[str, Any]) -> dict[str, Any] | None:
+    allowed = {
+        "name",
+        "year",
+        "plan_type",
+        "phase",
+        "applicant_unit",
+        "leader",
+        "supervisor",
+    }
+    values = {key: value for key, value in changes.items() if key in allowed}
+    if not values:
+        return get_dossier(dossier_id)
+    values["updated_at"] = now()
+    assignments = ", ".join(f"{key} = ?" for key in values)
+    with connect() as conn:
+        conn.execute(
+            f"UPDATE dossiers SET {assignments} WHERE id = ?",
+            (*values.values(), dossier_id),
+        )
+    return get_dossier(dossier_id)
+
+
+def delete_dossier(dossier_id: str) -> dict[str, Any] | None:
+    dossier = get_dossier(dossier_id)
+    if not dossier:
+        return None
+    with connect() as conn:
+        conn.execute("DELETE FROM dossiers WHERE id = ?", (dossier_id,))
+    return dossier
+
+
+def list_dossier_documents(dossier_id: str) -> list[dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT dd.dossier_id, dd.doc_id, dd.role, dd.version, dd.is_current,
+                   dd.human_verified, dd.verified_by, dd.verified_at, dd.created_at,
+                   d.name AS doc_name, d.kind AS doc_kind, d.status AS doc_status,
+                   d.warning AS doc_warning, d.path AS doc_path
+            FROM dossier_documents dd
+            JOIN documents d ON d.id = dd.doc_id
+            WHERE dd.dossier_id = ?
+            ORDER BY dd.role, dd.is_current DESC, dd.version DESC, dd.created_at DESC
+            """,
+            (dossier_id,),
+        ).fetchall()
+    records = []
+    for row in rows:
+        record = dict(row)
+        record["human_verified"] = bool(record["human_verified"])
+        record["is_current"] = bool(record["is_current"])
+        record["doc_suffix"] = _path_suffix(record.pop("doc_path", ""))
+        records.append(record)
+    return records
+
+
+def _path_suffix(path: str) -> str:
+    """Return a lower-case suffix without exposing the stored path to callers."""
+    clean = str(path or "").strip().lower()
+    dot = clean.rfind(".")
+    return clean[dot:] if dot >= 0 else ""
+
+
+def attach_dossier_document(
+    dossier_id: str,
+    doc_id: str,
+    role: str,
+) -> dict[str, Any]:
+    stamp = now()
+    with connect() as conn:
+        dossier = conn.execute(
+            "SELECT id FROM dossiers WHERE id = ?", (dossier_id,)
+        ).fetchone()
+        document = conn.execute(
+            "SELECT id FROM documents WHERE id = ?", (doc_id,)
+        ).fetchone()
+        if not dossier:
+            raise KeyError("dossier")
+        if not document:
+            raise KeyError("document")
+        existing = conn.execute(
+            """
+            SELECT role FROM dossier_documents
+            WHERE dossier_id = ? AND doc_id = ?
+            """,
+            (dossier_id, doc_id),
+        ).fetchone()
+        if existing:
+            raise ValueError("该资料已在卷宗中，请先移除后重新归入")
+        version = conn.execute(
+            """
+            SELECT COALESCE(MAX(version), 0) + 1
+            FROM dossier_documents
+            WHERE dossier_id = ? AND role = ?
+            """,
+            (dossier_id, role),
+        ).fetchone()[0]
+        conn.execute(
+            """
+            UPDATE dossier_documents
+            SET is_current = 0
+            WHERE dossier_id = ? AND role = ?
+            """,
+            (dossier_id, role),
+        )
+        conn.execute(
+            """
+            INSERT INTO dossier_documents
+            (dossier_id, doc_id, role, version, is_current, human_verified,
+             verified_by, verified_at, created_at)
+            VALUES (?, ?, ?, ?, 1, 0, '', NULL, ?)
+            """,
+            (dossier_id, doc_id, role, version, stamp),
+        )
+        conn.execute(
+            "UPDATE dossiers SET updated_at = ? WHERE id = ?",
+            (stamp, dossier_id),
+        )
+    row = next(
+        item
+        for item in list_dossier_documents(dossier_id)
+        if item["doc_id"] == doc_id
+    )
+    return row
+
+
+def update_dossier_document(
+    dossier_id: str,
+    doc_id: str,
+    *,
+    human_verified: bool | None = None,
+    is_current: bool | None = None,
+    verified_by: str = "",
+) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM dossier_documents
+            WHERE dossier_id = ? AND doc_id = ?
+            """,
+            (dossier_id, doc_id),
+        ).fetchone()
+        if not row:
+            return None
+        stamp = now()
+        if is_current is True:
+            conn.execute(
+                """
+                UPDATE dossier_documents
+                SET is_current = 0
+                WHERE dossier_id = ? AND role = ? AND doc_id <> ?
+                """,
+                (dossier_id, row["role"], doc_id),
+            )
+        if human_verified is not None:
+            conn.execute(
+                """
+                UPDATE dossier_documents
+                SET human_verified = ?, verified_by = ?, verified_at = ?
+                WHERE dossier_id = ? AND doc_id = ?
+                """,
+                (
+                    1 if human_verified else 0,
+                    verified_by if human_verified else "",
+                    stamp if human_verified else None,
+                    dossier_id,
+                    doc_id,
+                ),
+            )
+        if is_current is not None:
+            conn.execute(
+                """
+                UPDATE dossier_documents SET is_current = ?
+                WHERE dossier_id = ? AND doc_id = ?
+                """,
+                (1 if is_current else 0, dossier_id, doc_id),
+            )
+        conn.execute(
+            "UPDATE dossiers SET updated_at = ? WHERE id = ?",
+            (stamp, dossier_id),
+        )
+    return next(
+        (
+            item
+            for item in list_dossier_documents(dossier_id)
+            if item["doc_id"] == doc_id
+        ),
+        None,
+    )
+
+
+def detach_dossier_document(dossier_id: str, doc_id: str) -> bool:
+    with connect() as conn:
+        removed = conn.execute(
+            """
+            SELECT role, version, is_current FROM dossier_documents
+            WHERE dossier_id = ? AND doc_id = ?
+            """,
+            (dossier_id, doc_id),
+        ).fetchone()
+        if not removed:
+            return False
+        cur = conn.execute(
+            """
+            DELETE FROM dossier_documents
+            WHERE dossier_id = ? AND doc_id = ?
+            """,
+            (dossier_id, doc_id),
+        )
+        if cur.rowcount:
+            if removed["is_current"]:
+                conn.execute(
+                    """
+                    UPDATE dossier_documents
+                    SET is_current = 1
+                    WHERE dossier_id = ? AND doc_id = (
+                        SELECT doc_id FROM dossier_documents
+                        WHERE dossier_id = ? AND role = ?
+                        ORDER BY version DESC
+                        LIMIT 1
+                    )
+                    """,
+                    (dossier_id, dossier_id, removed["role"]),
+                )
+            conn.execute(
+                "UPDATE dossiers SET updated_at = ? WHERE id = ?",
+                (now(), dossier_id),
+            )
+    return bool(cur.rowcount)
 
 
 def get_chunks(doc_id: str | None = None) -> list[dict[str, Any]]:
