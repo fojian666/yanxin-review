@@ -102,22 +102,34 @@ export function WelcomePage() {
               id="workspace-document"
               className="select"
               title={selectedDossier?.name || ""}
-              value={activeDossierId}
+              value={activeDossierId || (activeDocId ? `doc:${activeDocId}` : "")}
               onChange={(event) => {
                 const nextId = event.target.value;
+                if (nextId.startsWith("doc:")) {
+                  setActiveDossierId("");
+                  setActiveDocId(nextId.slice(4));
+                  return;
+                }
                 setActiveDossierId(nextId);
                 const proposal = dossiers
                   .find((dossier) => dossier.id === nextId)
                   ?.materials.find((material) => material.role === "proposal_text" && material.is_current);
-                if (proposal) setActiveDocId(proposal.doc_id);
+                setActiveDocId(proposal?.doc_id ?? "");
               }}
             >
               <option value="">选择课题卷宗</option>
-              {dossiers.map((dossier) => (
-                <option key={dossier.id} value={dossier.id}>
-                  {dossier.name} · {dossier.plan_type_label} · {dossier.phase_label}
-                </option>
-              ))}
+              <optgroup label="课题卷宗">
+                {dossiers.map((dossier) => (
+                  <option key={dossier.id} value={dossier.id}>
+                    {dossier.name} · {dossier.plan_type_label} · {dossier.phase_label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="单独的申报书">
+                {docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other").map((doc) => (
+                  <option key={doc.id} value={`doc:${doc.id}`}>{doc.name}</option>
+                ))}
+              </optgroup>
             </select>
           ) : (
             <select

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
+  ChevronDown,
   FilePlus2,
   FolderOpen,
   Loader2,
@@ -34,6 +35,7 @@ export function DossierWorkbench() {
   } = useApp();
   const [checklist, setChecklist] = useState<DossierChecklist | null>(null);
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState("");
@@ -91,7 +93,7 @@ export function DossierWorkbench() {
     const proposal = next.materials.find(
       (material) => material.role === "proposal_text" && material.is_current
     );
-    if (proposal) setActiveDocId(proposal.doc_id);
+    setActiveDocId(proposal?.doc_id ?? "");
   };
 
   const saved = async (next: Dossier) => {
@@ -135,6 +137,7 @@ export function DossierWorkbench() {
     setSaving(`current-${docId}`);
     try {
       await api.updateDossierDocument(dossier.id, docId, { is_current: true });
+      if (dossier.materials.find((item) => item.doc_id === docId)?.role === "proposal_text") setActiveDocId(docId);
       await refreshDossiers();
       await loadChecklist();
       toast("已切换当前版本");
@@ -150,6 +153,7 @@ export function DossierWorkbench() {
     setSaving(`detach-${docId}`);
     try {
       await api.detachDossierDocument(dossier.id, docId);
+      if (dossier.materials.some((item) => item.doc_id === docId && item.role === "proposal_text" && item.is_current)) setActiveDocId("");
       await refreshDossiers();
       await loadChecklist();
       toast("已从卷宗材料中移除");
@@ -179,6 +183,9 @@ export function DossierWorkbench() {
           </p>
         </div>
         <div className="dossier-workbench-actions">
+          {dossier && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} aria-controls="dossier-details" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? "收起详情" : "展开详情"}<ChevronDown size={14} className={expanded ? "dossier-chevron is-expanded" : "dossier-chevron"} />
+          </button>}
           {dossier && can("upload") && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setModalOpen(true)}>
               <Pencil size={14} />编辑卷宗
@@ -217,6 +224,7 @@ export function DossierWorkbench() {
             </div>
           </div>
 
+          <div id="dossier-details" hidden={!expanded}>
           <details className="dossier-process">
             <summary>
               <span>课题实施流程</span>
@@ -391,6 +399,7 @@ export function DossierWorkbench() {
               <div className="dossier-loading" role="status"><Loader2 size={18} className="spin" /> 正在生成材料体检…</div>
             ) : null}
           </div>
+          </div>
         </>
       )}
 
@@ -401,6 +410,8 @@ export function DossierWorkbench() {
         onSaved={(next) => void saved(next)}
         onDeleted={() => {
           setChecklist(null);
+          setActiveDossierId("");
+          setActiveDocId("");
           void refreshDossiers();
         }}
       />

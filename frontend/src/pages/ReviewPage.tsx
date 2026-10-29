@@ -26,7 +26,7 @@ const STATUS_LABELS: Record<CheckStatus, string> = {
 };
 
 export function ReviewPage() {
-  const { docs, toast, activeDocId, setActiveDocId } = useApp();
+  const { docs, toast, activeDocId, setActiveDocId, setActiveDossierId } = useApp();
   const reduce = useMotionPreference();
   const [params, setParams] = useSearchParams();
   const [docId, setDocId] = useState(activeDocId);
@@ -66,6 +66,7 @@ export function ReviewPage() {
     if (!fromQuery) return;
     if (fromQuery && sortedDocs.some((d) => d.id === fromQuery && (d.kind === "proposal" || d.kind === "other"))) {
       setDocId(fromQuery);
+      setActiveDossierId("");
       setActiveDocId(fromQuery);
       // 消费后移除参数，避免用户改选文档时又被 URL 拉回
       const next = new URLSearchParams(params);
@@ -76,7 +77,7 @@ export function ReviewPage() {
     const next = new URLSearchParams(params);
     next.delete("doc");
     setParams(next, { replace: true });
-  }, [sortedDocs, params, setActiveDocId, setParams]);
+  }, [sortedDocs, params, setActiveDocId, setActiveDossierId, setParams]);
 
   useEffect(() => {
     if (!activeDocId) {

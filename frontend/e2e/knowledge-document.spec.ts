@@ -52,6 +52,15 @@ test("文档中心读取正文并按目录深链切换", async ({ app: page, doc
   await page.goto(`/library?doc=${documents[0].id}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("文档中心");
   await expectCenteredIcon(page, ".document-center-mark");
+  const buttons = await page.locator(".document-center-tools .btn").evaluateAll((items) => items.map((item) => {
+    const rect = item.getBoundingClientRect();
+    return { top: rect.top, height: rect.height };
+  }));
+  expect(buttons).toHaveLength(2);
+  expect(Math.abs(buttons[0].top - buttons[1].top)).toBeLessThan(1);
+  expect(Math.abs(buttons[0].height - buttons[1].height)).toBeLessThan(1);
+  const heights = await page.locator(".document-center-layout > *").evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
+  expect(Math.abs(heights[0] - heights[1])).toBeLessThan(1);
   await expect(page.locator(".document-reader-head h2")).toHaveText(documents[0].name);
   await expect(page.locator(".document-prose")).toContainText("科研诚信与自然资源数据治理研究");
   await expect(page.locator(".document-prose")).toContainText("研究内容");

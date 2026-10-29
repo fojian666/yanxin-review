@@ -36,6 +36,7 @@ export function LibraryPage() {
     openUpload,
     setSelectedDocs,
     setActiveDocId,
+    setActiveDossierId,
     activeDocId,
     can,
     loading,
@@ -84,12 +85,12 @@ export function LibraryPage() {
         const nextParams = new URLSearchParams(params);
         nextParams.set("doc", uploadedDoc.id);
         setParams(nextParams);
-        if (uploadedDoc.kind === "proposal" || uploadedDoc.kind === "other") setActiveDocId(uploadedDoc.id);
+        if (uploadedDoc.kind === "proposal" || uploadedDoc.kind === "other") { setActiveDossierId(""); setActiveDocId(uploadedDoc.id); }
       } else {
         setUploadedDocId("");
       }
     }
-  }, [params, requestedId, setActiveDocId, setParams, uploadedDoc]);
+  }, [params, requestedId, setActiveDocId, setActiveDossierId, setParams, uploadedDoc]);
 
   useEffect(() => {
     const onUploaded = (event: Event) => {
@@ -133,7 +134,7 @@ export function LibraryPage() {
     const nextParams = new URLSearchParams(params);
     nextParams.set("doc", doc.id);
     setParams(nextParams);
-    if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
+    if (doc.kind === "proposal" || doc.kind === "other") { setActiveDossierId(""); setActiveDocId(doc.id); }
     if (window.matchMedia("(max-width: 900px)").matches) {
       setDirectoryOpen(false);
       requestAnimationFrame(() => readerRef.current?.focus({ preventScroll: true }));
@@ -141,13 +142,13 @@ export function LibraryPage() {
   };
 
   const openForChat = (doc: DocItem) => {
-    if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
+    if (doc.kind === "proposal" || doc.kind === "other") { setActiveDossierId(""); setActiveDocId(doc.id); }
     setSelectedDocs([doc.id]);
     navigate("/chat");
   };
 
   const openForReview = (doc: DocItem) => {
-    if (doc.kind === "proposal" || doc.kind === "other") setActiveDocId(doc.id);
+    if (doc.kind === "proposal" || doc.kind === "other") { setActiveDossierId(""); setActiveDocId(doc.id); }
     navigate(`/review?doc=${doc.id}`);
   };
 
@@ -250,7 +251,7 @@ export function LibraryPage() {
             </button>
           )}
           {can("delete-doc") && (
-            <button type="button" className="btn btn-ghost btn-sm danger" onClick={() => void removeSampleDocs()}>
+            <button type="button" className="btn btn-ghost danger" onClick={() => void removeSampleDocs()}>
               移除演示本子
             </button>
           )}

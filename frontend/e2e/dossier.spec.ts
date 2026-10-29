@@ -21,7 +21,16 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await workspaceSelect.selectOption('');
   await expect(page.getByRole('heading', { name: '选择或新建课题卷宗' })).toBeVisible();
   await expect(page.getByRole('button', { name: '新建课题卷宗' })).toBeVisible();
+  await workspaceSelect.selectOption(`doc:${documents[1].id}`);
+  await expect(page.getByRole('button', { name: '开始预审' })).toBeEnabled();
   await workspaceSelect.selectOption(dossierId);
+  await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
+  const toggle = page.getByRole('button', { name: '收起详情' });
+  await toggle.click();
+  await expect(page.locator('#dossier-details')).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath('dossier-collapsed.png') });
+  await page.getByRole('button', { name: '展开详情' }).click();
+  await expect(page.locator('#dossier-details')).toBeVisible();
   await page.locator('.dossier-process summary').click();
   await expect(page.locator('.dossier-process ol li')).toHaveCount(6);
   await expect(page.locator('.dossier-process li.is-current')).toContainText('立项申请');

@@ -151,17 +151,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDocs(data.documents);
     setActiveDocId((current) => {
       if (data.documents.some((d) => d.id === current)) return current;
+      if (activeDossierId) return "";
       return data.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
     });
     setSelectedDocs((current) => current.filter((id) => data.documents.some((d) => d.id === id)));
-  }, []);
+  }, [activeDossierId]);
 
   const refreshDossiers = useCallback(async () => {
     const data = await api.dossiers();
     setDossiers(data.dossiers);
     setActiveDossierId((current) => {
       if (data.dossiers.some((dossier) => dossier.id === current)) return current;
-      return data.dossiers[0]?.id ?? "";
+      return "";
     });
   }, []);
 
@@ -221,7 +222,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       setActiveDossierId(firstDossier?.id ?? "");
       setActiveDocId((current) => {
-        if (firstProposal) return firstProposal.doc_id;
+        if (firstDossier) return firstProposal?.doc_id ?? "";
         if (d.documents.some((doc) => doc.id === current)) return current;
         return d.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
       });
