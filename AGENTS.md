@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 66 项浏览器回归（首次需安装 Chromium）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 68 项浏览器回归（首次需安装 Chromium）
 python3 -m pytest tests/ -q                                 # 回归测试（151 个测试函数，参数化展开 164 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）

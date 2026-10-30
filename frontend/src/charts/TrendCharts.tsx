@@ -94,7 +94,7 @@ export function AnnualChart3D({ data, autoRotate = true }: { data: TrendData; au
           minDistance: 100,
           maxDistance: 280,
           rotateSensitivity: 1.2,
-          zoomSensitivity: 0,
+          zoomSensitivity: 1,
         },
         light: {
           main: { intensity: 1.45, shadow: true, alpha: 35, beta: 40 },
@@ -126,7 +126,7 @@ export function AnnualChart3D({ data, autoRotate = true }: { data: TrendData; au
     };
   }, [data, reduce]);
 
-  return <EChart option={option} autoRotate={autoRotate} className="chart-3d" height={345} disableWheelZoom ariaLabel={annualSummary(data)} />;
+  return <EChart option={option} autoRotate={autoRotate} className="chart-3d" height={345} ariaLabel={annualSummary(data)} />;
 }
 
 export function TopicMatrix3D({ data, autoRotate = true }: { data: TrendData; autoRotate?: boolean }) {
@@ -217,7 +217,7 @@ export function TopicMatrix3D({ data, autoRotate = true }: { data: TrendData; au
           beta: 35,
           minDistance: 115,
           maxDistance: 300,
-          zoomSensitivity: 0,
+          zoomSensitivity: 1,
         },
         light: {
           main: { intensity: 1.35, shadow: true, alpha: 35, beta: 40 },
@@ -249,7 +249,7 @@ export function TopicMatrix3D({ data, autoRotate = true }: { data: TrendData; au
     };
   }, [data, reduce]);
 
-  return <EChart option={option} autoRotate={autoRotate} className="chart-3d" height={345} disableWheelZoom ariaLabel={matrixSummary(data, 4)} />;
+  return <EChart option={option} autoRotate={autoRotate} className="chart-3d" height={345} ariaLabel={matrixSummary(data, 4)} />;
 }
 
 export function TrendLine2D({ data }: { data: TrendData }) {
@@ -275,6 +275,7 @@ export function TrendLine2D({ data }: { data: TrendData }) {
         itemHeight: 6,
       },
       grid: { left: 42, right: 18, top: 42, bottom: 30 },
+      dataZoom: [{ type: "inside", xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseWheel: false, moveOnMouseMove: true }],
       xAxis: {
         type: "category",
         data: data.years.map(String),
@@ -320,6 +321,7 @@ export function TrendBar2D({ data }: { data: TrendData }) {
         textStyle: { color: "#e9f2ef", fontSize: 12 },
       },
       grid: { left: 38, right: 16, top: 28, bottom: 30 },
+      dataZoom: [{ type: "inside", xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseWheel: false, moveOnMouseMove: true }],
       xAxis: {
         type: "category",
         data: data.years.map(String),

@@ -163,7 +163,7 @@ export function TrendPage() {
           charts: (
             <div className="trend-chart-page">
               <div className="trend-toolbar">
-                <div><span className={`live-dot ${showLoading ? "loading" : ""}`} />趋势视图<span className="muted"> · 3D 可拖拽，2D 便于读数</span></div>
+                <div><span className={`live-dot ${showLoading ? "loading" : ""}`} />趋势视图<span className="muted"> · 拖拽查看，滚轮缩放</span></div>
                 <div className="trend-view-actions">
                   {effectiveView === "3d" && <button className="btn btn-ghost btn-sm rotation-toggle" onClick={() => setRotationEnabled((enabled) => !enabled)} disabled={reduce} aria-pressed={rotationEnabled && !reduce} aria-label="自动旋转" title={reduce ? "已遵循系统减少动态效果设置" : "同时控制两张 3D 图表；离屏与后台自动暂停"}>{rotationEnabled && !reduce ? <Pause size={14} /> : <Play size={14} />}{reduce ? "旋转已关闭" : rotationEnabled ? "暂停旋转" : "继续旋转"}</button>}
                   <div className="view-toggle"><motion.span className="view-pill" animate={{ x: effectiveView === "3d" ? "0%" : "100%" }} transition={SPRING} /><button className={effectiveView === "3d" ? "active" : ""} onClick={() => webgl && setView("3d")} disabled={!webgl} title={webgl ? "3D 视图" : "当前浏览器不支持 WebGL"} aria-pressed={effectiveView === "3d"}><Box size={14} /><span>3D</span></button><button className={effectiveView === "2d" ? "active" : ""} onClick={() => setView("2d")} aria-pressed={effectiveView === "2d"}><LineChart size={14} /><span>2D</span></button></div>

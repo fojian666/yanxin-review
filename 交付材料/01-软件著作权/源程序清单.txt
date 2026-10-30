@@ -27,7 +27,7 @@
     203 frontend/src/App.tsx
     356 frontend/src/AppContext.tsx
     318 frontend/src/api.ts
-    363 frontend/src/charts/TrendCharts.tsx
+    365 frontend/src/charts/TrendCharts.tsx
      93 frontend/src/components/ChatModelControls.tsx
      81 frontend/src/components/CitationTrace.tsx
     127 frontend/src/components/DocumentDirectory.tsx
@@ -61,9 +61,9 @@
     559 frontend/src/pages/ReviewPage.tsx
     205 frontend/src/pages/TrendPage.tsx
     204 frontend/src/pages/WelcomePage.tsx
-   6289 frontend/src/styles.css
+   6313 frontend/src/styles.css
     390 frontend/src/types.ts
-  14507 total
+  14533 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -95,11 +95,12 @@
     155 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      78 frontend/e2e/trend-zoom.spec.ts
+     38 frontend/e2e/workspace-sizing.spec.ts
      99 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2206 total
+   2244 total
 合计
-  27144 total（88 个文件）
+  27208 total（89 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
