@@ -112,7 +112,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background:
     radial-gradient(circle at 20% 0%, rgba(14, 124, 107, 0.35), transparent 38%),
     linear-gradient(180deg, #0b1a23 0%, #0d232d 60%, #0b1a23 100%);
-  border-right: 1px solid rgba(255,255,255,0.06);
   overflow-y: auto;
   overscroll-behavior: contain;
   z-index: 20;
@@ -6307,7 +6306,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     background-repeat: no-repeat;
     background-size: 100vw 68px;
     background-position: left top;
-    border-bottom: 1px solid var(--topbar-line);
+    border-bottom: 0;
   }
   .app-shell:not(.sidebar-collapsed) .main:has(.workspace-home) > .topbar {
     height: 68px;
@@ -6316,6 +6315,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     background-repeat: no-repeat;
     background-size: 100vw 68px;
     background-position: -264px top;
+    border-bottom: 0;
   }
 }
 

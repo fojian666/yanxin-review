@@ -49,6 +49,7 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
         const style = getComputedStyle(topbar);
         return {
           sidebarRight: sidebarBox.right,
+          sidebarBorderRight: getComputedStyle(sidebar).borderRightWidth,
           topbarLeft: topbarBox.left,
           topbarRight: topbarBox.right,
           topbarTop: topbarBox.top,
@@ -57,6 +58,7 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
           brandRight: brandBox.right,
           brandTop: brandBox.top,
           brandHeight: brandBox.height,
+          brandBorderBottom: getComputedStyle(brand).borderBottomWidth,
           brandBackground: getComputedStyle(brand).backgroundImage,
           brandBackgroundSize: getComputedStyle(brand).backgroundSize,
           topbarBackgroundSize: style.backgroundSize,
@@ -65,10 +67,12 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
           bodyRight: document.body.getBoundingClientRect().right,
           viewportWidth: innerWidth,
           background: style.backgroundImage,
+          topbarBorderBottom: style.borderBottomWidth,
           radius: style.borderTopLeftRadius,
         };
       });
       expect(Math.abs(shellBar.topbarLeft - shellBar.sidebarRight), `${value} ${route} 顶栏未贴合侧栏`).toBeLessThanOrEqual(1);
+      expect(shellBar.sidebarBorderRight, `${value} ${route} 侧栏与系统栏之间出现分隔线`).toBe('0px');
       expect(shellBar.topbarRight, `${value} ${route} 顶栏未贯穿可用宽度`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 1);
       expect(shellBar.bodyRight, `${value} ${route} 右侧保留了滚动条空槽`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 1);
       expect(Math.abs(shellBar.brandLeft), `${value} ${route} 品牌区未从窗口左边开始`).toBeLessThanOrEqual(1);
@@ -76,6 +80,8 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       expect(Math.abs(shellBar.brandTop - shellBar.topbarTop), `${value} ${route} 品牌区与系统栏起点不一致`).toBeLessThanOrEqual(1);
       expect(Math.abs(shellBar.brandHeight - shellBar.topbarHeight), `${value} ${route} 品牌区与系统栏高度不一致`).toBeLessThanOrEqual(1);
       expect(Math.abs(shellBar.brandCenterY - shellBar.titleCenterY), `${value} ${route} 品牌与页面标题中线未对齐`).toBeLessThanOrEqual(1);
+      expect(shellBar.brandBorderBottom, `${value} ${route} 品牌区底部出现分隔线`).toBe('0px');
+      expect(shellBar.topbarBorderBottom, `${value} ${route} 系统栏底部出现分隔线`).toBe('0px');
       expect(shellBar.radius, `${value} ${route} 顶栏不应是独立卡片`).toBe('0px');
       expect(shellBar.background, `${value} ${route} 顶栏缺少主题底色`).toContain('linear-gradient');
       expect(shellBar.background, `${value} ${route} 顶栏与侧栏顶部颜色未衔接`).toContain(topbarLeadingColors[value]);
