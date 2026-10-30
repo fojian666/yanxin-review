@@ -408,15 +408,15 @@ components:
 
 三套字体分工，全部为系统字体栈（无 webfont、无 FOIT）：
 
-- **宋体（Songti SC / STSong）**：品牌、页面标题、面板标题、趋势/查重主标题、KPI 数字——"阅卷"的正式感；
-- **黑体（PingFang SC / Microsoft YaHei…）**：界面控件、表格、标签——可读与中性；
+- **宋体（Songti SC / STSong）**：品牌、面板标题、趋势/查重主标题、KPI 数字——"阅卷"的正式感；
+- **黑体（PingFang SC / Microsoft YaHei…）**：页面标题、界面控件、表格、标签——可读与中性；
 - **楷体（Kaiti SC / KaiTi…）**：问答回答、摘要和证据原文的阅读层；
 - **等宽（SFMono / Menlo）**：必要的英文内容与演示口令。
 
 | Level | 字体 | 字号/行高 | 用途 |
 |---|---|---|---|
 | `display-login` | 宋体 600 | 40 / 1.15 · 6px | 登录页品牌主标题 |
-| `display-page` | 宋体 600 | 34 / 1.15 | 顶栏页面标题 |
+| `display-page` | 黑体 600 | 24–28 / 1.2 · .02em | 顶栏页面标题 |
 | `display-hero` | 宋体 600 | 28 / 1.25 | 趋势/查重主标题 |
 | `display-welcome` | 楷体 600 | 28 / 1.6 · 1.5px | 问答欢迎语（≤680px 为 24px） |
 | `heading-panel` | 宋体 600 | 20 / 1.25 | 面板标题 |

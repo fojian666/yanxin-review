@@ -86,7 +86,12 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await expect.poll(() => page.evaluate(() => (window as typeof window & { titleArrivals: string[] }).titleArrivals)).toContain('/chat');
     await expect(page.locator('.topbar-title p, .route-arrival, .mobile-model-status, .topbar .mode-chip')).toHaveCount(0);
     await navigate(page, '文档中心');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('文档中心');
+    const pageTitle = page.getByRole('heading', { level: 1 });
+    await expect(pageTitle).toHaveText('文档中心');
+    await expect(pageTitle).toHaveCSS('font-family', /PingFang SC/);
+    const titleSize = Number.parseFloat(await pageTitle.evaluate(element => getComputedStyle(element).fontSize));
+    expect(titleSize).toBeGreaterThanOrEqual(width === 375 ? 20 : 24);
+    expect(titleSize).toBeLessThanOrEqual(width === 375 ? 24 : 28);
     await expect(page.locator('.route-arrival')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`route-header-${width}.png`) });
 
