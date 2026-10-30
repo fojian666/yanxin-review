@@ -127,7 +127,7 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
   }
 });
 
-test('简约模式文档目录保持正常列宽，黑白主题保留彩色内容与蓝色表头', async ({ app: page }, testInfo) => {
+test('简约模式文档目录保持正常列宽，黑白主题保留彩色内容并使用主题表头', async ({ app: page }, testInfo) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/library');
