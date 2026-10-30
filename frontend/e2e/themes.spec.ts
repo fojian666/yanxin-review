@@ -46,6 +46,26 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
         '/library': '.document-reader', '/admin': '.admin-deck',
       };
       if (selectors[route]) await expect(page.locator(selectors[route]).first()).toBeVisible();
+      const headingSelectors: Record<string, string> = {
+        '/welcome': '.welcome-greeting-row h2',
+        '/dossiers': '.dossier-workbench-head h2',
+        '/review': '.work-deck-head h3',
+        '/match': '.match-hero h2',
+        '/chat': '.welcome h2',
+        '/graph': '.kg-summary-title strong',
+        '/trend': '.trend-hero h2',
+        '/library': '.document-reader-head h2',
+        '/admin': '.panel-head h2',
+      };
+      const headingType = await page.locator(headingSelectors[route]).first().evaluate(element => {
+        const style = getComputedStyle(element);
+        return { family: style.fontFamily, weight: Number.parseInt(style.fontWeight, 10) };
+      });
+      expect(headingType.family, `${value} ${route} 结构化标题未使用黑体`).toContain('PingFang SC');
+      expect(headingType.weight, `${value} ${route} 结构化标题字重不足`).toBeGreaterThanOrEqual(680);
+      if (route === '/library') {
+        await expect(page.locator('.document-chunk-text').first()).toHaveCSS('font-family', /Kaiti/);
+      }
       const shellBar = await page.evaluate(() => {
         const sidebar = document.querySelector<HTMLElement>('.sidebar')!;
         const topbar = document.querySelector<HTMLElement>('.topbar')!;

@@ -28,6 +28,7 @@
   --navy-2: #102a35;
   --shadow: 0 10px 28px rgba(16, 36, 46, 0.055);
   --radius: 6px;
+  --font-ui: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   --topbar-start: #0b1a23;
   --topbar-bg: linear-gradient(100deg, var(--topbar-start) 0%, #0e6b5d 62%, #0a4b42 100%);
   --topbar-ink: #f7fffc;
@@ -175,7 +176,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   max-width: 1760px;
 }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid rgba(16,36,46,.12); margin-bottom: 28px; }
-.topbar h1 { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif; font-size: clamp(24px, 1.9vw, 28px); line-height: 1.2; margin: 0; letter-spacing: .02em; font-weight: 600; }
+.topbar h1 { font-family: var(--font-ui); font-size: clamp(24px, 1.9vw, 28px); line-height: 1.2; margin: 0; letter-spacing: .02em; font-weight: 600; }
 .topbar p { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
 .topbar-actions { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
 .mode-chip {
@@ -604,7 +605,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .field.span-2 { grid-column: span 2; }
-.field span { color: var(--muted); font-size: 12px; }
+.field span { color: var(--ink-2); font-size: 12px; font-weight: 600; }
 .field input, .field select { min-width: 0; width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 4px; background: #fffdf8; padding: 0 12px; outline: none; font-size: 13.5px; }
 .field input:focus, .field select:focus { border-color: #9acdc0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; }
@@ -1658,12 +1659,8 @@ a, img, svg, canvas,
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .trend-hero h2, .match-hero h2 {
     font-size: 30px;
-    letter-spacing: 2.5px;
-    background: linear-gradient(118deg, #0d3f37 10%, #0a5f52 48%, #1c3a46 92%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+    letter-spacing: .02em;
+    color: var(--ink);
   }
 }
 
@@ -6749,3 +6746,54 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     padding-bottom: 16px;
   }
 }
+
+/* 结构化标题使用黑体；品牌、印章、KPI 数字与正文阅读字体保持原有气质。 */
+:is(
+  .panel-head h2,
+  .empty-state h3,
+  .welcome h2,
+  .welcome-greeting-row h2,
+  .review-control h2,
+  .report-head h2,
+  .trend-hero h2,
+  .match-hero h2,
+  .modal-head h2,
+  .dropzone h3,
+  .section-head h3,
+  .work-deck-head h3,
+  .dossier-workbench-head h2,
+  .dossier-overview strong,
+  .kg-summary-title strong,
+  .kg-detail-head h2,
+  .keyword-detail-body h2,
+  .document-center-title strong,
+  .workspace-overview-deck strong,
+  .document-reader-head h2,
+  .document-chunk h3
+) {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+.trend-hero h2,
+.match-hero h2 {
+  color: var(--ink);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.keyword-detail-body h3,
+.dossier-section-title h3,
+.dossier-check-head h4,
+.review-boundary-disclaimer strong {
+  font-family: var(--font-ui);
+  font-weight: 700;
+}
+
+.work-deck-copy strong { font-weight: 680; }
+.data-table th { font-weight: 680; }
+.check-label,
+.data-table .doc-title,
+.dossier-material-copy strong { font-weight: 650; }
+.kpi-label { font-weight: 600; }

@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: yanxin-review-design
-description: 研信智评内网评审工作台的设计契约——青绿纸色、黑白、蓝白与极光紫主题，宋体标题与黑体界面、简洁的业务文案；React 19 + 手写 CSS，主题令牌取自 frontend/src/styles.css 与 themes.css，并遵守 reduced-motion。
+description: 研信智评内网评审工作台的设计契约——青绿纸色、黑白、蓝白与极光紫主题，宋体品牌、黑体结构化标题与界面、楷体阅读正文；React 19 + 手写 CSS，主题令牌取自 frontend/src/styles.css 与 themes.css，并遵守 reduced-motion。
 colors:
   primary: "#0e7c6b"
   primary-deep: "#0a5f52"
@@ -351,7 +351,7 @@ components:
 
 研信智评是江苏省自然资源科研管理的**内网评审辅助工作台**。设计目标不是"炫技的 AI 产品"，
 而是**像一份摊开的卷宗**：温润的米色纸面、沉稳的墨色标题、克制的青绿强调色，信息以证据与
-原文为中心。视觉母题来自测绘与勘验——登录页的等高线地形、面板的细描边、宋体标题与楷体
+原文为中心。视觉母题来自测绘与勘验——登录页的等高线地形、面板的细描边、宋体品牌与加粗黑体标题、楷体
 按语，都在强化"正在阅卷"的感觉。
 
 设计原则（按优先级）：
@@ -408,8 +408,8 @@ components:
 
 三套字体分工，全部为系统字体栈（无 webfont、无 FOIT）：
 
-- **宋体（Songti SC / STSong）**：品牌、面板标题、趋势/查重主标题、KPI 数字——"阅卷"的正式感；
-- **黑体（PingFang SC / Microsoft YaHei…）**：页面标题、界面控件、表格、标签——可读与中性；
+- **宋体（Songti SC / STSong）**：品牌、登录品牌、印章、KPI 数字和卷宗装帧——保留"阅卷"的仪式感；
+- **黑体（PingFang SC / Microsoft YaHei…）**：页面、面板、区段、报告和文档标题，以及控件、表格、标签——清晰的信息层级；
 - **楷体（Kaiti SC / KaiTi…）**：问答回答、摘要和证据原文的阅读层；
 - **等宽（SFMono / Menlo）**：必要的英文内容与演示口令。
 
@@ -417,10 +417,10 @@ components:
 |---|---|---|---|
 | `display-login` | 宋体 600 | 40 / 1.15 · 6px | 登录页品牌主标题 |
 | `display-page` | 黑体 600 | 24–28 / 1.2 · .02em | 顶栏页面标题 |
-| `display-hero` | 宋体 600 | 28 / 1.25 | 趋势/查重主标题 |
-| `display-welcome` | 楷体 600 | 28 / 1.6 · 1.5px | 问答欢迎语（≤680px 为 24px） |
-| `heading-panel` | 宋体 600 | 20 / 1.25 | 面板标题 |
-| `heading-modal` | 宋体 600 | 26 / 1.2 | 上传弹窗标题 |
+| `display-hero` | 黑体 700 | 28 / 1.25 | 趋势/查重主标题 |
+| `display-welcome` | 黑体 700 | 28 / 1.25 | 问答欢迎语（≤680px 为 24px） |
+| `heading-panel` | 黑体 700 | 20 / 1.25 | 面板与区段标题 |
+| `heading-modal` | 黑体 700 | 26 / 1.2 | 上传与卷宗弹窗标题 |
 | `brand` | 宋体 600 | 21 / 1.2 · 2px | 侧栏品牌名 |
 | `data-display` | 宋体 600 | 36 / 1.15 | KPI 数值（`tabular-nums`） |
 | `body-reading` | 楷体 400 | 15 / 1.85 | 问答回答、摘要、报告正文、证据原文 |
@@ -433,7 +433,7 @@ components:
 
 **规则**
 
-- 宋体只用于标题与数字，**不要**用于长正文（小字号宋体在屏幕上发虚）。
+- 宋体只用于品牌、印章、卷宗装帧与 KPI 数字；结构化标题统一使用黑体加粗，**不要**用于长正文（小字号宋体在屏幕上发虚）。
 - 正文最小 12px；演示数据徽章为 10.5px。
 - 数据列与 KPI 使用 `font-variant-numeric: tabular-nums`，避免数值跳动。
 - 阅读区最大行宽约 600px（`.welcome > p`、趋势引导语），长文行高 ≥1.8。
@@ -552,7 +552,7 @@ components:
 **Do**
 
 - 用 token：颜色写 `var(--primary)`、间距用刻度、圆角用 `rounded` 档位。
-- 标题用宋体、界面文字用黑体、文案阅读层用楷体；中文标点全角，数字与英文半角。
+- 品牌与数字用宋体、结构化标题和界面文字用黑体、文案阅读层用楷体；中文标点全角，数字与英文半角。
 - 状态同时给颜色与文字/图标；空态给出下一步动作。
 - 动效只用 `transform`/`opacity`，并在 `prefers-reduced-motion` 下关闭。
 - 新增可交互元素时同时实现：hover、focus-visible、active、disabled、loading（如适用）。
