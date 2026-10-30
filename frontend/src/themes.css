@@ -7,9 +7,15 @@
   --gold: #727775; --gold-soft: #edeeec;
   --idle: #eceeec; --idle-ink: #505654;
   --navy: #171a1c; --navy-2: #272b2d;
-  --table-head-bg: linear-gradient(100deg, #0d4380 0%, #1769a9 62%, #0b4a88 100%);
+  --topbar-bg: linear-gradient(100deg, #1b1f21 0%, #42494b 62%, #262b2d 100%);
+  --topbar-ink: #fff;
+  --topbar-line: rgba(255,255,255,.14);
+  --topbar-control-bg: rgba(255,255,255,.08);
+  --topbar-control-hover: rgba(255,255,255,.16);
+  --topbar-control-line: rgba(255,255,255,.32);
+  --table-head-bg: linear-gradient(100deg, #202426 0%, #424849 62%, #292d2f 100%);
   --table-head-ink: #fff;
-  --table-head-line: #083c70;
+  --table-head-line: #181b1c;
 }
 :root[data-theme="blue"] {
   --bg: #eaf0f5; --panel: #fcfdff; --panel-2: #f1f6fa;
@@ -19,6 +25,15 @@
   --gold: #a47c3b; --gold-soft: #f4ecd9;
   --idle: #e7edf2; --idle-ink: #516575;
   --navy: #0d2336; --navy-2: #153b56;
+  --topbar-bg: linear-gradient(100deg, #0d3150 0%, #1f6d9d 62%, #123f61 100%);
+  --topbar-ink: #fff;
+  --topbar-line: rgba(255,255,255,.15);
+  --topbar-control-bg: rgba(255,255,255,.09);
+  --topbar-control-hover: rgba(255,255,255,.17);
+  --topbar-control-line: rgba(255,255,255,.33);
+  --table-head-bg: linear-gradient(100deg, #0d3150 0%, #1f6d9d 62%, #123f61 100%);
+  --table-head-ink: #fff;
+  --table-head-line: #0a2943;
 }
 :root[data-theme="aurora"] {
   --bg: #eeedf6; --panel: #fdfcff; --panel-2: #f4f2fa;
@@ -28,6 +43,15 @@
   --gold: #a77b42; --gold-soft: #f7ecdc;
   --idle: #edeaf3; --idle-ink: #60596e;
   --navy: #221b35; --navy-2: #3a2d55;
+  --topbar-bg: linear-gradient(100deg, #2e2443 0%, #7055a4 62%, #453363 100%);
+  --topbar-ink: #fff;
+  --topbar-line: rgba(255,255,255,.16);
+  --topbar-control-bg: rgba(255,255,255,.09);
+  --topbar-control-hover: rgba(255,255,255,.17);
+  --topbar-control-line: rgba(255,255,255,.34);
+  --table-head-bg: linear-gradient(100deg, #302348 0%, #7055a4 62%, #493469 100%);
+  --table-head-ink: #fff;
+  --table-head-line: #251b39;
 }
 
 .theme-menu { position: relative; flex: 0 0 auto; }
@@ -246,43 +270,51 @@
 
 /* 原有少量固定底色需跟随主题，避免表单、阅读器或对话出现旧纸色。 */
 :root[data-theme="mono"] body, :root:is([data-theme="blue"], [data-theme="aurora"]) body { background: var(--bg); }
-:root[data-theme="mono"] .topbar {
-  margin-bottom: 14px;
-  padding: 13px 18px;
-  border: 1px solid #083c70;
-  border-radius: 6px;
-  color: #fff;
-  background:
-    linear-gradient(115deg, transparent 0 58%, rgba(255,255,255,.08) 58% 58.5%, transparent 58.5%),
-    linear-gradient(100deg, #0d4380 0%, #1769a9 62%, #0b4a88 100%);
-  box-shadow: 0 7px 18px rgba(9, 48, 88, .14);
+.main:has(.workspace-home) > .topbar {
+  margin: 0;
+  padding: 8px var(--workspace-gutter, 44px);
+  border: 0;
+  border-bottom: 1px solid var(--topbar-line);
+  border-radius: 0;
+  color: var(--topbar-ink);
+  background: var(--topbar-bg);
+  box-shadow: none;
 }
-:root[data-theme="mono"] .topbar h1 { color: #fff; }
-:root[data-theme="mono"] .topbar :is(.theme-trigger, .simple-mode-trigger, .mobile-nav-btn) {
-  color: #fff;
-  border-color: rgba(255,255,255,.38);
-  background: rgba(255,255,255,.08);
+.main:has(.workspace-home) > .topbar h1 { color: var(--topbar-ink); }
+.main:has(.workspace-home) > .topbar :is(.theme-trigger, .simple-mode-trigger, .mobile-nav-btn) {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
 }
-:root[data-theme="mono"] .topbar .simple-mode-trigger[aria-pressed="true"] {
-  color: #fff;
-  border-color: rgba(255,255,255,.62);
-  background: rgba(255,255,255,.2);
+.main:has(.workspace-home) > .topbar :is(.theme-trigger, .simple-mode-trigger, .mobile-nav-btn):hover {
+  background: var(--topbar-control-hover);
 }
-:root[data-theme="mono"] .topbar .topbar-actions > .btn-primary {
-  color: #fff;
-  border-color: rgba(255,255,255,.5);
-  background: rgba(255,255,255,.15);
+.main:has(.workspace-home) > .topbar .simple-mode-trigger[aria-pressed="true"] {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-hover);
 }
-:root[data-theme="mono"] .topbar .user-trigger {
-  color: #fff;
-  border-color: rgba(255,255,255,.38);
-  background: rgba(255,255,255,.08);
+.main:has(.workspace-home) > .topbar .topbar-actions > .btn-primary {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
 }
-:root[data-theme="mono"] .topbar .user-trigger-text strong { color: #fff; }
-:root[data-theme="mono"] .topbar .user-trigger .role-badge {
-  color: #fff;
-  border-color: rgba(255,255,255,.2);
-  background: rgba(255,255,255,.14);
+.main:has(.workspace-home) > .topbar .topbar-actions > .btn-primary:hover {
+  background: var(--topbar-control-hover);
+}
+.main:has(.workspace-home) > .topbar .user-trigger {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
+}
+.main:has(.workspace-home) > .topbar .user-trigger:hover {
+  background: var(--topbar-control-hover);
+}
+.main:has(.workspace-home) > .topbar .user-trigger-text strong { color: var(--topbar-ink); }
+.main:has(.workspace-home) > .topbar .user-trigger .role-badge {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
 }
 :root[data-theme="mono"] .sidebar { background: linear-gradient(180deg, #303638, #171a1c 75%); }
 :root:is([data-theme="blue"], [data-theme="aurora"]) .sidebar { background: linear-gradient(180deg, #164d70, #102b42 75%); }

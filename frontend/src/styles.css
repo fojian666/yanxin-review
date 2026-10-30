@@ -28,9 +28,15 @@
   --navy-2: #102a35;
   --shadow: 0 10px 28px rgba(16, 36, 46, 0.055);
   --radius: 6px;
-  --table-head-bg: #fbf8f1;
-  --table-head-ink: var(--muted);
-  --table-head-line: var(--line);
+  --topbar-bg: linear-gradient(100deg, #0b2b32 0%, #0e6b5d 62%, #0a4b42 100%);
+  --topbar-ink: #f7fffc;
+  --topbar-line: rgba(255,255,255,.16);
+  --topbar-control-bg: rgba(255,255,255,.1);
+  --topbar-control-hover: rgba(255,255,255,.18);
+  --topbar-control-line: rgba(255,255,255,.34);
+  --table-head-bg: linear-gradient(100deg, #0b2b32 0%, #0e6b5d 62%, #0a4b42 100%);
+  --table-head-ink: #fff;
+  --table-head-line: #083c35;
 }
 
 * { box-sizing: border-box; }
@@ -6476,4 +6482,39 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     white-space: nowrap;
   }
   .library-page .document-pager-title { display: none; }
+}
+
+/* Protected app shell: the themed system bar starts at the sidebar and runs edge to edge. */
+.main:has(.workspace-home) {
+  --workspace-gutter: 44px;
+  max-width: none;
+  padding: 0;
+}
+.main:has(.workspace-home) > .topbar {
+  width: 100%;
+  flex: 0 0 auto;
+}
+.main:has(.workspace-home) > .page {
+  width: 100%;
+  padding: 10px var(--workspace-gutter) 18px;
+}
+
+@media (max-width: 980px) {
+  .main:has(.workspace-home) {
+    --workspace-gutter: 24px;
+  }
+}
+
+@media (max-width: 680px) {
+  .main:has(.workspace-home) {
+    --workspace-gutter: 13px;
+  }
+  .main:has(.workspace-home) > .topbar {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .main:has(.workspace-home) > .page {
+    padding-top: 8px;
+    padding-bottom: 16px;
+  }
 }

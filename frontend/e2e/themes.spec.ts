@@ -4,6 +4,8 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   test.setTimeout(180_000);
   expect((await context.request.post('/api/auth/login', { data: { username: 'admin', password } })).ok()).toBeTruthy();
   const routes = ['/welcome', '/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library', '/admin'];
+  const topbarBackgrounds = new Set<string>();
+  const tableHeaderBackgrounds = new Set<string>();
   for (const [label, value] of [['黑白', 'mono'], ['深海蓝', 'blue'], ['极光紫', 'aurora'], ['青绿纸色', 'paper']] as const) {
     await page.goto('/welcome');
     await page.getByRole('button', { name: '切换主题' }).click();
@@ -21,15 +23,37 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
         '/library': '.document-reader', '/admin': '.admin-deck',
       };
       if (selectors[route]) await expect(page.locator(selectors[route]).first()).toBeVisible();
+      const shellBar = await page.evaluate(() => {
+        const sidebar = document.querySelector<HTMLElement>('.sidebar')!;
+        const topbar = document.querySelector<HTMLElement>('.topbar')!;
+        const sidebarBox = sidebar.getBoundingClientRect();
+        const topbarBox = topbar.getBoundingClientRect();
+        const style = getComputedStyle(topbar);
+        return {
+          sidebarRight: sidebarBox.right,
+          topbarLeft: topbarBox.left,
+          topbarRight: topbarBox.right,
+          viewportWidth: innerWidth,
+          background: style.backgroundImage,
+          radius: style.borderTopLeftRadius,
+        };
+      });
+      expect(Math.abs(shellBar.topbarLeft - shellBar.sidebarRight), `${value} ${route} 顶栏未贴合侧栏`).toBeLessThanOrEqual(1);
+      expect(shellBar.topbarRight, `${value} ${route} 顶栏未贯穿可用宽度`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 12);
+      expect(shellBar.radius, `${value} ${route} 顶栏不应是独立卡片`).toBe('0px');
+      expect(shellBar.background, `${value} ${route} 顶栏缺少主题底色`).toContain('linear-gradient');
+      topbarBackgrounds.add(shellBar.background);
       if (route === '/trend') {
         await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
         await expect(page.locator('.chart-panel').first()).toBeVisible();
         if (value === 'mono') await expect(page.locator('.chart-panel').first()).toHaveCSS('filter', 'none');
       }
-      if (route === '/admin' && value === 'mono') {
+      if (route === '/admin') {
         const header = page.locator('.data-table th').first();
         await expect(header).toHaveCSS('color', 'rgb(255, 255, 255)');
-        expect(await header.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('linear-gradient');
+        const background = await header.evaluate(element => getComputedStyle(element).backgroundImage);
+        expect(background).toContain('linear-gradient');
+        tableHeaderBackgrounds.add(background);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
       await page.screenshot({ path: testInfo.outputPath(`${value}-${route.slice(1)}.png`) });
@@ -47,6 +71,8 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     await page.screenshot({ path: testInfo.outputPath(`${value}-upload.png`) });
     await page.keyboard.press('Escape');
   }
+  expect(topbarBackgrounds.size, '四套主题应有各自顶栏配色').toBe(4);
+  expect(tableHeaderBackgrounds.size, '四套主题应有各自表头配色').toBe(4);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/welcome');
