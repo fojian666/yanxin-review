@@ -348,6 +348,16 @@
 :root[data-theme="blue"] .sidebar-note {
   color: #627b8c;
 }
+:root[data-theme="blue"] :is(.brand-home, .sidebar-toggle) {
+  color: var(--topbar-ink);
+}
+:root[data-theme="blue"] .sidebar-toggle {
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
+}
+:root[data-theme="blue"] .sidebar-toggle:hover {
+  background: var(--topbar-control-hover);
+}
 @media (min-width: 681px) and (max-width: 980px) {
   :root[data-theme="blue"] .sidebar {
     padding-top: 0;
@@ -421,9 +431,9 @@
 /* 蓝白主题展开为白色侧栏；收起后恢复深蓝功能轨道，与其它主题保持同一导航形态。 */
 @media (min-width: 981px) {
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .sidebar {
-    color: #e9f2ef;
+    color: var(--ink-2);
     padding-top: 0;
-    background: linear-gradient(180deg, #164d70, #102b42 75%);
+    background: #fff;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .brand {
     width: calc(100% + 20px);
@@ -440,26 +450,137 @@
     height: 44px;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item {
-    color: rgba(233,242,239,.68);
+    color: #567183;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item svg {
-    color: rgba(233,242,239,.78);
+    color: #6f8999;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item:hover {
-    color: #fff;
-    background: rgba(255,255,255,.08);
+    color: var(--teal-deep);
+    background: #eef7fc;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-pill {
-    background: linear-gradient(90deg, rgba(28,117,168,.52), rgba(28,117,168,.14));
-    border-left-color: #76c7ef;
+    background: linear-gradient(90deg, #dceff9, #eef8fd);
+    border-left-color: var(--teal);
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item.active {
-    color: #fff;
+    color: var(--teal-deep);
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item.active svg {
-    color: #fff;
+    color: var(--teal);
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .sidebar::after {
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent);
+    background: linear-gradient(90deg, transparent, var(--line), transparent);
+  }
+}
+
+/* 黑白主题同样保留白色导航底，只让顶部 logo 带使用石墨色。 */
+:root[data-theme="mono"] .sidebar {
+  color: var(--ink-2);
+  background: #fff;
+}
+:root[data-theme="mono"] .nav-item {
+  color: #555b5d;
+}
+:root[data-theme="mono"] .nav-item svg {
+  color: #646a6c;
+  opacity: 1;
+}
+:root[data-theme="mono"] .nav-item:hover {
+  color: var(--teal-deep);
+  background: #f1f2f1;
+}
+:root[data-theme="mono"] .nav-pill {
+  background: linear-gradient(90deg, #e7e9e8, #f4f5f4);
+  border-left-color: #62696b;
+}
+:root[data-theme="mono"] .nav-item.active {
+  color: var(--teal-deep);
+}
+:root[data-theme="mono"] .nav-item.active svg {
+  color: var(--teal);
+}
+:root[data-theme="mono"] .sidebar::after {
+  background: linear-gradient(90deg, transparent, var(--line), transparent);
+}
+:root[data-theme="mono"] .sidebar-note {
+  color: #646a6c;
+}
+:root[data-theme="mono"] :is(.brand-home, .sidebar-toggle) {
+  color: var(--topbar-ink);
+}
+:root[data-theme="mono"] .sidebar-toggle {
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
+}
+:root[data-theme="mono"] .sidebar-toggle:hover {
+  background: var(--topbar-control-hover);
+}
+@media (min-width: 681px) and (max-width: 980px) {
+  :root[data-theme="mono"] .sidebar {
+    padding-top: 0;
+  }
+  :root[data-theme="mono"] .brand {
+    width: calc(100% + 20px);
+    min-height: 68px;
+    margin: 0 -10px;
+    padding: 0;
+    background: var(--topbar-start);
+  }
+}
+@media (max-width: 680px) {
+  :root[data-theme="mono"] .sidebar {
+    padding-top: 0;
+  }
+  :root[data-theme="mono"] .brand {
+    width: calc(100% + 36px);
+    min-height: 68px;
+    margin: 0 -18px;
+    padding: 0 18px;
+    background: var(--topbar-start);
+  }
+}
+@media (min-width: 981px) {
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .sidebar {
+    color: var(--ink-2);
+    padding-top: 0;
+    background: #fff;
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .brand {
+    width: calc(100% + 20px);
+    min-height: 68px;
+    margin: 0 -10px;
+    padding: 0 2px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    background: var(--topbar-start);
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .nav-item {
+    color: #555b5d;
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .nav-item svg {
+    color: #646a6c;
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .nav-item:hover {
+    color: var(--teal-deep);
+    background: #f1f2f1;
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .nav-pill {
+    background: linear-gradient(90deg, #e7e9e8, #f4f5f4);
+    border-left-color: #62696b;
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .nav-item.active {
+    color: var(--teal-deep);
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .nav-item.active svg {
+    color: var(--teal);
+  }
+  :root[data-theme="mono"] .app-shell.sidebar-collapsed .sidebar::after {
+    background: linear-gradient(90deg, transparent, var(--line), transparent);
   }
 }

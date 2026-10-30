@@ -177,28 +177,58 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '收起侧边栏' }).click();
   await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/);
-  await expect(page.locator('.sidebar')).toHaveCSS('background-image', /linear-gradient/);
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.locator('.brand')).toHaveCSS('background-color', 'rgb(22, 77, 112)');
   const collapsedBlue = await page.evaluate(() => {
     const sidebar = document.querySelector<HTMLElement>('.sidebar')!;
     const brand = document.querySelector<HTMLElement>('.brand')!;
+    const mark = document.querySelector<HTMLElement>('.brand-mark')!;
+    const toggle = document.querySelector<HTMLElement>('.sidebar-toggle')!;
     const inactive = document.querySelector<HTMLElement>('.nav-item:not(.active)')!;
     return {
-      sidebarImage: getComputedStyle(sidebar).backgroundImage,
+      sidebarBackground: getComputedStyle(sidebar).backgroundColor,
       sidebarColor: getComputedStyle(sidebar).color,
       brandColor: getComputedStyle(brand).backgroundColor,
       brandTop: brand.getBoundingClientRect().top,
       brandHeight: brand.getBoundingClientRect().height,
+      logoCenterY: mark.getBoundingClientRect().top + mark.getBoundingClientRect().height / 2,
+      toggleCenterY: toggle.getBoundingClientRect().top + toggle.getBoundingClientRect().height / 2,
       inactiveColor: getComputedStyle(inactive).color,
     };
   });
-  expect(collapsedBlue.sidebarImage, '蓝白主题折叠侧栏未恢复深蓝轨道').toContain('linear-gradient');
-  expect(collapsedBlue.sidebarColor, '蓝白主题折叠侧栏文字颜色未适配深色背景').toBe('rgb(233, 242, 239)');
+  expect(collapsedBlue.sidebarBackground, '蓝白主题折叠侧栏应为白色').toBe('rgb(255, 255, 255)');
+  expect(collapsedBlue.sidebarColor, '蓝白主题折叠侧栏文字颜色仍为浅色').not.toBe('rgb(233, 242, 239)');
   expect(collapsedBlue.brandColor, '蓝白主题折叠品牌带未保持深蓝').toBe('rgb(22, 77, 112)');
   expect(collapsedBlue.brandTop, '蓝白主题折叠品牌带未从顶部开始').toBe(0);
   expect(collapsedBlue.brandHeight, '蓝白主题折叠品牌带高度未与系统栏一致').toBe(68);
-  expect(collapsedBlue.inactiveColor, '蓝白主题折叠导航仍使用深色文字').not.toBe('rgb(86, 113, 131)');
+  expect(Math.abs(collapsedBlue.logoCenterY - collapsedBlue.toggleCenterY), '蓝白主题折叠按钮与 logo 未共用中线').toBeLessThanOrEqual(1);
+  expect(collapsedBlue.inactiveColor, '蓝白主题折叠导航应为深色文字').not.toBe('rgb(233, 242, 239)');
   await page.screenshot({ path: testInfo.outputPath('blue-sidebar-collapsed.png') });
+
+  await page.getByRole('button', { name: '展开侧边栏' }).click();
+  await expect(page.locator('.app-shell')).not.toHaveClass(/sidebar-collapsed/);
+  await page.getByRole('button', { name: '切换主题' }).click();
+  await page.getByRole('radio', { name: '黑白' }).check();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '收起侧边栏' }).click();
+  await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('.brand')).toHaveCSS('background-color', 'rgb(48, 54, 56)');
+  const collapsedMono = await page.evaluate(() => {
+    const brand = document.querySelector<HTMLElement>('.brand')!;
+    const mark = document.querySelector<HTMLElement>('.brand-mark')!;
+    const toggle = document.querySelector<HTMLElement>('.sidebar-toggle')!;
+    return {
+      brandTop: brand.getBoundingClientRect().top,
+      brandHeight: brand.getBoundingClientRect().height,
+      logoCenterY: mark.getBoundingClientRect().top + mark.getBoundingClientRect().height / 2,
+      toggleCenterY: toggle.getBoundingClientRect().top + toggle.getBoundingClientRect().height / 2,
+    };
+  });
+  expect(collapsedMono.brandTop, '黑白主题折叠品牌带未从顶部开始').toBe(0);
+  expect(collapsedMono.brandHeight, '黑白主题折叠品牌带高度未与系统栏一致').toBe(68);
+  expect(Math.abs(collapsedMono.logoCenterY - collapsedMono.toggleCenterY), '黑白主题折叠按钮与 logo 未共用中线').toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath('mono-sidebar-collapsed.png') });
 });
 
 test('手机和窄屏主题入口可见，选项可切换且不挤压上传', async ({ app: page }, testInfo) => {
@@ -232,7 +262,12 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
     const rect = await page.locator('.theme-options').boundingBox();
     expect(rect && rect.x >= 0 && rect.x + rect.width <= width).toBeTruthy();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
-    await page.screenshot({ path: testInfo.outputPath(`theme-mobile-${width}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`theme-mobile-blue-${width}.png`) });
+    await page.getByRole('radio', { name: '黑白' }).check();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono');
+    await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(page.locator('.brand')).toHaveCSS('background-color', 'rgb(48, 54, 56)');
+    await page.screenshot({ path: testInfo.outputPath(`theme-mobile-mono-${width}.png`) });
     await page.keyboard.press('Escape');
     if (width === 320) {
       await toggle.click();
