@@ -13,9 +13,6 @@
   --topbar-control-bg: rgba(255,255,255,.08);
   --topbar-control-hover: rgba(255,255,255,.16);
   --topbar-control-line: rgba(255,255,255,.32);
-  --table-head-bg: linear-gradient(100deg, #202426 0%, #424849 62%, #292d2f 100%);
-  --table-head-ink: #fff;
-  --table-head-line: #181b1c;
 }
 :root[data-theme="blue"] {
   --bg: #eaf0f5; --panel: #fcfdff; --panel-2: #f1f6fa;
@@ -31,9 +28,6 @@
   --topbar-control-bg: rgba(255,255,255,.09);
   --topbar-control-hover: rgba(255,255,255,.17);
   --topbar-control-line: rgba(255,255,255,.33);
-  --table-head-bg: linear-gradient(100deg, #0d3150 0%, #1f6d9d 62%, #123f61 100%);
-  --table-head-ink: #fff;
-  --table-head-line: #0a2943;
 }
 :root[data-theme="aurora"] {
   --bg: #eeedf6; --panel: #fdfcff; --panel-2: #f4f2fa;
@@ -49,9 +43,6 @@
   --topbar-control-bg: rgba(255,255,255,.09);
   --topbar-control-hover: rgba(255,255,255,.17);
   --topbar-control-line: rgba(255,255,255,.34);
-  --table-head-bg: linear-gradient(100deg, #302348 0%, #7055a4 62%, #493469 100%);
-  --table-head-ink: #fff;
-  --table-head-line: #251b39;
 }
 
 .theme-menu { position: relative; flex: 0 0 auto; }

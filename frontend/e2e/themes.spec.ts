@@ -6,6 +6,12 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   const routes = ['/welcome', '/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library', '/admin'];
   const topbarBackgrounds = new Set<string>();
   const tableHeaderBackgrounds = new Set<string>();
+  const tableHeaderPanelColors = {
+    mono: 'rgb(245, 245, 244)',
+    blue: 'rgb(241, 246, 250)',
+    aurora: 'rgb(244, 242, 250)',
+    paper: 'rgb(251, 248, 241)',
+  } as const;
   const topbarLeadingColors = {
     mono: 'rgb(48, 54, 56)',
     blue: 'rgb(22, 77, 112)',
@@ -59,9 +65,10 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       }
       if (route === '/admin') {
         const header = page.locator('.data-table th').first();
-        await expect(header).toHaveCSS('color', 'rgb(255, 255, 255)');
-        const background = await header.evaluate(element => getComputedStyle(element).backgroundImage);
-        expect(background).toContain('linear-gradient');
+        await expect(header).not.toHaveCSS('color', 'rgb(255, 255, 255)');
+        const background = await header.evaluate(element => getComputedStyle(element).backgroundColor);
+        expect(background).toBe(tableHeaderPanelColors[value]);
+        expect(await header.evaluate(element => getComputedStyle(element).backgroundImage)).toBe('none');
         tableHeaderBackgrounds.add(background);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
@@ -81,7 +88,7 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     await page.keyboard.press('Escape');
   }
   expect(topbarBackgrounds.size, '四套主题应有各自顶栏配色').toBe(4);
-  expect(tableHeaderBackgrounds.size, '四套主题应有各自表头配色').toBe(4);
+  expect(tableHeaderBackgrounds.size, '四套主题应有各自的中性表头底色').toBe(4);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/welcome');
@@ -203,8 +210,9 @@ test('简约模式文档目录保持正常列宽，黑白主题保留彩色内�
   await page.getByRole('button', { name: /文献数据/ }).click();
   const header = page.locator('.data-table th').first();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono');
-  await expect(header).toHaveCSS('color', 'rgb(255, 255, 255)');
-  expect(await header.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('linear-gradient');
+  await expect(header).not.toHaveCSS('color', 'rgb(255, 255, 255)');
+  expect(await header.evaluate(element => getComputedStyle(element).backgroundImage)).toBe('none');
+  await expect(header).toHaveCSS('background-color', 'rgb(245, 245, 244)');
   await page.screenshot({ path: testInfo.outputPath('mono-table-header.png') });
   await page.goto('/trend');
   await page.getByRole('tab', { name: '趋势图表', exact: true }).click();

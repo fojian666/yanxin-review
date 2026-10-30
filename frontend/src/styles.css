@@ -34,9 +34,9 @@
   --topbar-control-bg: rgba(255,255,255,.1);
   --topbar-control-hover: rgba(255,255,255,.18);
   --topbar-control-line: rgba(255,255,255,.34);
-  --table-head-bg: linear-gradient(100deg, #0b2b32 0%, #0e6b5d 62%, #0a4b42 100%);
-  --table-head-ink: #fff;
-  --table-head-line: #083c35;
+  --table-head-bg: var(--panel-2);
+  --table-head-ink: var(--ink-2);
+  --table-head-line: var(--line);
 }
 
 * { box-sizing: border-box; }
