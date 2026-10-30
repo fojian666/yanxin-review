@@ -6303,12 +6303,19 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     min-height: 68px;
     margin: 0 -18px;
     padding: 0 26px;
-    background: var(--topbar-start);
+    background-image: var(--topbar-bg);
+    background-repeat: no-repeat;
+    background-size: 100vw 68px;
+    background-position: left top;
     border-bottom: 1px solid var(--topbar-line);
   }
-  .main:has(.workspace-home) > .topbar {
+  .app-shell:not(.sidebar-collapsed) .main:has(.workspace-home) > .topbar {
     height: 68px;
     min-height: 68px;
+    background-image: var(--topbar-bg);
+    background-repeat: no-repeat;
+    background-size: 100vw 68px;
+    background-position: -264px top;
   }
 }
 

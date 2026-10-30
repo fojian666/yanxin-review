@@ -57,7 +57,9 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
           brandRight: brandBox.right,
           brandTop: brandBox.top,
           brandHeight: brandBox.height,
-          brandBackground: getComputedStyle(brand).backgroundColor,
+          brandBackground: getComputedStyle(brand).backgroundImage,
+          brandBackgroundSize: getComputedStyle(brand).backgroundSize,
+          topbarBackgroundSize: style.backgroundSize,
           brandCenterY: brandHomeBox.top + brandHomeBox.height / 2,
           titleCenterY: topbarTitleBox.top + topbarTitleBox.height / 2,
           bodyRight: document.body.getBoundingClientRect().right,
@@ -77,7 +79,8 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       expect(shellBar.radius, `${value} ${route} 顶栏不应是独立卡片`).toBe('0px');
       expect(shellBar.background, `${value} ${route} 顶栏缺少主题底色`).toContain('linear-gradient');
       expect(shellBar.background, `${value} ${route} 顶栏与侧栏顶部颜色未衔接`).toContain(topbarLeadingColors[value]);
-      expect(shellBar.brandBackground, `${value} ${route} 品牌区与系统栏起点颜色不一致`).toBe(topbarLeadingColors[value]);
+      expect(shellBar.brandBackground, `${value} ${route} 品牌区与系统栏渐变色不一致`).toBe(shellBar.background);
+      expect(shellBar.brandBackgroundSize, `${value} ${route} 品牌区与系统栏渐变宽度不一致`).toBe(shellBar.topbarBackgroundSize);
       topbarBackgrounds.add(shellBar.background);
       if (route === '/trend') {
         await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
