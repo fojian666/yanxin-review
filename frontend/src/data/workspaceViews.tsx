@@ -40,7 +40,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
   },
   {
     path: "/review",
-    title: "本子预审",
+    title: "项目预审",
     description: "检查申报书并提供核对依据",
     icon: ShieldCheck,
     permission: "review",

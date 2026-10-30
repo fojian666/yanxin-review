@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { visibleWorkspaceViews } from "../data/workspaceViews";
-import { EASE, pageVariants, useMotionPreference, useSessionEntrance } from "../motion";
+import { pageVariants, useMotionPreference, useSessionEntrance } from "../motion";
 import { ROLE_LABELS, type UserRole } from "../types";
 
 function greeting(): string {
@@ -42,7 +42,6 @@ export function WelcomePage() {
   }
   const active = requested ?? entries.find((item) => item.path === defaultPath) ?? entries[0];
   if (!active) return <Navigate to="/" replace />;
-  const activeIndex = entries.findIndex((item) => item.path === active.path);
   const SelectedPanel = active.component;
   const proposalCount = docs.filter((doc) => doc.kind === "proposal").length;
   const policyCount = docs.filter((doc) => doc.kind === "policy").length;
@@ -158,24 +157,6 @@ export function WelcomePage() {
         </div>
       </motion.section>
 
-      <nav className="welcome-entries workspace-index" aria-label="工作区功能">
-        {entries.map(({ path, title, icon: Icon }, index) => {
-          const isActive = !isOverview && index === activeIndex;
-          return (
-            <Link
-              key={path}
-              className={`workspace-tab ${isActive ? "is-active" : ""}`}
-              to={path}
-              aria-current={isActive ? "page" : undefined}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span>{title}</span>
-              {isActive && <motion.span className="workspace-tab-marker" layoutId="workspace-tab-marker" transition={{ duration: reduce ? 0 : 0.2, ease: EASE }} />}
-            </Link>
-          );
-        })}
-      </nav>
-
       <div className="workspace-stage">
         {isOverview ? (
           <section className="workspace-overview-deck" aria-label="当前工作面提示">
@@ -183,7 +164,7 @@ export function WelcomePage() {
             <div>
               <span>当前卷宗已载入</span>
               <strong>{selectedDossier?.name ?? selectedDoc?.name ?? "尚未选择资料"}</strong>
-              <p>{selectedDossier ? `${selectedDossier.plan_type_label} · ${selectedDossier.phase_label} · 已归卷 ${selectedDossier.current_material_count} 份材料` : "从上方选择课题卷宗或单独申报书，再从功能索引进入具体工作面。"}</p>
+              <p>{selectedDossier ? `${selectedDossier.plan_type_label} · ${selectedDossier.phase_label} · 已归卷 ${selectedDossier.current_material_count} 份材料` : "从上方选择课题卷宗或单独申报书，再从左侧导航进入具体工作面。"}</p>
             </div>
           </section>
         ) : (

@@ -288,7 +288,7 @@ export function ReviewPage() {
           run: (
             <div className="review-run-page">
               <div className="panel review-control">
-                <h2>本子预审</h2>
+                <h2>项目预审</h2>
                 <p className="review-run-doc">{docId ? `准备检查：${sortedDocs.find((doc) => doc.id === docId)?.name ?? "已选文档"}` : "请先从上方选择申报书。"}</p>
                 <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
                   {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}

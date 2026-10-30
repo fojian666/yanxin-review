@@ -7,6 +7,9 @@
   --gold: #727775; --gold-soft: #edeeec;
   --idle: #eceeec; --idle-ink: #505654;
   --navy: #171a1c; --navy-2: #272b2d;
+  --table-head-bg: linear-gradient(100deg, #0d4380 0%, #1769a9 62%, #0b4a88 100%);
+  --table-head-ink: #fff;
+  --table-head-line: #083c70;
 }
 :root[data-theme="blue"] {
   --bg: #eaf0f5; --panel: #fcfdff; --panel-2: #f1f6fa;
@@ -205,6 +208,21 @@
 :root[data-simple-mode="true"] .document-page-spine {
   display: none;
 }
+:root[data-simple-mode="true"] .document-directory-group > button {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+}
+:root[data-simple-mode="true"] .document-directory-copy {
+  grid-column: 1;
+  width: 100%;
+}
+:root[data-simple-mode="true"] .document-directory-copy strong,
+:root[data-simple-mode="true"] .document-directory-copy small {
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 @media (min-width: 681px) and (max-width: 980px) {
   :root[data-simple-mode="true"] :is(.sidebar, .app-shell.sidebar-collapsed .sidebar) .nav-item .lucide {
     display: block !important;
@@ -228,6 +246,44 @@
 
 /* 原有少量固定底色需跟随主题，避免表单、阅读器或对话出现旧纸色。 */
 :root[data-theme="mono"] body, :root:is([data-theme="blue"], [data-theme="aurora"]) body { background: var(--bg); }
+:root[data-theme="mono"] .topbar {
+  margin-bottom: 14px;
+  padding: 13px 18px;
+  border: 1px solid #083c70;
+  border-radius: 6px;
+  color: #fff;
+  background:
+    linear-gradient(115deg, transparent 0 58%, rgba(255,255,255,.08) 58% 58.5%, transparent 58.5%),
+    linear-gradient(100deg, #0d4380 0%, #1769a9 62%, #0b4a88 100%);
+  box-shadow: 0 7px 18px rgba(9, 48, 88, .14);
+}
+:root[data-theme="mono"] .topbar h1 { color: #fff; }
+:root[data-theme="mono"] .topbar :is(.theme-trigger, .simple-mode-trigger, .mobile-nav-btn) {
+  color: #fff;
+  border-color: rgba(255,255,255,.38);
+  background: rgba(255,255,255,.08);
+}
+:root[data-theme="mono"] .topbar .simple-mode-trigger[aria-pressed="true"] {
+  color: #fff;
+  border-color: rgba(255,255,255,.62);
+  background: rgba(255,255,255,.2);
+}
+:root[data-theme="mono"] .topbar .topbar-actions > .btn-primary {
+  color: #fff;
+  border-color: rgba(255,255,255,.5);
+  background: rgba(255,255,255,.15);
+}
+:root[data-theme="mono"] .topbar .user-trigger {
+  color: #fff;
+  border-color: rgba(255,255,255,.38);
+  background: rgba(255,255,255,.08);
+}
+:root[data-theme="mono"] .topbar .user-trigger-text strong { color: #fff; }
+:root[data-theme="mono"] .topbar .user-trigger .role-badge {
+  color: #fff;
+  border-color: rgba(255,255,255,.2);
+  background: rgba(255,255,255,.14);
+}
 :root[data-theme="mono"] .sidebar { background: linear-gradient(180deg, #303638, #171a1c 75%); }
 :root:is([data-theme="blue"], [data-theme="aurora"]) .sidebar { background: linear-gradient(180deg, #164d70, #102b42 75%); }
 :root[data-theme="mono"] .login-page, :root:is([data-theme="blue"], [data-theme="aurora"]) .login-page { background: var(--bg); }
@@ -248,7 +304,6 @@
 :root[data-theme="mono"] .work-deck-rail, :root:is([data-theme="blue"], [data-theme="aurora"]) .work-deck-rail {
   background: linear-gradient(180deg, var(--teal-soft), var(--panel-2) 60%);
 }
-:root[data-theme="mono"] .workspace-index, :root:is([data-theme="blue"], [data-theme="aurora"]) .workspace-index { background: var(--panel-2); }
 :root[data-theme="mono"] .work-deck-active, :root:is([data-theme="blue"], [data-theme="aurora"]) .work-deck-active { border-color: var(--line-strong); background: var(--panel); }
 :root[data-theme="mono"] .library-view-switch button[aria-pressed="true"], :root:is([data-theme="blue"], [data-theme="aurora"]) .library-view-switch button[aria-pressed="true"] { border-color: var(--line-strong); }
 :root[data-theme="mono"] .work-deck-rail-head, :root:is([data-theme="blue"], [data-theme="aurora"]) .work-deck-rail-head { background: var(--teal-soft); }
@@ -270,13 +325,12 @@
 :root[data-theme="mono"] .chat-model-panel, :root:is([data-theme="blue"], [data-theme="aurora"]) .chat-model-panel,
 :root[data-theme="mono"] .sources-panel .panel-head, :root:is([data-theme="blue"], [data-theme="aurora"]) .sources-panel .panel-head { background: var(--panel-2); }
 :root[data-theme="mono"] .document-chunk-text, :root:is([data-theme="blue"], [data-theme="aurora"]) .document-chunk-text { color: var(--ink-2); }
-:root[data-theme="mono"] :is(.select, .search-box, .field input, .field select, .composer textarea, .document-directory-search input, .paper-card, .source-card, .msg-content, .data-table th, .dropzone, .modal-drop, .quick-card),
-:root:is([data-theme="blue"], [data-theme="aurora"]) :is(.select, .search-box, .field input, .field select, .composer textarea, .document-directory-search input, .paper-card, .source-card, .msg-content, .data-table th, .dropzone, .modal-drop, .quick-card) { background: var(--panel); border-color: var(--line); }
+:root[data-theme="mono"] :is(.select, .search-box, .field input, .field select, .composer textarea, .document-directory-search input, .paper-card, .source-card, .msg-content, .dropzone, .modal-drop, .quick-card),
+:root:is([data-theme="blue"], [data-theme="aurora"]) :is(.select, .search-box, .field input, .field select, .composer textarea, .document-directory-search input, .paper-card, .source-card, .msg-content, .dropzone, .modal-drop, .quick-card) { background: var(--panel); border-color: var(--line); }
 :root[data-theme="mono"] .msg.user .msg-content, :root:is([data-theme="blue"], [data-theme="aurora"]) .msg.user .msg-content { background: var(--teal-soft); border-color: var(--line); }
 :root[data-theme="mono"] .kg-canvas-panel, :root:is([data-theme="blue"], [data-theme="aurora"]) .kg-canvas-panel { background: var(--panel-2); }
 :root[data-theme="mono"] .live-dot, :root:is([data-theme="blue"], [data-theme="aurora"]) .live-dot { background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); }
-/* 图形内的多色类别保持可区分；黑白图形以灰阶呈现，蓝色图形整体转入蓝色系。 */
-:root[data-theme="mono"] :is(.chart-dark, .kg-chart, .kg-legend i, .kg-domain-list i, .kg-search-results i, .kg-category, .kg-detail-head > span, .kg-relations b) { filter: grayscale(1); }
+/* 黑白主题只收束界面外壳；状态色、图表类别与内容预览保留原色。 */
 :root:is([data-theme="blue"], [data-theme="aurora"]) :is(.chart-dark, .kg-chart, .kg-legend i, .kg-domain-list i, .kg-search-results i, .kg-category, .kg-detail-head > span, .kg-relations b) { filter: hue-rotate(38deg); }
 
 :root[data-theme="aurora"] .sidebar { background: linear-gradient(180deg, #514372, #241d39 75%); }

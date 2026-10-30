@@ -3,7 +3,7 @@ import { test, expect, navigate, downloadText, loginUI } from './fixtures';
 test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }, testInfo) => {
   await page.goto('/welcome');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBeTruthy();
-  for (const label of ['智能问答', '知识图谱', '文献趋势', '查重匹配', '课题卷宗', '本子预审', '文档中心']) {
+  for (const label of ['智能问答', '知识图谱', '文献趋势', '查重匹配', '课题卷宗', '项目预审', '文档中心']) {
     await navigate(page, label);
     await expect(page.locator('.app-shell')).not.toHaveClass(/nav-open/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
@@ -121,7 +121,7 @@ test('手机问答与证据切换并从引用返回', async ({ app: page }, test
 });
 
 test('手机预审完成后定位到可访问的结果区', async ({ app: page }, testInfo) => {
-  await navigate(page, '本子预审');
+  await navigate(page, '项目预审');
   await page.getByRole('button', { name: '开始预审' }).click();
   const report = page.getByRole('region', { name: '预审报告' });
   await expect(report.locator('.report-head')).toBeVisible();
@@ -137,7 +137,7 @@ test('手机预审完成时不抢占上传弹窗焦点', async ({ app: page }) =
   await page.route('**/api/review', async route => {
     const response = await route.fetch(); started(); await gate; await route.fulfill({ response });
   });
-  await navigate(page, '本子预审');
+  await navigate(page, '项目预审');
   await page.getByRole('button', { name: '开始预审' }).click();
   await intercepted;
   await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
@@ -159,7 +159,7 @@ for (const method of ['触摸', '键盘'] as const) test(`手机预审期间${me
   await page.route('**/api/review', async route => {
     const response = await route.fetch(); started(); await gate; await route.fulfill({ response });
   });
-  await navigate(page, '本子预审');
+  await navigate(page, '项目预审');
   await page.getByRole('button', { name: '开始预审' }).click();
   await intercepted;
   if (method === '触摸') await page.evaluate(() => window.dispatchEvent(new Event('touchmove')));

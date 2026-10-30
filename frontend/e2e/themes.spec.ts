@@ -24,6 +24,12 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       if (route === '/trend') {
         await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
         await expect(page.locator('.chart-panel').first()).toBeVisible();
+        if (value === 'mono') await expect(page.locator('.chart-panel').first()).toHaveCSS('filter', 'none');
+      }
+      if (route === '/admin' && value === 'mono') {
+        const header = page.locator('.data-table th').first();
+        await expect(header).toHaveCSS('color', 'rgb(255, 255, 255)');
+        expect(await header.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('linear-gradient');
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
       await page.screenshot({ path: testInfo.outputPath(`${value}-${route.slice(1)}.png`) });
@@ -49,7 +55,7 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
   await expect(page.getByRole('button', { name: '关闭简约模式' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.topbar-title h1')).toHaveCSS('animation-name', 'none');
-  await expect(page.locator('.workspace-tab .lucide').first()).toHaveCSS('display', 'none');
+  await expect(page.locator('.workspace-overview-mark')).toHaveCSS('display', 'none');
   await expect(page.locator('.sidebar-toggle .lucide')).toHaveCSS('display', 'block');
   expect(await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === 'running').length)).toBe(0);
   await page.reload();
@@ -93,4 +99,81 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
       await page.getByRole('button', { name: '关闭简约模式' }).click();
     }
   }
+});
+
+test('简约模式文档目录保持正常列宽，黑白主题保留彩色内容与蓝色表头', async ({ app: page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/library');
+  await page.getByRole('button', { name: '开启简约模式' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
+
+  for (const width of [1440, 1280, 1024]) {
+    await page.setViewportSize({ width, height: 720 });
+    await page.reload();
+    const directory = page.locator('.document-directory-shell');
+    await expect(directory).toBeVisible();
+    const row = page.locator('.document-directory-group > button').first();
+    await expect(row).toBeVisible();
+    await expect(row.locator('.document-directory-icon')).toBeHidden();
+    const layout = await row.evaluate(element => {
+      const rowBox = element.getBoundingClientRect();
+      const copy = element.querySelector<HTMLElement>('.document-directory-copy')!;
+      const title = element.querySelector<HTMLElement>('.document-directory-copy strong')!;
+      return {
+        rowWidth: rowBox.width,
+        rowHeight: rowBox.height,
+        copyWidth: copy.getBoundingClientRect().width,
+        titleWidth: title.getBoundingClientRect().width,
+        gridColumns: getComputedStyle(element).gridTemplateColumns,
+        overflow: element.scrollWidth <= element.clientWidth + 1,
+      };
+    });
+    expect(layout.rowWidth, `${width}px 目录行宽度塌陷`).toBeGreaterThan(150);
+    expect(layout.rowHeight, `${width}px 目录文字纵向坍缩`).toBeLessThan(130);
+    expect(layout.copyWidth, `${width}px 文件文字区域未展开`).toBeGreaterThan(150);
+    expect(layout.titleWidth, `${width}px 文件标题宽度异常`).toBeGreaterThan(150);
+    expect(layout.gridColumns.split(' ')).toHaveLength(1);
+    expect(layout.overflow, `${width}px 简约模式目录横向溢出`).toBeTruthy();
+    await page.screenshot({ path: testInfo.outputPath(`simple-library-${width}.png`) });
+  }
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  for (const [path, title, readySelector] of [
+    ['/welcome', '工作台', '.workspace-overview-deck'],
+    ['/dossiers', '课题卷宗', '.dossier-workbench-head'],
+    ['/review', '项目预审', '.review-run-page .review-control'],
+    ['/match', '查重匹配', '.match-run-page'],
+    ['/chat', '智能问答', '.chat-layout .chat-panel'],
+    ['/graph', '知识图谱', '.kg-canvas-panel'],
+    ['/trend', '文献趋势', '.trend-controls-page'],
+    ['/library', '文档中心', '.document-center-layout'],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
+    await expect(page.locator(readySelector)).toBeVisible();
+    await expect(page.locator('.workspace-index, .workspace-tab')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${path} 横向溢出`).toBeTruthy();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), `${path} 纵向溢出`).toBeTruthy();
+    await page.screenshot({ path: testInfo.outputPath(`simple-${path.slice(1)}.png`) });
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/library');
+  await page.getByRole('button', { name: '切换主题' }).click();
+  await page.getByRole('radio', { name: '黑白' }).check();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.topbar')).toHaveCSS('background-image', /linear-gradient/);
+  await expect(page.locator('.topbar h1')).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await page.getByRole('button', { name: /文献数据/ }).click();
+  const header = page.locator('.data-table th').first();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono');
+  await expect(header).toHaveCSS('color', 'rgb(255, 255, 255)');
+  expect(await header.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('linear-gradient');
+  await page.screenshot({ path: testInfo.outputPath('mono-table-header.png') });
+  await page.goto('/trend');
+  await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
+  await expect(page.locator('.chart-panel').first()).toBeVisible();
+  expect(await page.locator('.chart-panel').first().evaluate(element => getComputedStyle(element).filter)).toBe('none');
+  await page.screenshot({ path: testInfo.outputPath('mono-colorful-chart.png') });
 });

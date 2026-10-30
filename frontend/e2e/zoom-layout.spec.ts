@@ -4,7 +4,7 @@ import { test, expect, password } from './fixtures';
 test('桌面放大时各工作区保持可操作且不横向溢出', async ({ app: page, documents }) => {
   test.setTimeout(120_000);
   const routes = [
-    ['/welcome', '工作台'], ['/chat', '智能问答'], ['/dossiers', '课题卷宗'], ['/review', '本子预审'],
+    ['/welcome', '工作台'], ['/chat', '智能问答'], ['/dossiers', '课题卷宗'], ['/review', '项目预审'],
     ['/match', '查重匹配'], ['/graph', '知识图谱'], ['/trend', '文献趋势'],
     [`/library?doc=${documents[0].id}`, '文档中心'],
   ];
@@ -61,7 +61,6 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
         expect(chartMetrics.every(panel => panel.width >= 180 && panel.clientHeight >= 100), `${scale}x 趋势图表被压缩`).toBeTruthy();
         expect(chartMetrics.every(panel => panel.childBottom <= panel.contentBottom + 1), `${scale}x 趋势图表内容裁切`).toBeTruthy();
       }
-      await expect.poll(() => page.locator('.workspace-tab > span:not(.workspace-tab-marker)').evaluateAll(items => items.every(item => { const line = parseFloat(getComputedStyle(item).lineHeight); return item.getBoundingClientRect().height <= line * 1.15; })), `${scale}x ${path} 功能索引换行`).toBeTruthy();
       const upload = page.getByRole('button', { name: '上传文档' }).first();
       await expect(upload).toBeVisible();
       const box = await upload.boundingBox();

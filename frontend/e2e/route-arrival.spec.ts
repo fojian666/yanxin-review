@@ -27,15 +27,15 @@ test('桌面步骤栏随高度均匀展开并保持可操作', async ({ app: pag
 test('单页工作区切换功能时保留卷宗上下文', async ({ app: page }) => {
   const ledger = await page.locator('.workspace-ledger').elementHandle();
   expect(ledger).not.toBeNull();
-  await page.locator('.welcome-entries').getByRole('link', { name: '智能问答', exact: true }).click();
+  await page.locator('.nav').getByRole('link', { name: '智能问答', exact: true }).click();
   await expect(page).toHaveURL(/\/chat$/);
-  await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('智能问答');
+  await expect(page.locator('.nav-item[aria-current="page"]')).toContainText('智能问答');
   expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
-  await page.locator('.welcome-entries').getByRole('link', { name: '文档中心', exact: true }).click();
+  await page.locator('.nav').getByRole('link', { name: '文档中心', exact: true }).click();
   await expect(page).toHaveURL(/\/library$/);
-  await expect(page.locator('.workspace-tab[aria-current="page"]')).toContainText('文档中心');
+  await expect(page.locator('.nav-item[aria-current="page"]')).toContainText('文档中心');
   expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
-  await navigate(page, '本子预审');
+  await navigate(page, '项目预审');
   const runTab = page.getByRole('tab', { name: '运行预审', exact: true });
   await runTab.focus();
   await runTab.press('ArrowRight');
@@ -93,7 +93,7 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await expect.poll(() => page.evaluate(() => matchMedia('(prefers-reduced-motion: no-preference)').matches)).toBeTruthy();
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-    await navigate(page, '本子预审');
+    await navigate(page, '项目预审');
     await page.getByRole('tab', { name: '结论概览', exact: true }).click();
     await expect(page.locator('.review-deck .work-deck-panel').last()).toHaveAttribute('data-direction', 'next');
     const entering = await page.locator('.review-deck .work-deck-panel').last().evaluate(async element => {

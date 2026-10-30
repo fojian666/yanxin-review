@@ -12,6 +12,7 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
       await page.goto(path);
       await expect(page.locator('.workspace-home')).toBeVisible();
       await expect(page.locator('.welcome-disclaimer')).toBeVisible();
+      await expect(page.locator('.workspace-index, .workspace-tab')).toHaveCount(0);
       shells.push(await page.evaluate(path => {
         const box = (selector: string) => {
           const rect = document.querySelector(selector)!.getBoundingClientRect();
@@ -22,7 +23,6 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
           task: path !== '/welcome',
           topbar: box('.topbar'),
           ledger: box('.workspace-ledger'),
-          index: box('.workspace-index'),
           stage: box('.workspace-stage'),
         };
       }, path));
@@ -32,9 +32,7 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
     const unique = (values: number[]) => Math.max(...values) - Math.min(...values) <= 1;
     expect(unique(shells.map(shell => shell.topbar.y)), `${width}px 顶栏起点应一致`).toBeTruthy();
     expect(unique(shells.map(shell => shell.topbar.height)), `${width}px 顶栏高度应一致`).toBeTruthy();
-    expect(unique(shells.map(shell => shell.index.height)), `${width}px 功能索引高度应一致`).toBeTruthy();
     expect(unique(taskShells.map(shell => shell.ledger.height)), `${width}px 卷宗栏高度应一致`).toBeTruthy();
-    expect(unique(taskShells.map(shell => shell.index.y)), `${width}px 功能索引起点应一致`).toBeTruthy();
     expect(unique(taskShells.map(shell => shell.stage.y)), `${width}px 工作面起点应一致`).toBeTruthy();
     expect(unique(taskShells.map(shell => shell.stage.height)), `${width}px 工作面高度应一致`).toBeTruthy();
   }

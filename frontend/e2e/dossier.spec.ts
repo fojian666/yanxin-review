@@ -57,7 +57,7 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await expect(page.getByRole('heading', { name: '选择或新建课题卷宗' })).toBeVisible();
   await expect(page.getByRole('button', { name: '新建课题卷宗' })).toBeVisible();
   await workspaceSelect.selectOption(`doc:${documents[1].id}`);
-  await navigate(page, '本子预审');
+  await navigate(page, '项目预审');
   await expect(page.locator('.dossier-workbench')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeEnabled();
   await workspaceSelect.selectOption(dossierId);
