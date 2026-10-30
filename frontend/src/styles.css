@@ -4273,6 +4273,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   color: var(--ink-2);
   font: 600 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
 .work-deck-rail nav {
   min-height: 0;
   display: flex;
@@ -6373,4 +6374,35 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .library-page .document-prose { padding: 10px 18px 20px; }
   .library-page .document-chunk { margin-bottom: 14px; }
   .library-page .document-chunk:first-child h3 { margin-top: 0; }
+}
+
+@media (min-width: 901px) and (min-height: 801px) {
+  .work-deck-rail-head {
+    position: relative;
+    min-height: 58px;
+    padding: 10px 8px 20px;
+    align-items: flex-start;
+    background: linear-gradient(105deg, rgba(14,124,107,.09), rgba(14,124,107,.025) 70%, transparent);
+    border-radius: 3px;
+  }
+  .work-deck-rail-head::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    bottom: 9px;
+    width: 62px;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--teal) 0 38%, #a8c9b9 38% 70%, #ded8c9 70%);
+    pointer-events: none;
+  }
+  .work-deck-rail nav {
+    justify-content: space-evenly;
+    gap: 4px;
+    padding-top: 8px;
+  }
+  .work-deck-rail nav button {
+    flex: 1 1 44px;
+    max-height: 78px;
+  }
 }

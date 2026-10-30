@@ -1,5 +1,29 @@
 import { test, expect, navigate } from './fixtures';
 
+test('桌面步骤栏随高度均匀展开并保持可操作', async ({ app: page }, testInfo) => {
+  for (const [width, height] of [[1440, 900], [1920, 1080], [1280, 720]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/review');
+    const rail = page.locator('.review-deck .work-deck-rail');
+    const tabs = rail.getByRole('tab');
+    await expect(tabs).toHaveCount(5);
+    const boxes = await tabs.evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      const number = element.querySelector('.work-deck-number')!.getBoundingClientRect();
+      const copy = element.querySelector('.work-deck-copy')!.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, height: rect.height, centerDifference: Math.abs((number.top + number.bottom - copy.top - copy.bottom) / 2) };
+    }));
+    expect(boxes.every(box => box.height >= 36 && box.centerDifference < 3)).toBeTruthy();
+    if (height > 800) {
+      for (let i = 1; i < boxes.length; i++) expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom);
+      expect(boxes[0].height).toBeGreaterThan(44);
+    }
+    await tabs.last().click();
+    await expect(tabs.last()).toHaveAttribute('aria-selected', 'true');
+    await page.screenshot({ path: testInfo.outputPath(`steps-${width}.png`) });
+  }
+});
+
 test('单页工作区切换功能时保留卷宗上下文', async ({ app: page }) => {
   const ledger = await page.locator('.workspace-ledger').elementHandle();
   expect(ledger).not.toBeNull();
