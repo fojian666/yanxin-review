@@ -4,13 +4,14 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
   const taskRoutes = ['/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library'];
   const allRoutes = ['/welcome', ...taskRoutes];
 
-  for (const [width, height] of [[1440, 900], [1280, 720]] as const) {
+  for (const [width, height] of [[1440, 900], [1366, 768], [1280, 720]] as const) {
     await page.setViewportSize({ width, height });
     const shells = [];
 
     for (const path of allRoutes) {
       await page.goto(path);
       await expect(page.locator('.workspace-home')).toBeVisible();
+      await expect(page.locator('.welcome-disclaimer')).toBeVisible();
       shells.push(await page.evaluate(path => {
         const box = (selector: string) => {
           const rect = document.querySelector(selector)!.getBoundingClientRect();

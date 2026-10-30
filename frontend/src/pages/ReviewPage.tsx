@@ -70,6 +70,10 @@ export function ReviewPage() {
     const rank: Record<string, number> = { proposal: 0, other: 1, policy: 2, paper: 3 };
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
+  const activeDocExists = useMemo(
+    () => Boolean(activeDocId) && sortedDocs.some((doc) => doc.id === activeDocId),
+    [activeDocId, sortedDocs],
+  );
 
   useEffect(() => {
     if (!sortedDocs.length) {
@@ -104,7 +108,7 @@ export function ReviewPage() {
       setError("");
       return;
     }
-    if (!sortedDocs.some((doc) => doc.id === activeDocId)) return;
+    if (!activeDocExists) return;
     requestSequence.current += 1;
     runningRef.current = false;
     setBusy(false);
@@ -116,7 +120,7 @@ export function ReviewPage() {
     setCheckPage(0);
     setFindingPage(0);
     setBoundaryPage(0);
-  }, [activeDocId, sortedDocs]);
+  }, [activeDocId, activeDocExists]);
 
   useEffect(() => {
     if (!busy) return;
@@ -320,6 +324,7 @@ export function ReviewPage() {
             <div className="review-report review-summary-page" role="region" aria-label="预审报告" tabIndex={0} ref={reportRef}>
               {report ? (
                 <>
+                  <p className="disclaimer report-summary-disclaimer">{report.disclaimer}</p>
                   <ReportHeader report={report} onExport={exportReport} />
                   <ReportSummary report={report} />
                   {report.warning && <div className="llm-warning">{report.warning}</div>}
@@ -539,16 +544,20 @@ function RiskRing({ level }: { level: string }) {
 }
 
 function ReportSummary({ report }: { report: ReviewReport }) {
+  const limits = report.limitations?.length
+    ? report.limitations
+    : ["本次结果由模型辅助生成，仍须核对原始材料；政策版本时效、事实真实性及人工判断不在自动检查范围内。"];
   return (
     <div className="report-summary">
       {report.overall.summary}
-      {(report.limitations?.length ?? 0) > 0 && (
+      <div className="report-summary-limits">
+        <strong>能力边界</strong>
         <ul className="report-limits">
-          {report.limitations!.map((item) => (
+          {limits.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-      )}
+      </div>
       <div className="report-meta">
         <span>文本 {report.doc.char_count} 字</span>
         <span>{report.doc.chunk_count} 个文本块</span>

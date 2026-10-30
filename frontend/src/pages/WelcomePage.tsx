@@ -28,6 +28,8 @@ export function WelcomePage() {
     activeDossierId,
     setActiveDossierId,
     setSelectedDocs,
+    setChatMessages,
+    setChatCitations,
   } = useApp();
   const location = useLocation();
   const reduce = useMotionPreference();
@@ -53,6 +55,11 @@ export function WelcomePage() {
   const showBadge = named && Boolean(role);
   const primaryPath = can("review") ? "/review" : "/chat";
   const isOverview = location.pathname === "/welcome";
+  const selectWorkspaceDocument = (nextDocId: string) => {
+    setSelectedDocs(nextDocId ? [nextDocId] : []);
+    setChatMessages([]);
+    setChatCitations([]);
+  };
 
   return (
     <div className={`welcome-home workspace-home ${location.pathname === "/welcome" ? "is-overview" : "is-task"}`}>
@@ -73,15 +80,19 @@ export function WelcomePage() {
               onChange={(event) => {
                 const nextId = event.target.value;
                 if (nextId.startsWith("doc:")) {
+                  const nextDocId = nextId.slice(4);
                   setActiveDossierId("");
-                  setActiveDocId(nextId.slice(4));
+                  setActiveDocId(nextDocId);
+                  selectWorkspaceDocument(nextDocId);
                   return;
                 }
                 setActiveDossierId(nextId);
                 const proposal = dossiers
                   .find((dossier) => dossier.id === nextId)
                   ?.materials.find((material) => material.role === "proposal_text" && material.is_current);
-                setActiveDocId(proposal?.doc_id ?? "");
+                const nextDocId = proposal?.doc_id ?? "";
+                setActiveDocId(nextDocId);
+                selectWorkspaceDocument(nextDocId);
               }}
             >
               <option value="">选择课题卷宗</option>
@@ -104,7 +115,11 @@ export function WelcomePage() {
               className="select"
               title={selectedDoc?.name || ""}
               value={activeDocId}
-              onChange={(event) => setActiveDocId(event.target.value)}
+              onChange={(event) => {
+                const nextDocId = event.target.value;
+                setActiveDocId(nextDocId);
+                selectWorkspaceDocument(nextDocId);
+              }}
             >
               <option value="">从资料库选择申报书</option>
               {docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other").map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
@@ -115,7 +130,9 @@ export function WelcomePage() {
           <Link
             className="btn btn-primary"
             to={primaryPath}
-            onClick={() => { if (primaryPath === "/chat" && activeDocId) setSelectedDocs([activeDocId]); }}
+            onClick={() => {
+              if (primaryPath === "/chat") selectWorkspaceDocument(activeDocId);
+            }}
           >
             {can("review") ? <><ShieldCheck size={16} />预审当前卷宗</> : <><MessageSquareText size={16} />用此卷宗提问</>}
           </Link>
@@ -150,7 +167,6 @@ export function WelcomePage() {
               className={`workspace-tab ${isActive ? "is-active" : ""}`}
               to={path}
               aria-current={isActive ? "page" : undefined}
-              onClick={() => { if (path === "/chat" && activeDocId) setSelectedDocs([activeDocId]); }}
             >
               <Icon size={18} aria-hidden="true" />
               <span>{title}</span>

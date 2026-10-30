@@ -106,7 +106,8 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await page.getByRole('group', { name: '材料分页' }).getByRole('button', { name: '下一项' }).click();
   const scanRow = page.locator('.dossier-material-row').filter({ hasText: documents[1].name });
   await expect(scanRow).toContainText('盖章申请书');
-  await expect(scanRow.getByLabel('人工确认')).not.toBeChecked();
+  const verifyButton = scanRow.getByRole('button', { name: /确认.*人工核验/ });
+  await expect(verifyButton).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('tab', { name: '材料体检', exact: true }).click();
   const checklistPayload = await (await context.request.get(`/api/dossiers/${dossierId}/checklist`)).json();
   const checkpoint = checklistPayload.sections
@@ -121,7 +122,12 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await expect(page.locator('.dossier-check-item').filter({ hasText: '申请书（盖章扫描件）' })).toContainText('不是 PDF');
 
   await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
-  await scanRow.getByLabel('人工确认').click();
+  page.once('dialog', dialog => dialog.dismiss());
+  await verifyButton.click();
+  await expect(verifyButton).toHaveAttribute('aria-pressed', 'false');
+  page.once('dialog', dialog => dialog.accept());
+  await verifyButton.click();
+  await expect(scanRow.getByRole('button', { name: /撤销.*人工核验/ })).toHaveAttribute('aria-pressed', 'true');
   await expect(scanRow).toContainText('manager 已确认');
   await page.getByRole('tab', { name: '材料体检', exact: true }).click();
   await expect(page.locator('.dossier-check-item').filter({ hasText: '申请书（盖章扫描件）' })).toContainText('不是 PDF');

@@ -68,6 +68,10 @@ export function MatchPage() {
     const rank: Record<string, number> = { proposal: 0, other: 1, policy: 2, paper: 3 };
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
+  const activeDocExists = useMemo(
+    () => Boolean(activeDocId) && sortedDocs.some((doc) => doc.id === activeDocId),
+    [activeDocId, sortedDocs],
+  );
 
   const loadExperts = async () => {
     try {
@@ -94,7 +98,7 @@ export function MatchPage() {
       setSection("run");
       return;
     }
-    if (!sortedDocs.some((doc) => doc.id === activeDocId)) return;
+    if (!activeDocExists) return;
     checkIdRef.current += 1;
     loadingRef.current = false;
     setLoading(false);
@@ -105,7 +109,7 @@ export function MatchPage() {
     setDuplicatePage(0);
     setExpertPage(0);
     setBoundaryPage(0);
-  }, [activeDocId, sortedDocs]);
+  }, [activeDocId, activeDocExists]);
 
   const run = async () => {
     if (!docId) {

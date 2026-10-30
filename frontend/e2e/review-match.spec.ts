@@ -1,5 +1,19 @@
 import type { Page } from '@playwright/test';
-import { test, expect, navigate, downloadText } from './fixtures';
+import { test, expect, navigate, downloadText, proposalText } from './fixtures';
+
+async function uploadRefreshDocument(page: Page, name: string) {
+  await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '上传文档' });
+  await dialog.locator('input[type=file]').setInputFiles({
+    name: `${name}.txt`,
+    mimeType: 'text/plain',
+    buffer: Buffer.from(proposalText('刷新测试研究院')),
+  });
+  await dialog.getByLabel('资料类型').selectOption('proposal');
+  await dialog.getByPlaceholder('留空则自动取文件名或正文首行').fill(name);
+  await dialog.getByRole('button', { name: '开始上传' }).click();
+  await expect(dialog).toBeHidden();
+}
 
 async function showReviewCheck(page: Page, title: string, selector = '.review-check-page h3') {
   await page.getByRole('tab', { name: '检查项', exact: true }).click();
@@ -38,7 +52,12 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
   await expect(page.locator('.report-head')).toContainText('规则预审');
   await expect(page.locator('.report-seal')).toHaveText('待人工复核');
+  await expect(page.locator('.review-summary-page .disclaimer')).toContainText('须经专家和管理人员复核');
+  await expect(page.locator('.review-summary-page .report-summary-limits')).toContainText('能力边界');
   await page.screenshot({ path: testInfo.outputPath('review-summary-desktop.png') });
+  await uploadRefreshDocument(page, '预审刷新回归');
+  await expect(page.locator('.report-head')).toContainText(documents[0].name);
+  await expect(page.getByRole('tab', { name: '结论概览', exact: true })).toHaveAttribute('aria-selected', 'true');
   await showReviewCheck(page, '文本查重');
   await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
@@ -114,6 +133,9 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.match-deck .work-deck-head h3')).toHaveText('运行检查');
+  await uploadRefreshDocument(page, '匹配刷新回归');
+  await expect(page.getByRole('button', { name: '导出结果' })).toBeEnabled();
+  await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
   await page.screenshot({ path: testInfo.outputPath('match-desktop.png') });

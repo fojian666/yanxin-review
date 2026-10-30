@@ -2327,11 +2327,22 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted);
   font-size: 11.5px;
   cursor: pointer;
 }
-.dossier-verify input { accent-color: var(--teal); }
+.dossier-verify:hover { border-color: var(--line-strong); color: var(--ink-2); }
+.dossier-verify.is-confirmed {
+  border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
+  background: var(--teal-soft);
+  color: var(--teal-deep);
+}
+.dossier-verify:disabled { cursor: wait; opacity: .6; }
 .dossier-verify svg { color: var(--teal); }
 .dossier-inline-empty {
   margin: 0;
@@ -3171,7 +3182,12 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .main:has(.dossier-workbench) .topbar h1 { font-size: 22px; }
   .main:has(.dossier-workbench) .topbar p { display: none; }
   .main:has(.dossier-workbench) .workspace-index { display: none; }
-  .main:has(.dossier-workbench) .welcome-disclaimer { display: none; }
+  .main:has(.dossier-workbench) .welcome-disclaimer {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
   .main:has(.dossier-workbench) .workspace-stage { margin-top: 5px; }
 }
 @media (max-width: 680px) {
@@ -3821,15 +3837,36 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   flex-direction: column;
   overflow: hidden;
 }
+.review-summary-page {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
 .review-summary-page .report-head,
 .review-summary-page .report-summary,
 .review-check-page .section-block,
 .review-finding-page .section-block {
   flex: 0 0 auto;
 }
-.review-summary-page .report-limits { display: none; }
+.review-summary-page .report-limits { display: block; }
 .review-summary-page .report-summary {
   margin-top: 12px;
+}
+.report-summary-limits { margin-top: 12px; }
+.report-summary-limits > strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.review-summary-disclaimer {
+  flex: 0 0 auto;
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-2);
 }
 .review-check-page .check-evidence,
 .review-finding-page .check-evidence {
@@ -5071,7 +5108,11 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   }
   .workspace-home.is-task .welcome-disclaimer,
   .workspace-home.is-overview .welcome-disclaimer {
-    display: none;
+    display: block;
+    margin-top: 2px;
+    padding: 0 8px;
+    font-size: 10px;
+    line-height: 1.35;
   }
   .workspace-home.is-task .workspace-ledger {
     min-height: 40px;
@@ -5335,15 +5376,15 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     margin-top: 3px;
   }
   .work-deck {
-    grid-template-rows: 36px minmax(0, 1fr);
+    grid-template-rows: 44px minmax(0, 1fr);
   }
   .work-deck-rail {
     padding: 2px 5px;
   }
   .work-deck-rail nav button {
-    height: 32px;
-    min-height: 32px;
-    flex-basis: 32px;
+    height: 44px;
+    min-height: 44px;
+    flex-basis: 44px;
   }
   .work-deck-number,
   .work-deck-head,
@@ -5483,9 +5524,9 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
   .work-deck-rail nav button {
-    height: 30px;
-    min-height: 30px;
-    flex-basis: 30px;
+    height: 44px;
+    min-height: 44px;
+    flex-basis: 44px;
     justify-content: center;
     text-align: center;
   }
@@ -6084,9 +6125,9 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
   .dossier-step-rail nav button {
-    min-height: 30px;
-    height: 30px;
-    flex-basis: 30px;
+    min-height: 44px;
+    height: 44px;
+    flex-basis: 44px;
     justify-content: center;
     text-align: center;
   }
@@ -6465,6 +6506,11 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .library-page .document-reader-actions { padding: 4px 8px 4px 14px; }
 }
 @media (max-height: 720px) and (min-width: 681px) {
+  .main:has(.library-page) > .topbar {
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+  }
+  .main:has(.library-page) .workspace-stage { margin-top: 1px; }
   .library-page .document-center-bar { padding-top: 3px; padding-bottom: 3px; }
   .library-page .document-reader-head { padding: 4px 10px 4px 20px; }
   .library-page .document-reader-head h2 {

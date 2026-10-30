@@ -2,7 +2,7 @@ import { test, expect, navigate } from './fixtures';
 const sse = (events: unknown[]) => events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('');
 const source = (name: string) => ({ index: 1, doc_id: name, doc_name: name, page: 1, section: '测试条款', score: 0.2, text: `${name}的证据` });
 
-test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page }) => {
+test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page, documents }) => {
   await navigate(page, '智能问答');
   await page.locator('textarea').fill('科研失信调查人员是否需要签署保密协议？');
   await page.getByRole('button', { name: '发送', exact: true }).click();
@@ -14,6 +14,19 @@ test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page }) 
   await expect(page.locator('#source-1')).toHaveClass(/flash/);
   await navigate(page, '文档中心'); await navigate(page, '智能问答');
   await expect(page.locator('.msg.assistant .msg-content')).toHaveText(answer, { useInnerText: true });
+  await page.locator('.brand-home').click();
+  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.locator('.welcome-entries').getByRole('link', { name: '智能问答', exact: true }).click();
+  await expect(page.locator('.scope-label')).toHaveText(documents[1].name);
+  await expect(page.locator('.msg')).toHaveCount(0);
+  await expect(page.locator('.source-card')).toHaveCount(0);
+  await page.locator('.scope-btn').click();
+  await page.locator('.scope-option').filter({ hasText: documents[0].name }).locator('input').check();
+  await expect(page.locator('.scope-label')).toContainText('已选 2 份');
+  await page.locator('.scope-btn').click();
+  await navigate(page, '文档中心');
+  await navigate(page, '智能问答');
+  await expect(page.locator('.scope-label')).toContainText('已选 2 份');
   await page.getByRole('button', { name: '清空对话' }).click();
   await expect(page.locator('.msg')).toHaveCount(0);
   await expect(page.locator('.source-card')).toHaveCount(0);

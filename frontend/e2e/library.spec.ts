@@ -183,6 +183,8 @@ test('访客从工作台进入问答时使用选定申报书', async ({ app: pag
   await page.getByLabel('当前卷宗').selectOption(documents[1].id);
   await page.getByRole('link', { name: /用此卷宗提问/ }).click();
   await expect(page.locator('.scope-btn')).toContainText(documents[1].name);
+  await navigate(page, '文档中心');
+  await expect(page.getByRole('button', { name: '发起预审', exact: true })).toHaveCount(0);
 });
 
 test('清空当前卷宗后预审与查重不可运行', async ({ app: page, documents }) => {

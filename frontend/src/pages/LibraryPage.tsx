@@ -37,6 +37,8 @@ export function LibraryPage() {
     toast,
     openUpload,
     setSelectedDocs,
+    setChatMessages,
+    setChatCitations,
     setActiveDocId,
     setActiveDossierId,
     activeDocId,
@@ -152,6 +154,8 @@ export function LibraryPage() {
   const openForChat = (doc: DocItem) => {
     if (doc.kind === "proposal" || doc.kind === "other") { setActiveDossierId(""); setActiveDocId(doc.id); }
     setSelectedDocs([doc.id]);
+    setChatMessages([]);
+    setChatCitations([]);
     navigate("/chat");
   };
 
@@ -305,6 +309,7 @@ export function LibraryPage() {
           total={orderedDocs.length}
           previous={previous}
           next={next}
+          canReview={can("review")}
           canDelete={can("delete-doc")}
           deleting={deletingId === selected?.id}
           readerRef={readerRef}

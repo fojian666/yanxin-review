@@ -140,8 +140,14 @@ export function DossierWorkbench() {
     }
   };
 
-  const verify = async (docId: string, checked: boolean) => {
+  const verify = async (docId: string, name: string, checked: boolean) => {
     if (!dossier) return;
+    const confirmed = confirm(
+      checked
+        ? `确认已人工核对《${name}》的盖章、签字和材料状态？`
+        : `撤销对《${name}》的人工确认记录？`
+    );
+    if (!confirmed) return;
     setSaving(`verify-${docId}`);
     try {
       await api.updateDossierDocument(dossier.id, docId, { human_verified: checked });
@@ -304,16 +310,17 @@ export function DossierWorkbench() {
                           {can("upload") && (
                             <div className="dossier-material-actions">
                               {requiresVerification && (
-                                <label className="dossier-verify">
-                                  <input
-                                    type="checkbox"
-                                    checked={material.human_verified}
-                                    onChange={(event) => void verify(material.doc_id, event.target.checked)}
-                                    disabled={saving === operation}
-                                  />
+                                <button
+                                  type="button"
+                                  className={`dossier-verify${material.human_verified ? " is-confirmed" : ""}`}
+                                  aria-pressed={material.human_verified}
+                                  aria-label={`${material.human_verified ? "撤销" : "确认"}《${material.doc_name}》人工核验`}
+                                  onClick={() => void verify(material.doc_id, material.doc_name, !material.human_verified)}
+                                  disabled={saving === operation}
+                                >
                                   <BadgeCheck size={14} />
-                                  人工确认
-                                </label>
+                                  {material.human_verified ? "撤销确认" : "人工确认"}
+                                </button>
                               )}
                               <button type="button" className="icon-btn" aria-label={`移除 ${material.doc_name}`} onClick={() => void detach(material.doc_id, material.doc_name)}>
                                 <Trash2 size={14} />

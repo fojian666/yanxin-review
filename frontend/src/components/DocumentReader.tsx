@@ -20,6 +20,7 @@ interface DocumentReaderProps {
   total: number;
   previous: DocItem | null;
   next: DocItem | null;
+  canReview: boolean;
   canDelete: boolean;
   deleting: boolean;
   readerRef: React.RefObject<HTMLElement | null>;
@@ -49,6 +50,7 @@ export function DocumentReader({
   total,
   previous,
   next,
+  canReview,
   canDelete,
   deleting,
   readerRef,
@@ -103,9 +105,11 @@ export function DocumentReader({
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAsk(selected)}>
           <MessageSquareText size={14} />文档问答
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onReview(selected)}>
-          <ShieldCheck size={14} />发起预审
-        </button>
+        {canReview && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onReview(selected)}>
+            <ShieldCheck size={14} />发起预审
+          </button>
+        )}
         {canDelete && (
           <button type="button" className="btn btn-ghost btn-sm danger" onClick={() => onDelete(selected)} disabled={deleting}>
             {deleting ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}

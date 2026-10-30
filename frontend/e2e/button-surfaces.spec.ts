@@ -72,6 +72,9 @@ test('@smoke 紧凑窗口下全部按钮结果保持一屏且文字完整', asyn
     await expect(page.locator('.dossier-deck .work-deck-head h3')).toHaveText(label);
     await expectOnePage(page, `卷宗/${label}`);
   }
+  expect(await page.locator('.dossier-deck .work-deck-rail [role="tab"]').evaluateAll(tabs =>
+    tabs.every(tab => tab.getBoundingClientRect().height >= 44)
+  ), '横屏紧凑模式章节触控目标不得低于 44px').toBeTruthy();
 
   await page.goto(`/review?doc=${documents[0].id}`);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeVisible();
@@ -82,6 +85,9 @@ test('@smoke 紧凑窗口下全部按钮结果保持一屏且文字完整', asyn
     await expect(page.locator('.review-deck .work-deck-head h3')).toHaveText(label);
     await expectOnePage(page, `预审/${label}`);
   }
+  expect(await page.locator('.review-deck .work-deck-rail [role="tab"]').evaluateAll(tabs =>
+    tabs.every(tab => tab.getBoundingClientRect().height >= 44)
+  ), '预审章节触控目标不得低于 44px').toBeTruthy();
 
   await page.goto(`/match?doc=${documents[0].id}`);
   await expect(page.getByRole('button', { name: '运行一体化检查' })).toBeVisible();
