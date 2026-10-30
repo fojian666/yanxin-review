@@ -2010,8 +2010,8 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   animation: title-arrive .52s cubic-bezier(.22, 1, .36, 1) both;
 }
 @keyframes title-arrive {
-  from { transform: translateY(8px); clip-path: inset(0 100% 0 0); }
-  to { transform: translateY(0); clip-path: inset(0); }
+  from { opacity: .35; clip-path: inset(0 100% 0 0); }
+  to { opacity: 1; clip-path: inset(0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .main:has(.workspace-home) > .topbar .topbar-title h1 { animation: none; }
@@ -6290,7 +6290,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   }
 }
 
-@media (min-width: 981px) and (min-height: 721px) {
+@media (min-width: 981px) {
   .app-shell:not(.sidebar-collapsed) .sidebar {
     padding-top: 0;
   }
@@ -6768,6 +6768,18 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .main:has(.workspace-home) > .page {
     padding-top: 8px;
     padding-bottom: 16px;
+  }
+}
+
+@media (min-width: 981px) {
+  .main:has(.workspace-home.is-task),
+  .main:has(.workspace-home.is-overview) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .main:has(.workspace-home) > .topbar {
+    height: 68px;
+    min-height: 68px;
   }
 }
 

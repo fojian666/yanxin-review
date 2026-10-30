@@ -292,6 +292,66 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     expect(geometry.toggleHeight, `${label}折叠按钮高度与蓝白不一致`).toBe(collapsedBlue.toggleHeight);
     await page.screenshot({ path: testInfo.outputPath(`${value}-sidebar-collapsed.png`) });
   }
+
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  for (const [width, height] of [[1280, 720], [1280, 640]] as const) {
+    await page.setViewportSize({ width, height });
+    const positions: Array<{ theme: string; topbarTop: number; topbarHeight: number; toggleLeft: number; toggleTop: number; toggleWidth: number; toggleHeight: number }> = [];
+    for (const theme of ['paper', 'mono', 'blue', 'aurora'] as const) {
+      await page.goto('/welcome');
+      await page.evaluate(nextTheme => {
+        localStorage.setItem('yanxin.theme', nextTheme);
+        localStorage.setItem('yanxin.sidebar', '1');
+      }, theme);
+      await page.reload();
+      await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/);
+      const titleMotion = await page.evaluate(async () => {
+        const title = document.querySelector<HTMLElement>('.topbar-title h1')!;
+        const logo = document.querySelector<HTMLElement>('.brand-mark')!;
+        const animation = title.getAnimations()[0];
+        animation.currentTime = 0;
+        animation.play();
+        const centers: Array<{ title: number; logo: number }> = [];
+        for (let index = 0; index < 36; index += 1) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          const titleBox = title.getBoundingClientRect();
+          const logoBox = logo.getBoundingClientRect();
+          centers.push({
+            title: titleBox.top + titleBox.height / 2,
+            logo: logoBox.top + logoBox.height / 2,
+          });
+        }
+        return centers;
+      });
+      const titleCenters = titleMotion.map(sample => sample.title);
+      expect(Math.max(...titleCenters) - Math.min(...titleCenters), `${width}×${height} ${theme} 标题入场发生纵向位移`).toBeLessThanOrEqual(1);
+      expect(titleMotion.every(sample => sample.logo - sample.title >= -1), `${width}×${height} ${theme} 入场期间 logo 高于标题中线`).toBeTruthy();
+      positions.push(await page.evaluate(themeName => {
+        const topbar = document.querySelector<HTMLElement>('.topbar')!;
+        const toggle = document.querySelector<HTMLElement>('.sidebar-toggle')!;
+        const bar = topbar.getBoundingClientRect();
+        const box = toggle.getBoundingClientRect();
+        return {
+          theme: themeName,
+          topbarTop: bar.top,
+          topbarHeight: bar.height,
+          toggleLeft: box.left,
+          toggleTop: box.top,
+          toggleWidth: box.width,
+          toggleHeight: box.height,
+        };
+      }, theme));
+    }
+    const first = positions[0];
+    for (const position of positions.slice(1)) {
+      expect(position.topbarTop, `${width}×${height} ${position.theme} 系统栏起点不一致`).toBe(first.topbarTop);
+      expect(position.topbarHeight, `${width}×${height} ${position.theme} 系统栏高度不一致`).toBe(first.topbarHeight);
+      expect(position.toggleLeft, `${width}×${height} ${position.theme} 按钮横向位置不一致`).toBe(first.toggleLeft);
+      expect(position.toggleTop, `${width}×${height} ${position.theme} 按钮纵向位置不一致`).toBe(first.toggleTop);
+      expect(position.toggleWidth, `${width}×${height} ${position.theme} 按钮宽度不一致`).toBe(first.toggleWidth);
+      expect(position.toggleHeight, `${width}×${height} ${position.theme} 按钮高度不一致`).toBe(first.toggleHeight);
+    }
+  }
 });
 
 test('手机和窄屏主题入口可见，选项可切换且不挤压上传', async ({ app: page }, testInfo) => {
