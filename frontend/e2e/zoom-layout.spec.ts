@@ -42,6 +42,22 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
         const canvasBox = await page.locator('.kg-canvas-panel').boundingBox();
         expect(canvasBox && canvasBox.width >= 300 && canvasBox.height >= 100, `${scale}x 图谱画布拖动区域`).toBeTruthy();
       }
+      if (path === '/trend') {
+        const controlsFit = await page.locator('.trend-controls-page').evaluate(element =>
+          element.scrollHeight <= element.clientHeight + 1
+        );
+        expect(controlsFit, `${scale}x 趋势分析设置内容裁切`).toBeTruthy();
+        await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
+        const chartPanels = page.locator('.trend-chart-page .chart-panel');
+        await expect(chartPanels).toHaveCount(2);
+        const chartMetrics = await chartPanels.evaluateAll(panels => panels.map(panel => ({
+          clientHeight: panel.clientHeight,
+          scrollHeight: panel.scrollHeight,
+          width: panel.getBoundingClientRect().width,
+        })));
+        expect(chartMetrics.every(panel => panel.width >= 180 && panel.clientHeight >= 100), `${scale}x 趋势图表被压缩`).toBeTruthy();
+        expect(chartMetrics.every(panel => panel.scrollHeight <= panel.clientHeight + 5), `${scale}x 趋势图表内容裁切`).toBeTruthy();
+      }
       await expect.poll(() => page.locator('.workspace-tab > span:not(.workspace-tab-marker)').evaluateAll(items => items.every(item => { const line = parseFloat(getComputedStyle(item).lineHeight); return item.getBoundingClientRect().height <= line * 1.15; })), `${scale}x ${path} 功能索引换行`).toBeTruthy();
       const upload = page.getByRole('button', { name: '上传文档' }).first();
       await expect(upload).toBeVisible();
