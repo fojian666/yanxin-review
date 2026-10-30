@@ -171,6 +171,34 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'false');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'false');
+
+  await page.getByRole('button', { name: '切换主题' }).click();
+  await page.getByRole('radio', { name: '蓝白' }).check();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '收起侧边栏' }).click();
+  await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator('.sidebar')).toHaveCSS('background-image', /linear-gradient/);
+  await expect(page.locator('.brand')).toHaveCSS('background-color', 'rgb(22, 77, 112)');
+  const collapsedBlue = await page.evaluate(() => {
+    const sidebar = document.querySelector<HTMLElement>('.sidebar')!;
+    const brand = document.querySelector<HTMLElement>('.brand')!;
+    const inactive = document.querySelector<HTMLElement>('.nav-item:not(.active)')!;
+    return {
+      sidebarImage: getComputedStyle(sidebar).backgroundImage,
+      sidebarColor: getComputedStyle(sidebar).color,
+      brandColor: getComputedStyle(brand).backgroundColor,
+      brandTop: brand.getBoundingClientRect().top,
+      brandHeight: brand.getBoundingClientRect().height,
+      inactiveColor: getComputedStyle(inactive).color,
+    };
+  });
+  expect(collapsedBlue.sidebarImage, '蓝白主题折叠侧栏未恢复深蓝轨道').toContain('linear-gradient');
+  expect(collapsedBlue.sidebarColor, '蓝白主题折叠侧栏文字颜色未适配深色背景').toBe('rgb(233, 242, 239)');
+  expect(collapsedBlue.brandColor, '蓝白主题折叠品牌带未保持深蓝').toBe('rgb(22, 77, 112)');
+  expect(collapsedBlue.brandTop, '蓝白主题折叠品牌带未从顶部开始').toBe(0);
+  expect(collapsedBlue.brandHeight, '蓝白主题折叠品牌带高度未与系统栏一致').toBe(68);
+  expect(collapsedBlue.inactiveColor, '蓝白主题折叠导航仍使用深色文字').not.toBe('rgb(86, 113, 131)');
+  await page.screenshot({ path: testInfo.outputPath('blue-sidebar-collapsed.png') });
 });
 
 test('手机和窄屏主题入口可见，选项可切换且不挤压上传', async ({ app: page }, testInfo) => {
