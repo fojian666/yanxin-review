@@ -162,15 +162,15 @@ export function DocumentReader({
 
       <footer className="document-reader-pager">
         {previous ? (
-          <button type="button" className="document-pager-button" title={`上一份：${previous.name}`} onClick={() => onNavigate(previous)}>
+          <button type="button" className="document-pager-button" title={`上一份：${previous.name}`} aria-label={`上一份：${previous.name}`} onClick={() => onNavigate(previous)}>
             <ChevronLeft size={16} />
-            <span><small>上一份</small>{previous.name}</span>
+            <span><small>上一份</small><span className="document-pager-title">{previous.name}</span></span>
           </button>
         ) : <span />}
         <span className="document-folio">PAGE {String(position).padStart(2, "0")} / {String(total).padStart(2, "0")}</span>
         {next ? (
-          <button type="button" className="document-pager-button is-next" title={`下一份：${next.name}`} onClick={() => onNavigate(next)}>
-            <span><small>下一份</small>{next.name}</span>
+          <button type="button" className="document-pager-button is-next" title={`下一份：${next.name}`} aria-label={`下一份：${next.name}`} onClick={() => onNavigate(next)}>
+            <span><small>下一份</small><span className="document-pager-title">{next.name}</span></span>
             <ChevronRight size={16} />
           </button>
         ) : <span />}

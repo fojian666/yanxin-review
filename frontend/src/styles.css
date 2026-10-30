@@ -3464,6 +3464,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+.document-pager-title { display: block; }
 .document-pager-button small { display: block; color: var(--muted); font-size: 8.5px; }
 .document-literature { padding: 0; overflow: hidden; }
 .document-literature > summary {
@@ -6477,4 +6478,10 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .library-page .document-reader-actions { padding: 2px 10px 2px 20px; }
   .library-page .document-reader-actions .btn { min-height: 30px; height: 30px; }
   .library-page .document-reader-pager { min-height: 34px; padding-top: 2px; padding-bottom: 2px; }
+  .library-page .document-pager-button > span {
+    display: block;
+    overflow: visible;
+    white-space: nowrap;
+  }
+  .library-page .document-pager-title { display: none; }
 }
