@@ -145,10 +145,10 @@ export function ReviewPage() {
 
   const focusReport = () => {
     setSection("summary");
-    requestAnimationFrame(() => {
-      const target = reportRef.current;
-      target?.focus({ preventScroll: true });
-    });
+    // 章节切换先提交 React 树，再跨两帧聚焦，避免较慢设备上目标尚未挂载。
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      reportRef.current?.focus({ preventScroll: true });
+    }));
     setReportReady(false);
   };
 
