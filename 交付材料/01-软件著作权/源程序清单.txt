@@ -31,7 +31,7 @@
      93 frontend/src/components/ChatModelControls.tsx
      81 frontend/src/components/CitationTrace.tsx
     127 frontend/src/components/DocumentDirectory.tsx
-    178 frontend/src/components/DocumentReader.tsx
+    180 frontend/src/components/DocumentReader.tsx
     260 frontend/src/components/DossierModal.tsx
     468 frontend/src/components/DossierWorkbench.tsx
     135 frontend/src/components/EChart.tsx
@@ -61,9 +61,9 @@
     559 frontend/src/pages/ReviewPage.tsx
     205 frontend/src/pages/TrendPage.tsx
     204 frontend/src/pages/WelcomePage.tsx
-   6356 frontend/src/styles.css
+   6376 frontend/src/styles.css
     390 frontend/src/types.ts
-  14512 total
+  14534 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -89,7 +89,7 @@
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
     244 frontend/e2e/knowledge-document.spec.ts
-    192 frontend/e2e/library.spec.ts
+    197 frontend/e2e/library.spec.ts
     172 frontend/e2e/mobile.spec.ts
     238 frontend/e2e/review-match.spec.ts
      87 frontend/e2e/route-arrival.spec.ts
@@ -98,9 +98,9 @@
      41 frontend/e2e/workspace-sizing.spec.ts
      99 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2202 total
+   2207 total
 合计
-  27145 total（89 个文件）
+  27172 total（89 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

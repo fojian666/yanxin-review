@@ -116,6 +116,9 @@ export function DocumentReader({
 
       <motion.div
         className="document-reader-body"
+        role="region"
+        aria-label="文档内容，可滚动"
+        tabIndex={0}
         key={content?.document.id || "loading"}
         initial={!content || reduce || direction === "same" ? false : {
           rotateY: direction === "next" ? -8 : 8,
@@ -147,8 +150,7 @@ export function DocumentReader({
               const previousSection = index > 0 ? content.chunks[index - 1].section : "";
               return (
                 <section className="document-chunk" key={chunk.idx}>
-                  {chunk.section && chunk.section !== previousSection && <h3>{chunk.section}</h3>}
-                  {!chunk.section && index === 0 && <h3>{content.document.name}</h3>}
+                  {chunk.section && chunk.section !== previousSection && chunk.section !== content.document.name && <h3>{chunk.section}</h3>}
                   <div className="document-chunk-text">{chunk.text}</div>
                   {chunk.page && <span className="document-page-ref">第 {chunk.page} 页</span>}
                 </section>

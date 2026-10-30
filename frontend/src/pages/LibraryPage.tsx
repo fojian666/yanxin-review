@@ -252,6 +252,10 @@ export function LibraryPage() {
             <span>{docs.length} 份资料 · 文件上限 {limitMb}MB · 拖入页面即可上传</span>
           </div>
         </div>
+        <div className="library-view-switch" role="group" aria-label="文档中心视图">
+          <button type="button" aria-pressed={libraryView === "documents"} onClick={() => setLibraryView("documents")}>文档正文</button>
+          <button type="button" aria-pressed={libraryView === "literature"} onClick={() => setLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
+        </div>
         <div className="document-center-tools">
           {can("upload") && (
             <button type="button" className="btn btn-primary" onClick={() => openUpload()}>
@@ -266,10 +270,6 @@ export function LibraryPage() {
         </div>
       </section>
 
-      <div className="library-view-switch" role="group" aria-label="文档中心视图">
-        <button type="button" aria-pressed={libraryView === "documents"} onClick={() => setLibraryView("documents")}>文档正文</button>
-        <button type="button" aria-pressed={libraryView === "literature"} onClick={() => setLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
-      </div>
       <div className="document-center-layout" hidden={libraryView !== "documents"}>
         <aside className={directoryOpen ? "document-directory-shell is-open" : "document-directory-shell"}>
           <button

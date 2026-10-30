@@ -4180,6 +4180,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   flex: 0 0 auto;
   gap: 6px;
 }
+.library-page .document-center-title { flex: 1 1 auto; }
 .library-view-switch button {
   min-height: 38px;
   padding: 0 16px;
@@ -6353,4 +6354,23 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .library-page .document-reader-actions { flex-wrap: nowrap; gap: 4px; padding: 5px 8px 5px 14px; }
   .library-page .document-reader-actions .btn { min-width: 0; flex: 1 1 0; padding: 0 4px; font-size: 11px; }
   .library-page .document-prose { padding: 12px 18px 20px; }
+}
+
+/* 紧凑窗口优先给正文留出阅读空间，工具仍可直接操作。 */
+@media (max-width: 680px), (max-height: 720px) {
+  .library-page .document-center-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+  .library-page .document-center-title,
+  .library-page .document-center-tools .btn-primary { display: none; }
+  .library-page .document-center-tools { width: auto; margin-left: auto; }
+  .library-page .document-center-tools .danger { display: inline-flex; min-height: 36px; padding: 0 8px; }
+  .library-view-switch { gap: 4px; }
+  .library-view-switch button { min-height: 36px; padding: 0 9px; }
+  .library-page .document-prose { padding: 10px 18px 20px; }
+  .library-page .document-chunk { margin-bottom: 14px; }
+  .library-page .document-chunk:first-child h3 { margin-top: 0; }
 }

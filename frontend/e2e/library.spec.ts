@@ -6,7 +6,12 @@ test('文档正文与文献数据独立切换并保持可阅读', async ({ app: 
     await page.goto('/library');
     const reader = page.locator('.document-reader-body');
     await expect(reader).toBeVisible();
-    await expect.poll(() => reader.evaluate(el => el.clientHeight)).toBeGreaterThan(40);
+    await expect.poll(() => reader.evaluate(el => el.clientHeight)).toBeGreaterThan(100);
+    await page.screenshot({ path: testInfo.outputPath(`reader-${width}.png`) });
+    await reader.focus();
+    await reader.press('End');
+    await expect.poll(() => reader.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await reader.press('Home');
     await page.getByRole('button', { name: /文献数据/ }).click();
     await expect(page.getByRole('button', { name: '导入文献 CSV' })).toBeVisible();
     const table = page.locator('.document-literature .table-wrap');
