@@ -70,6 +70,18 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.getByRole('group', { name: '查重与追问分页' })).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath('review-findings-expanded.png') });
   await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
+  await expect(page.locator('.review-boundary-layout')).toBeVisible();
+  await expect(page.locator('.review-boundary-copy')).toContainText('能力边界');
+  await expect(page.locator('.review-boundary-disclaimer')).toContainText('须经专家和管理人员复核');
+  await expect(page.locator('.review-export-panel')).toContainText('报告输出');
+  await expect(page.locator('.review-export-panel').getByRole('button', { name: '导出 Markdown', exact: true })).toBeVisible();
+  const boundaryColumns = await page.evaluate(() => {
+    const copy = document.querySelector<HTMLElement>('.review-boundary-copy')!.getBoundingClientRect();
+    const output = document.querySelector<HTMLElement>('.review-export-panel')!.getBoundingClientRect();
+    return { copyRight: copy.right, outputLeft: output.left };
+  });
+  expect(boundaryColumns.copyRight, '能力边界与报告输出区域重叠').toBeLessThanOrEqual(boundaryColumns.outputLeft);
+  await page.screenshot({ path: testInfo.outputPath('review-boundaries-desktop.png') });
   await expect(page.locator('.report-limits')).not.toBeEmpty();
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
   expect(text).toContain(documents[0].name);

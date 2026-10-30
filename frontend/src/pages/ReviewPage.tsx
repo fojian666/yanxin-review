@@ -19,6 +19,13 @@ import type { CheckStatus, ReviewReport } from "../types";
 
 const STEPS = ["解析文档结构", "检查形式完整性", "核对诚信与规范", "文本查重比对", "生成预审报告"];
 
+const DEFAULT_REVIEW_BOUNDARIES = [
+  "形式完整性由规则检查，材料真实性、签字、盖章和附件效力仍须人工核验。",
+  "文本查重只识别字面相似，相似不等于抄袭，命中段落须回到原文复核。",
+  "政策引用用于辅助核对条款，不判断版本时效，须结合现行有效文件确认。",
+  "专家匹配只提供候选与依据，不替代评审专家和管理人员的独立判断。",
+];
+
 const STATUS_LABELS: Record<CheckStatus, string> = {
   pass: "通过",
   warn: "关注",
@@ -241,9 +248,8 @@ export function ReviewPage() {
     lines.push("## 建议核实的问题");
     report.questions.forEach((question, index) => lines.push(`${index + 1}. ${question}`));
     // 网页上能看到的能力边界与运行警告必须跟着文件走，否则离线报告会被当成语义判断
-    if (report.limitations?.length) {
-      lines.push("", "## 能力边界", ...report.limitations.map((item, index) => `${index + 1}. ${item}`));
-    }
+    const exportedLimitations = report.limitations?.length ? report.limitations : DEFAULT_REVIEW_BOUNDARIES;
+    lines.push("", "## 能力边界", ...exportedLimitations.map((item, index) => `${index + 1}. ${item}`));
     lines.push("", "---", report.disclaimer);
     const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -418,26 +424,44 @@ export function ReviewPage() {
           boundaries: (
             <div className="review-report review-boundaries-page" role="region" aria-label="边界与导出" tabIndex={0}>
               {report ? (
-                <>
-                  <div className="section-block">
-                    <div className="section-head"><h3>能力边界</h3></div>
-                    {limitations.length ? (
-                      <>
-                        <ul className="report-limits questions"><li>{limitations[visibleBoundaryIndex]}</li></ul>
+                <div className="review-boundary-layout">
+                  <section className="section-block review-boundary-copy" aria-labelledby="review-boundary-title">
+                    <div className="section-head"><h3 id="review-boundary-title">能力边界</h3></div>
+                    <div className="review-boundary-body">
+                      <p className="review-boundary-intro">以下内容说明本次预审能覆盖什么、不能替代谁作出判断。</p>
+                      <ul className="report-limits questions">
+                        {(limitations.length ? [limitations[visibleBoundaryIndex]] : DEFAULT_REVIEW_BOUNDARIES)
+                          .map(item => <li key={item}>{item}</li>)}
+                      </ul>
+                      {limitations.length > 0 && (
                         <InlinePager label="检查边界" index={visibleBoundaryIndex} total={limitations.length} onChange={setBoundaryPage} />
-                      </>
-                    ) : <p className="muted">本次结果由模型辅助生成，仍须核对原始材料。</p>}
-                    <p className="disclaimer">{report.disclaimer}</p>
-                  </div>
-                  <div className="report-actions">
-                    <motion.button className="btn btn-ghost" onClick={exportReport} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-                      <Download size={16} />导出 Markdown
-                    </motion.button>
-                    <motion.button className="btn btn-primary" onClick={() => window.print()} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-                      <Printer size={16} />打印 / 存为 PDF
-                    </motion.button>
-                  </div>
-                </>
+                      )}
+                      <div className="review-boundary-disclaimer">
+                        <strong>使用边界</strong>
+                        <p>{report.disclaimer}</p>
+                      </div>
+                    </div>
+                  </section>
+                  <aside className="section-block review-export-panel" aria-labelledby="review-export-title">
+                    <div className="section-head"><h3 id="review-export-title">报告输出</h3></div>
+                    <div className="review-export-body">
+                      <p>导出文件会保留本次预审的来源、检查项、能力边界和免责声明。</p>
+                      <div className="review-export-meta">
+                        <span>{generationLabel(report.generation, "规则预审")}</span>
+                        <span>{report.doc.name}</span>
+                        <span>{report.overall.generated_at.replace("T", " ")}</span>
+                      </div>
+                      <div className="report-actions">
+                        <motion.button className="btn btn-ghost" onClick={exportReport} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                          <Download size={16} />导出 Markdown
+                        </motion.button>
+                        <motion.button className="btn btn-primary" onClick={() => window.print()} whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                          <Printer size={16} />打印 / 存为 PDF
+                        </motion.button>
+                      </div>
+                    </div>
+                  </aside>
+                </div>
               ) : (
                 <EmptyState icon={<FileSearch size={38} />} description="完成预审后，在这里查看能力边界并导出报告。" />
               )}
@@ -489,12 +513,10 @@ function ReviewPrintReport({ report }: { report: ReviewReport }) {
         <h2>建议核实的问题</h2>
         <ol>{report.questions.map((question) => <li key={question}>{question}</li>)}</ol>
       </section>
-      {(report.limitations?.length ?? 0) > 0 && (
-        <section>
-          <h2>能力边界</h2>
-          <ol>{report.limitations!.map((item) => <li key={item}>{item}</li>)}</ol>
-        </section>
-      )}
+      <section>
+        <h2>能力边界</h2>
+        <ol>{(report.limitations?.length ? report.limitations : DEFAULT_REVIEW_BOUNDARIES).map((item) => <li key={item}>{item}</li>)}</ol>
+      </section>
       <p>{report.disclaimer}</p>
     </article>
   );

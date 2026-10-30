@@ -84,6 +84,15 @@ test('@smoke 紧凑窗口下全部按钮结果保持一屏且文字完整', asyn
     await page.getByRole('tab', { name: label, exact: true }).click();
     await expect(page.locator('.review-deck .work-deck-head h3')).toHaveText(label);
     await expectOnePage(page, `预审/${label}`);
+    if (label === '边界与导出') {
+      const boundary = page.locator('.review-boundaries-page');
+      await expect(boundary.locator('.review-boundary-copy')).toContainText('使用边界');
+      await expect(boundary.locator('.review-export-panel')).toContainText('报告输出');
+      await expect(boundary).toHaveCSS('overflow-y', 'auto');
+      await boundary.evaluate(element => { element.scrollTop = element.scrollHeight; });
+      await expect.poll(() => boundary.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      await expect(boundary.getByRole('button', { name: '打印 / 存为 PDF', exact: true })).toBeVisible();
+    }
   }
   expect(await page.locator('.review-deck .work-deck-rail [role="tab"]').evaluateAll(tabs =>
     tabs.every(tab => tab.getBoundingClientRect().height >= 44)

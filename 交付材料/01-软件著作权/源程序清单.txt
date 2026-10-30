@@ -58,15 +58,15 @@
     451 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
     418 frontend/src/pages/MatchPage.tsx
-    581 frontend/src/pages/ReviewPage.tsx
+    603 frontend/src/pages/ReviewPage.tsx
     215 frontend/src/pages/TrendPage.tsx
     201 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   6603 frontend/src/styles.css
+   6725 frontend/src/styles.css
      44 frontend/src/theme.ts
     361 frontend/src/themes.css
     393 frontend/src/types.ts
-  15394 total
+  15538 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -86,7 +86,7 @@
    1007 total
 浏览器回归（TypeScript/Python）
     113 frontend/e2e/auth.spec.ts
-    241 frontend/e2e/button-surfaces.spec.ts
+    250 frontend/e2e/button-surfaces.spec.ts
     301 frontend/e2e/chat-trend.spec.ts
     234 frontend/e2e/dossier.spec.ts
     143 frontend/e2e/fixtures.ts
@@ -94,7 +94,7 @@
     244 frontend/e2e/knowledge-document.spec.ts
     202 frontend/e2e/library.spec.ts
     173 frontend/e2e/mobile.spec.ts
-    293 frontend/e2e/review-match.spec.ts
+    305 frontend/e2e/review-match.spec.ts
     124 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
     222 frontend/e2e/themes.spec.ts
@@ -102,9 +102,9 @@
     151 frontend/e2e/workspace-sizing.spec.ts
     101 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2713 total
+   2734 total
 合计
-  28552 total（93 个文件）
+  28717 total（93 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
