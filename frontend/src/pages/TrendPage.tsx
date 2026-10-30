@@ -145,7 +145,7 @@ export function TrendPage() {
                   </div>
                 </div>
               </div>
-              <div className="chips">{CHIPS.map((chip) => <motion.button key={chip} className={`chip ${query === chip ? "active" : ""}`} onClick={() => { setQuery(chip); void run(chip, start, end); }} disabled={loading} whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }} transition={{ duration: 0.23, ease: EASE }}>{chip}</motion.button>)}</div>
+              <div className="chips">{CHIPS.map((chip) => <motion.button key={chip} className={`chip ${query === chip ? "active" : ""}`} onClick={() => { setQuery(chip); void run(chip, start, end, false); }} disabled={loading} whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }} transition={{ duration: 0.23, ease: EASE }}>{chip}</motion.button>)}</div>
               <AnimatePresence initial={false}>
                 {data?.sample && <motion.div className="notice" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.34, ease: EASE }}><div><strong>演示数据</strong> · 当前趋势图使用合成文献验证功能，不代表真实研究结论。</div>{can("remove-sample") && <button className="btn btn-ghost btn-sm danger" onClick={() => void clearSamples()}><Trash2 size={14} />移除演示文献</button>}</motion.div>}
               </AnimatePresence>

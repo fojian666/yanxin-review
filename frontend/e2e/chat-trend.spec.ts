@@ -103,6 +103,12 @@ test('中文输入法回车不发送，Shift+Enter换行', async ({ app: page })
 test('@smoke 趋势主题、年份联动与2D视图', async ({ app: page }) => {
   await navigate(page, '文献趋势');
   await expect(page.locator('.notice')).toContainText('演示数据');
+  for (const topic of ['大模型', '语义查重']) {
+    const pending = page.waitForResponse(r => r.url().endsWith('/api/trends') && r.request().postDataJSON().query === topic);
+    await page.locator('.chips').getByRole('button', { name: topic, exact: true }).click();
+    expect((await pending).ok()).toBeTruthy();
+    await expect(page.getByRole('tab', { name: '分析设置', exact: true })).toHaveAttribute('aria-selected', 'true');
+  }
   await page.getByLabel('分析主题').fill('大模型');
   await page.getByLabel('起始年份').selectOption('2023');
   await page.getByLabel('结束年份').selectOption('2025');
