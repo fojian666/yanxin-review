@@ -19,6 +19,29 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
         const panel = document.querySelector<HTMLElement>('.work-deck-panel');
         return !panel || panel.scrollHeight <= panel.clientHeight + 1;
       }), `${scale}x ${path} 章节内容溢出`).toBeTruthy();
+      await expect.poll(() => page.locator('.topbar').evaluate(header => {
+        const headerBox = header.getBoundingClientRect();
+        return [...header.querySelectorAll<HTMLElement>(':scope > .topbar-title, :scope > .topbar-actions')]
+          .every(item => {
+            const box = item.getBoundingClientRect();
+            return box.top >= headerBox.top - 1 && box.bottom <= headerBox.bottom + 1;
+          });
+      }), `${scale}x ${path} 顶栏文字溢出`).toBeTruthy();
+      if (path === '/dossiers' && scale === 1) {
+        const centered = await page.locator('.work-deck-rail nav button').evaluateAll(buttons => buttons.every(button => {
+          const number = button.querySelector<HTMLElement>('.work-deck-number');
+          const copy = button.querySelector<HTMLElement>('.work-deck-copy');
+          if (!number || !copy || number.getClientRects().length === 0) return true;
+          const numberRect = number.getBoundingClientRect();
+          const copyRect = copy.getBoundingClientRect();
+          return Math.abs((numberRect.top + numberRect.height / 2) - (copyRect.top + copyRect.height / 2)) <= 1;
+        }));
+        expect(centered, '步骤号码与文字必须垂直居中').toBeTruthy();
+      }
+      if (path === '/graph' && scale >= 1.5) {
+        const canvasBox = await page.locator('.kg-canvas-panel').boundingBox();
+        expect(canvasBox && canvasBox.width >= 300 && canvasBox.height >= 100, `${scale}x 图谱画布拖动区域`).toBeTruthy();
+      }
       await expect.poll(() => page.locator('.workspace-tab > span:not(.workspace-tab-marker)').evaluateAll(items => items.every(item => { const line = parseFloat(getComputedStyle(item).lineHeight); return item.getBoundingClientRect().height <= line * 1.15; })), `${scale}x ${path} 功能索引换行`).toBeTruthy();
       const upload = page.getByRole('button', { name: '上传文档' }).first();
       await expect(upload).toBeVisible();

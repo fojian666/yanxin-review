@@ -74,6 +74,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
       <div className="topbar-title" key={`title:${pathname}`}>
         <h1>{meta.title}</h1>
         <p>{meta.description}</p>
+        <RouteArrival key={`arrival:${pathname}`} title={meta.title} navOpen={navOpen} />
         <div className="mobile-model-status" aria-label="当前模型配置">
           当前配置：{online && health ? modelLabel(health.llm) : "离线演示"}
         </div>
@@ -169,7 +170,6 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
           </div>
         )}
       </div>
-      <RouteArrival key={`arrival:${pathname}`} title={meta.title} navOpen={navOpen} />
     </header>
   );
 }

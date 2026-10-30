@@ -132,6 +132,17 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
     { width: 720, height: 450 },
   ]) {
     await page.setViewportSize({ width, height });
+    if (width === 1440) {
+      const centered = await page.locator('.dossier-deck .work-deck-rail nav button').evaluateAll(buttons => buttons.every(button => {
+        const number = button.querySelector<HTMLElement>('.work-deck-number');
+        const copy = button.querySelector<HTMLElement>('.work-deck-copy');
+        if (!number || !copy || number.getClientRects().length === 0) return true;
+        const numberRect = number.getBoundingClientRect();
+        const copyRect = copy.getBoundingClientRect();
+        return Math.abs((numberRect.top + numberRect.height / 2) - (copyRect.top + copyRect.height / 2)) <= 1;
+      }));
+      expect(centered, '卷宗步骤号码与文字必须垂直居中').toBeTruthy();
+    }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
       `${width}px 卷宗工作台不得横向溢出`

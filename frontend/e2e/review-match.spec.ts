@@ -186,6 +186,7 @@ test('专家CSV导入、归一回避和模板下载', async ({ app: page, docume
   await page.getByRole('tab', { name: '专家库', exact: true }).click();
   await expect(page.getByRole('row').filter({ hasText: 'E2E归一专家' })).toBeVisible();
   await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await page.getByRole('tab', { name: '运行检查', exact: true }).click();
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await showExcludedExpert(page, 'E2E归一专家');
   await expect(page.locator('.match-deck-excluded')).toContainText('排版归一后一致');

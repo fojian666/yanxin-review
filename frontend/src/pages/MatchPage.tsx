@@ -143,7 +143,6 @@ export function MatchPage() {
       const data = await api.importExperts(file);
       await loadExperts();
       toast(`已导入 ${data.count || 0} 位专家`);
-      if (docId) await run();
     } catch (err) {
       toast(`专家导入失败：${(err as Error).message}`, "error");
     }
@@ -155,7 +154,6 @@ export function MatchPage() {
       const data = await api.removeSampleExperts();
       await loadExperts();
       toast(`已移除 ${data.removed || 0} 位演示专家`);
-      if (docId) await run();
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
     }
