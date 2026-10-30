@@ -76,7 +76,14 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
   test(`${label}路由标题保持简洁，工作面切换尊重动态偏好`, async ({ app: page }, testInfo) => {
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.evaluate(() => {
+      (window as typeof window & { titleArrivals: string[] }).titleArrivals = [];
+      document.addEventListener('animationstart', event => {
+        if (event.animationName === 'title-arrive') (window as typeof window & { titleArrivals: string[] }).titleArrivals.push(location.pathname);
+      });
+    });
     await navigate(page, '智能问答');
+    await expect.poll(() => page.evaluate(() => (window as typeof window & { titleArrivals: string[] }).titleArrivals)).toContain('/chat');
     await expect(page.locator('.topbar-title p, .route-arrival, .mobile-model-status, .topbar .mode-chip')).toHaveCount(0);
     await navigate(page, '文档中心');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('文档中心');
@@ -104,6 +111,7 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await page.getByRole('tab', { name: '运行预审', exact: true }).click();
     await expect(page.locator('.review-deck .work-deck-panel').last()).toHaveAttribute('data-direction', 'prev');
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(page.locator('.topbar-title h1')).toHaveCSS('animation-name', 'none');
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await page.getByRole('tab', { name: '结论概览', exact: true }).click();
     await expect.poll(() => page.locator('.review-deck .work-deck-panel').last().evaluate(element => element.getAnimations({ subtree: false }).filter(animation => animation.playState === 'running').length)).toBe(0);

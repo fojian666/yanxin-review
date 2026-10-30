@@ -61,9 +61,9 @@
     559 frontend/src/pages/ReviewPage.tsx
     205 frontend/src/pages/TrendPage.tsx
     204 frontend/src/pages/WelcomePage.tsx
-   6428 frontend/src/styles.css
+   6418 frontend/src/styles.css
     390 frontend/src/types.ts
-  14586 total
+  14576 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -92,15 +92,15 @@
     197 frontend/e2e/library.spec.ts
     172 frontend/e2e/mobile.spec.ts
     238 frontend/e2e/review-match.spec.ts
-    111 frontend/e2e/route-arrival.spec.ts
+    119 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
      78 frontend/e2e/trend-zoom.spec.ts
      41 frontend/e2e/workspace-sizing.spec.ts
      99 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2231 total
+   2239 total
 合计
-  27248 total（89 个文件）
+  27246 total（89 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
