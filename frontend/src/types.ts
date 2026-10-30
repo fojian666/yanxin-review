@@ -242,6 +242,8 @@ export interface ReviewItem {
   evidence: string;
   /** 政策条款全文（evidence 为短摘要，供「展开全文」用） */
   evidence_full?: string;
+  /** 系统证据对应的文档，可直接回到文档中心 */
+  source_doc_id?: string;
 }
 
 export interface ReviewSection {
@@ -252,6 +254,7 @@ export interface ReviewSection {
 }
 
 export interface ReviewMatch {
+  matched_doc_id: string;
   matched_doc_name: string;
   similarity: number;
   source_snippet: string;

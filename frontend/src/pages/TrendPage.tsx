@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowUpRight,
   Box,
   Info,
   LineChart,
@@ -9,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { AnnualChart3D, TopicMatrix3D, TrendBar2D, TrendLine2D } from "../charts/TrendCharts";
@@ -193,7 +195,15 @@ export function TrendPage() {
               <div className="panel-head"><div><h2>代表性文献</h2><p>{data?.papers.length ? `展示前 ${data.papers.length} 篇` : "暂无匹配"}</p></div></div>
               {data ? (
                 <motion.div className="paper-list" key={`papers-${data.query}-${data.stats.total}`} variants={staggerContainer} initial="initial" animate="animate">
-                  {data.papers.length === 0 ? <div className="empty-state" style={{ gridColumn: "1 / -1" }}><p>暂无匹配文献。换一枚主题词，或在文档中心导入真实文献 CSV 再试。</p></div> : data.papers.map((paper, index) => <motion.div className="paper-card" key={`${paper.id}-${index}`} variants={staggerItem} whileHover={{ y: -2 }}><div className="paper-year">{paper.year} {paper.is_sample && <span className="badge-sample">演示</span>}</div><div className="paper-title">{paper.title}</div><div className="paper-meta">{paper.keywords}</div></motion.div>)}
+                  {data.papers.length === 0 ? <div className="empty-state" style={{ gridColumn: "1 / -1" }}><p>暂无匹配文献。换一枚主题词，或<Link className="link-btn" to="/library?view=literature">前往文档库</Link>导入真实文献 CSV 再试。</p></div> : data.papers.map((paper, index) => (
+                    <motion.div className="paper-card-shell" key={`${paper.id}-${index}`} variants={staggerItem} whileHover={{ y: -2 }}>
+                      <Link className="paper-card" to={`/library?view=literature&paper=${paper.id}`} aria-label={`在文档库查看：${paper.title}`}>
+                        <div className="paper-year">{paper.year} {paper.is_sample && <span className="badge-sample">演示</span>}<ArrowUpRight className="paper-open" size={16} aria-hidden="true" /></div>
+                        <div className="paper-title">{paper.title}</div>
+                        <div className="paper-meta">{paper.keywords}</div>
+                      </Link>
+                    </motion.div>
+                  ))}
                 </motion.div>
               ) : <div className="skeleton" />}
             </div>

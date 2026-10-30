@@ -14,6 +14,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
@@ -294,7 +295,7 @@ export function MatchPage() {
                   <div className="match-callout">{duplicate?.summary}</div>
                   <div className="duplicate-card">
                     <div className="duplicate-head">
-                      <div><div className="duplicate-title">{currentDuplicate.matched_doc_name}</div><div className="muted">最高段落相似度 {currentDuplicate.similarity.toFixed(2)}</div></div>
+                      <div><div className="duplicate-title"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(currentDuplicate.matched_doc_id)}`} aria-label={`打开《${currentDuplicate.matched_doc_name}》原文`}>{currentDuplicate.matched_doc_name}</Link></div><div className="muted">最高段落相似度 {currentDuplicate.similarity.toFixed(2)}</div></div>
                       <span className={`status-pill ${scoreClass(currentDuplicate.similarity)}`}>{currentDuplicate.similarity >= 0.55 ? "高相似" : currentDuplicate.similarity >= 0.3 ? "关注" : "低相似"}</span>
                     </div>
                     <div className="check-evidence">本子：{currentDuplicate.source_snippet}</div>

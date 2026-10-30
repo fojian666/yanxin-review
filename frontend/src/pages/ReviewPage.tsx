@@ -7,7 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
@@ -347,29 +347,38 @@ export function ReviewPage() {
                     <h3>{currentCheck.section.title}</h3>
                     <StatusPill status={currentCheck.section.status} />
                   </div>
-                  <div className="check-item">
-                    <div className="check-top">
-                      <div>
-                        <div className="check-label">{currentCheck.item.label}</div>
-                        <div className="check-detail">{currentCheck.item.detail}</div>
+                  <div className="review-evidence-body">
+                    <div className="check-item">
+                      <div className="check-top">
+                        <div>
+                          <div className="check-label">{currentCheck.item.label}</div>
+                          <div className="check-detail">{currentCheck.item.detail}</div>
+                        </div>
+                        <StatusPill status={currentCheck.item.status} />
                       </div>
-                      <StatusPill status={currentCheck.item.status} />
+                      {currentCheck.item.evidence && (
+                        <div className={`check-evidence ${expandedEvidence.has(currentCheck.key) ? "is-expanded" : ""}`}>
+                          {expandedEvidence.has(currentCheck.key) ? currentCheck.item.evidence_full || currentCheck.item.evidence : currentCheck.item.evidence}
+                        </div>
+                      )}
+                      {(currentCheck.item.source_doc_id || (currentCheck.item.evidence_full || "").length > currentCheck.item.evidence.length) && (
+                        <div className="check-evidence-actions">
+                          {currentCheck.item.source_doc_id && (
+                            <Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(currentCheck.item.source_doc_id)}`} aria-label={`打开《${currentCheck.item.label}》依据原文`}>打开依据原文</Link>
+                          )}
+                          {(currentCheck.item.evidence_full || "").length > currentCheck.item.evidence.length && (
+                            <button
+                              type="button"
+                              className="source-toggle"
+                              aria-expanded={expandedEvidence.has(currentCheck.key)}
+                              onClick={() => toggleEvidence(currentCheck.key)}
+                            >
+                              {expandedEvidence.has(currentCheck.key) ? "收起原文" : `展开全文（${(currentCheck.item.evidence_full || "").length} 字）`}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {currentCheck.item.evidence && (
-                      <div className="check-evidence">
-                        {expandedEvidence.has(currentCheck.key) ? currentCheck.item.evidence_full || currentCheck.item.evidence : currentCheck.item.evidence}
-                      </div>
-                    )}
-                    {(currentCheck.item.evidence_full || "").length > currentCheck.item.evidence.length && (
-                      <button
-                        type="button"
-                        className="source-toggle"
-                        aria-expanded={expandedEvidence.has(currentCheck.key)}
-                        onClick={() => toggleEvidence(currentCheck.key)}
-                      >
-                        {expandedEvidence.has(currentCheck.key) ? "收起原文" : `展开全文（${(currentCheck.item.evidence_full || "").length} 字）`}
-                      </button>
-                    )}
                   </div>
                   <InlinePager label="检查项" index={visibleCheckIndex} total={flattenedChecks.length} onChange={setCheckPage} />
                 </div>
@@ -387,13 +396,17 @@ export function ReviewPage() {
                       <h3>查重命中</h3>
                       <span className="muted">相似度不等于抄袭，需人工判断</span>
                     </div>
-                    <div className="check-label">{currentFinding.match.matched_doc_name} · 相似度 {currentFinding.match.similarity.toFixed(2)}</div>
-                    <div className="check-evidence">本子：{currentFinding.match.source_snippet}<br />比对：{currentFinding.match.matched_snippet}</div>
+                    <div className="review-evidence-body review-finding-body">
+                      <div className="check-label"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(currentFinding.match.matched_doc_id)}`} aria-label={`打开《${currentFinding.match.matched_doc_name}》原文`}>{currentFinding.match.matched_doc_name}</Link> · 相似度 {currentFinding.match.similarity.toFixed(2)}</div>
+                      <div className="check-evidence">本子：{currentFinding.match.source_snippet}<br />比对：{currentFinding.match.matched_snippet}</div>
+                    </div>
                   </div>
                 ) : (
                   <div className="section-block">
                     <div className="section-head"><h3>建议核实的问题</h3><span className="muted">{visibleFindingIndex + 1} / {findings.length}</span></div>
-                    <div className="check-item review-question-card">{currentFinding.question}</div>
+                    <div className="review-evidence-body">
+                      <div className="check-item review-question-card">{currentFinding.question}</div>
+                    </div>
                   </div>
                 )
               ) : (

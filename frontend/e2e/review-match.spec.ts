@@ -60,6 +60,15 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.getByRole('tab', { name: '结论概览', exact: true })).toHaveAttribute('aria-selected', 'true');
   await showReviewCheck(page, '文本查重');
   await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '查重与追问', exact: true }).click();
+  await expect(page.locator('.review-finding-page .review-evidence-body')).toHaveCSS('overflow-y', 'auto');
+  const findingEvidence = page.locator('.review-finding-page .check-evidence').first();
+  await expect(findingEvidence).toBeVisible();
+  await expect.poll(() => findingEvidence.evaluate(element =>
+    element.scrollHeight <= element.clientHeight + 1 && getComputedStyle(element).webkitLineClamp === 'none'
+  )).toBeTruthy();
+  await expect(page.getByRole('group', { name: '查重与追问分页' })).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath('review-findings-expanded.png') });
   await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
   await expect(page.locator('.report-limits')).not.toBeEmpty();
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
@@ -136,6 +145,9 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await uploadRefreshDocument(page, '匹配刷新回归');
   await expect(page.getByRole('button', { name: '导出结果' })).toBeEnabled();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: '查重结果', exact: true }).click();
+  await expect(page.locator('.duplicate-title .evidence-doc-link')).toHaveAttribute('href', /^\/library\?doc=/);
+  await page.screenshot({ path: testInfo.outputPath('match-duplicate-link.png') });
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
   await page.screenshot({ path: testInfo.outputPath('match-desktop.png') });
@@ -248,9 +260,24 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   await page.getByRole('button', { name: '开始预审' }).click();
   await showReviewCheck(page, item.label, '.review-check-page .check-label');
   const row = page.locator('.check-item').filter({ hasText: item.label });
+  await expect(row.locator('.evidence-doc-link')).toHaveAttribute('href', /^\/library\?doc=/);
+  await page.screenshot({ path: testInfo.outputPath('review-policy-link.png') });
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
   await row.getByRole('button', { name: /展开全文/ }).click();
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence_full);
+  await expect(row.locator('.check-evidence')).toHaveClass(/is-expanded/);
+  await expect.poll(() => row.locator('.check-evidence').evaluate(element =>
+    element.scrollHeight <= element.clientHeight + 1
+  )).toBeTruthy();
+  const evidencePane = page.locator('.review-check-page .review-evidence-body');
+  await expect(evidencePane).toHaveCSS('overflow-y', 'auto');
+  await expect.poll(() => evidencePane.evaluate(element => element.scrollHeight > element.clientHeight + 1)).toBeTruthy();
+  await page.screenshot({ path: testInfo.outputPath('review-check-expanded-top.png') });
+  await evidencePane.hover();
+  await page.mouse.wheel(0, 300);
+  await expect.poll(() => evidencePane.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await expect(page.getByRole('group', { name: '检查项分页' })).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath('review-check-expanded.png') });
   await expect(row.getByRole('button', { name: '收起原文' })).toHaveAttribute('aria-expanded', 'true');
   await row.getByRole('button', { name: '收起原文' }).click();
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);

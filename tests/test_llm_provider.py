@@ -188,6 +188,14 @@ def test_model_review_preserves_system_policy_and_duplicate_evidence(monkeypatch
     import json
 
     _fake_db(monkeypatch)
+    duplicate = {
+        "matched_doc_id": "peer",
+        "matched_doc_name": "相近本子",
+        "similarity": 0.72,
+        "source_snippet": "本子原文",
+        "matched_snippet": "对方原文",
+    }
+    monkeypatch.setattr(review_service.retriever, "similarity_between_docs", lambda *a, **k: [duplicate])
     policy = {"id": "p1", "name": "公开规则", "kind": "policy"}
     cite = {"doc_id": "p1", "doc_name": "公开规则", "section": "第一章 总则 · 第五条",
             "text": "第五条 科研诚信原文。" * 30, "score": 0.9}
@@ -216,8 +224,12 @@ def test_model_review_preserves_system_policy_and_duplicate_evidence(monkeypatch
         assert after == [before]
     item = next(s for s in online["sections"] if s["key"] == "policy")["items"][0]
     assert item["evidence_full"] == cite["text"]
+    assert item["source_doc_id"] == "p1"
     assert "公开规则" in item["label"] and "第五条" in item["label"]
     assert "人工核对" in item["detail"]
+    duplicate_item = next(s for s in online["sections"] if s["key"] == "duplicate")["items"][0]
+    assert duplicate_item["source_doc_id"] == "peer"
+    assert online["duplicate"]["matches"][0]["matched_doc_id"] == "peer"
     # 模型漏掉 policy 时也必须保留系统证据。
     payload["sections"] = [s for s in payload["sections"] if s["key"] not in {"policy", "duplicate"}]
     missing = review_service.review_document("d1")

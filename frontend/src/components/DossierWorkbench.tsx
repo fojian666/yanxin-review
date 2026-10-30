@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { currentWorkflowIndex, PROPOSAL_WORKFLOW } from "../data/proposalWorkflow";
@@ -298,7 +299,7 @@ export function DossierWorkbench() {
                         <div className="dossier-material-row" key={material.doc_id}>
                           <div className="dossier-material-copy">
                             <span className="dossier-role">{role?.short ?? material.role}</span>
-                            <strong title={material.doc_name}>{material.doc_name}</strong>
+                            <strong title={material.doc_name}><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(material.doc_id)}`} aria-label={`打开《${material.doc_name}》原文`}>{material.doc_name}</Link></strong>
                             <small>
                               v{material.version}
                               {material.doc_suffix ? ` · ${material.doc_suffix.replace(".", "").toUpperCase()}` : ""}
@@ -369,7 +370,7 @@ export function DossierWorkbench() {
                 <div>
                   {previousMaterials.slice(historyIndex, historyIndex + 1).map((material) => (
                     <div className="dossier-history-row" key={material.doc_id}>
-                      <span>v{material.version} · {material.doc_name}</span>
+                      <span>v{material.version} · <Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(material.doc_id)}`} aria-label={`打开《${material.doc_name}》历史版本原文`}>{material.doc_name}</Link></span>
                       {can("upload") && (
                         <button type="button" className="link-btn" onClick={() => void makeCurrent(material.doc_id)} disabled={saving === `current-${material.doc_id}`}>
                           设为当前

@@ -16,7 +16,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
 import { generationLabel } from "../generation";
@@ -560,7 +560,7 @@ function SourcesPanel({
                 <div className="source-top">
                   <div className="source-index">{c.index}</div>
                   <div>
-                    <div className="source-name">{c.doc_name}</div>
+                    <Link className="source-name evidence-doc-link" to={`/library?doc=${encodeURIComponent(c.doc_id)}`} aria-label={`打开《${c.doc_name}》原文`}>{c.doc_name}</Link>
                     <div className="source-loc">{locationText(c)}</div>
                   </div>
                 </div>

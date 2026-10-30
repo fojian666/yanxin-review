@@ -151,6 +151,7 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
                 "status": "fail" if sim >= 0.55 else "warn",
                 "detail": f"最高段落相似度 {sim:.2f}；需人工判断是合理引用、同一团队延续研究还是重复申报。",
                 "evidence": f"本子：{truncate(m.get('source_snippet',''), 120)}｜比对：{truncate(m.get('matched_snippet',''), 120)}",
+                "source_doc_id": m.get("matched_doc_id"),
             }
         )
     if not duplicate_items:
@@ -186,6 +187,7 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
                     # 只给 180 字会被拦在句中，评审人看不到完整条款
                     "evidence": truncate(full_text, 180),
                     "evidence_full": truncate(full_text, 900),
+                    "source_doc_id": c.get("doc_id"),
                 }
             )
     elif has_policy_docs:

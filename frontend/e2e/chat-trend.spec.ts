@@ -2,13 +2,15 @@ import { test, expect, navigate } from './fixtures';
 const sse = (events: unknown[]) => events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('');
 const source = (name: string) => ({ index: 1, doc_id: name, doc_name: name, page: 1, section: '测试条款', score: 0.2, text: `${name}的证据` });
 
-test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page, documents }) => {
+test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page, documents }, testInfo) => {
   await navigate(page, '智能问答');
   await page.locator('textarea').fill('科研失信调查人员是否需要签署保密协议？');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await expect(page.locator('.msg.assistant .msg-content')).not.toBeEmpty();
   await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled();
   await expect(page.locator('.source-card').first()).toBeVisible();
+  await expect(page.locator('.source-card .source-name').first()).toHaveAttribute('href', /^\/library\?doc=/);
+  await page.screenshot({ path: testInfo.outputPath('chat-source-link.png') });
   const answer = await page.locator('.msg.assistant .msg-content').innerText();
   await page.getByRole('button', { name: '查看引用 1', exact: true }).first().click();
   await expect(page.locator('#source-1')).toHaveClass(/flash/);
@@ -167,6 +169,33 @@ test('趋势失败可重试，真实空文献库正常显示', async ({ app: pag
   await page.getByRole('tab', { name: '分析设置', exact: true }).click();
   await expect(page.locator('.kpi').first()).toContainText('0');
   await page.screenshot({ path: test.info().outputPath('empty-library-after.png'), fullPage: true });
+});
+
+test('代表文献可用键盘直达文档库并定位对应条目', async ({ app: page }, testInfo) => {
+  await navigate(page, '文献趋势');
+  await page.getByRole('tab', { name: '代表文献', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const paper = page.locator('.paper-card').first();
+  await expect(paper).toBeVisible();
+  const title = await paper.locator('.paper-title').innerText();
+  await expect(paper).toHaveAttribute('href', /^\/library\?view=literature&paper=\d+$/);
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: testInfo.outputPath('trend-papers-links.png') });
+  await paper.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/library\?view=literature&paper=\d+$/);
+  await expect(page.getByRole('button', { name: /文献数据/ })).toHaveAttribute('aria-pressed', 'true');
+  const target = page.locator('.data-table tr.is-target');
+  await expect(target).toHaveAttribute('aria-current', 'true');
+  await expect(target).toContainText(title);
+  await expect(target).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath('library-paper-target.png') });
+  await page.reload();
+  await expect(page.getByRole('button', { name: /文献数据/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.data-table tr.is-target')).toHaveAttribute('aria-current', 'true');
+  await page.getByRole('button', { name: '文档正文', exact: true }).click();
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(page.locator('.document-center-layout')).toBeVisible();
 });
 
 test('受控DeepSeek与千问来源逐次保存，回退不冒认当前模型', async ({ app: page, context }, testInfo) => {

@@ -79,3 +79,28 @@ test('窄屏分析设置的控件与指标均可访问，2D 图表滚轮缩放',
   await page.waitForTimeout(500);
   expect(await chart.screenshot()).not.toEqual(before);
 });
+
+test('宽屏分析设置横向利用卡片空间，缩放后保持不溢出', async ({ app: page }) => {
+  for (const [width, height] of [[1920, 1080], [1440, 900], [1280, 720]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/trend');
+    const layout = await page.locator('.trend-controls').evaluate(controls => {
+      const search = controls.querySelector<HTMLElement>('.search-box')!.getBoundingClientRect();
+      const years = controls.querySelector<HTMLElement>('.year-row')!.getBoundingClientRect();
+      const card = controls.closest<HTMLElement>('.trend-hero')!.getBoundingClientRect();
+      return {
+        cardWidth: card.width,
+        controlsWidth: controls.getBoundingClientRect().width,
+        searchWidth: search.width,
+        sameRow: Math.abs((search.top + search.height / 2) - (years.top + years.height / 2)) <= 1,
+        contentRight: years.right - search.left,
+      };
+    });
+    expect(layout.controlsWidth, `${width}px 设置区未铺满卡片`).toBeGreaterThan(layout.cardWidth * 0.9);
+    expect(layout.sameRow, `${width}px 搜索与年份应共用横向空间`).toBeTruthy();
+    expect(layout.searchWidth, `${width}px 搜索框未随剩余宽度伸展`).toBeGreaterThan(layout.controlsWidth * 0.45);
+    expect(layout.contentRight, `${width}px 设置控件仍未利用右侧空间`).toBeGreaterThan(layout.controlsWidth * 0.9);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px 横向溢出`).toBeTruthy();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), `${width}px 页面纵向溢出`).toBeTruthy();
+  }
+});

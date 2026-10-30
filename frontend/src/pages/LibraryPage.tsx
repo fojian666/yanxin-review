@@ -49,6 +49,7 @@ export function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const csvRef = useRef<HTMLInputElement>(null);
   const readerRef = useRef<HTMLElement>(null);
+  const targetPaperRow = useRef<HTMLTableRowElement>(null);
   const contentRequest = useRef(0);
   const mounted = useRef(false);
   useEffect(() => {
@@ -57,7 +58,7 @@ export function LibraryPage() {
   }, []);
   const [dragging, setDragging] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
-  const [libraryView, setLibraryView] = useState<"documents" | "literature">("documents");
+  const [libraryView, setLibraryView] = useState<"documents" | "literature">(params.get("view") === "literature" ? "literature" : "documents");
   const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [content, setContent] = useState<DocumentContent | null>(null);
@@ -72,13 +73,36 @@ export function LibraryPage() {
     [docs],
   );
   const requestedId = params.get("doc") || "";
+  const requestedView = params.get("view");
+  const requestedPaperId = Number(params.get("paper")) || 0;
   const requestedDoc = orderedDocs.find((doc) => doc.id === requestedId);
+  const requestedPaper = papers.find((paper) => paper.id === requestedPaperId);
   const contextDoc = orderedDocs.find((doc) => doc.id === activeDocId);
   const uploadedDoc = orderedDocs.find((doc) => doc.id === uploadedDocId);
   const selected = uploadedDoc ?? requestedDoc ?? contextDoc ?? orderedDocs[0] ?? null;
   const selectedIndex = selected ? orderedDocs.findIndex((doc) => doc.id === selected.id) : -1;
   const previous = selectedIndex > 0 ? orderedDocs[selectedIndex - 1] : null;
   const next = selectedIndex >= 0 && selectedIndex < orderedDocs.length - 1 ? orderedDocs[selectedIndex + 1] : null;
+  const visiblePapers = useMemo(() => {
+    const firstPage = papers.slice(0, 100);
+    if (!requestedPaper || firstPage.some((paper) => paper.id === requestedPaper.id)) return firstPage;
+    return [requestedPaper, ...papers.filter((paper) => paper.id !== requestedPaper.id)].slice(0, 100);
+  }, [papers, requestedPaper]);
+
+  useEffect(() => {
+    setLibraryView(requestedView === "literature" ? "literature" : "documents");
+  }, [requestedView]);
+
+  useEffect(() => {
+    if (libraryView !== "literature" || !requestedPaperId || loading) return;
+    if (!requestedPaper) {
+      const nextParams = new URLSearchParams(params);
+      nextParams.delete("paper");
+      setParams(nextParams, { replace: true });
+      return;
+    }
+    targetPaperRow.current?.scrollIntoView({ block: "center" });
+  }, [libraryView, loading, params, requestedPaper, requestedPaperId, setParams]);
 
   useEffect(() => {
     if (loading) return;
@@ -105,11 +129,20 @@ export function LibraryPage() {
   useEffect(() => {
     const onUploaded = (event: Event) => {
       const doc = (event as CustomEvent<DocItem>).detail;
-      if (doc?.id) { setLibraryView("documents"); setUploadedDocId(doc.id); }
+      if (doc?.id) {
+        setLibraryView("documents");
+        setUploadedDocId(doc.id);
+        setParams(current => {
+          const nextParams = new URLSearchParams(current);
+          nextParams.delete("view");
+          nextParams.delete("paper");
+          return nextParams;
+        }, { replace: true });
+      }
     };
     window.addEventListener("yanxin:document-uploaded", onUploaded);
     return () => window.removeEventListener("yanxin:document-uploaded", onUploaded);
-  }, []);
+  }, [setParams]);
 
   useEffect(() => {
     if (!selected) {
@@ -149,6 +182,18 @@ export function LibraryPage() {
       setDirectoryOpen(false);
       requestAnimationFrame(() => readerRef.current?.focus({ preventScroll: true }));
     }
+  };
+
+  const chooseLibraryView = (view: "documents" | "literature") => {
+    setLibraryView(view);
+    const nextParams = new URLSearchParams(params);
+    if (view === "literature") {
+      nextParams.set("view", "literature");
+    } else {
+      nextParams.delete("view");
+      nextParams.delete("paper");
+    }
+    setParams(nextParams, { replace: true });
   };
 
   const openForChat = (doc: DocItem) => {
@@ -257,8 +302,8 @@ export function LibraryPage() {
           </div>
         </div>
         <div className="library-view-switch" role="group" aria-label="文档中心视图">
-          <button type="button" aria-pressed={libraryView === "documents"} onClick={() => setLibraryView("documents")}>文档正文</button>
-          <button type="button" aria-pressed={libraryView === "literature"} onClick={() => setLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
+          <button type="button" aria-pressed={libraryView === "documents"} onClick={() => chooseLibraryView("documents")}>文档正文</button>
+          <button type="button" aria-pressed={libraryView === "literature"} onClick={() => chooseLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
         </div>
         <div className="document-center-tools">
           {can("upload") && (
@@ -380,8 +425,13 @@ export function LibraryPage() {
               <table className="data-table">
                 <thead><tr><th>标题</th><th>年份</th><th>关键词</th><th>来源</th></tr></thead>
                 <tbody>
-                  {papers.slice(0, 100).map((paper) => (
-                    <tr key={paper.id}>
+                  {visiblePapers.map((paper) => (
+                    <tr
+                      key={paper.id}
+                      ref={paper.id === requestedPaperId ? targetPaperRow : undefined}
+                      className={paper.id === requestedPaperId ? "is-target" : undefined}
+                      aria-current={paper.id === requestedPaperId ? "true" : undefined}
+                    >
                       <td><div className="doc-title" title={paper.title}>{paper.title}</div></td>
                       <td>{paper.year ?? "—"}</td>
                       <td>{paper.keywords}</td>

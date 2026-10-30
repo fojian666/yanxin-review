@@ -97,6 +97,8 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await page.getByRole('button', { name: '归入卷宗' }).click();
   await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
   await expect(page.locator('.dossier-material-row').filter({ hasText: documents[0].name })).toBeVisible();
+  await expect(page.locator('.dossier-material-row .evidence-doc-link')).toHaveAttribute('href', /^\/library\?doc=/);
+  await page.screenshot({ path: testInfo.outputPath('dossier-material-link.png') });
 
   await page.getByRole('tab', { name: '归入资料', exact: true }).click();
   await page.getByLabel('选择要归卷的资料').selectOption(documents[1].id);
