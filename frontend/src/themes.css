@@ -30,6 +30,12 @@
 .theme-menu { position: relative; flex: 0 0 auto; }
 .topbar { z-index: 30; }
 .theme-trigger { gap: 6px; }
+.simple-mode-trigger { gap: 6px; }
+.simple-mode-trigger[aria-pressed="true"] {
+  color: var(--teal-deep);
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
+  background: var(--teal-soft);
+}
 .theme-options {
   position: absolute; z-index: 40; top: calc(100% + 8px); right: 0;
   width: 184px; padding: 6px; border: 1px solid var(--line);
@@ -43,6 +49,33 @@
 .theme-option:focus-within { outline: 2px solid var(--teal); outline-offset: -2px; }
 .theme-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .theme-option > svg { margin-left: auto; color: var(--teal-deep); }
+.theme-simple-option {
+  display: none;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 4px;
+  padding: 6px 9px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 4px 4px;
+  background: transparent;
+  color: var(--ink-2);
+  text-align: left;
+}
+.theme-simple-option svg { flex: 0 0 auto; }
+.theme-simple-option span { flex: 1; }
+.theme-simple-option strong {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.theme-simple-option[aria-pressed="true"] {
+  color: var(--teal-deep);
+  background: var(--teal-soft);
+}
+.theme-simple-option[aria-pressed="true"] strong { color: currentColor; }
 .theme-swatch { width: 23px; height: 23px; flex: 0 0 auto; border: 1px solid rgba(0,0,0,.12); border-radius: 50%; }
 .theme-swatch-paper { background: linear-gradient(135deg, #0e7c6b 50%, #f3efe6 50%); }
 .theme-swatch-mono { background: linear-gradient(135deg, #25292b 50%, #efefed 50%); }
@@ -51,11 +84,146 @@
 @media (max-width: 680px) {
   .theme-trigger { width: 44px; height: 44px; padding: 0; justify-content: center; }
   .theme-trigger > span { display: none; }
+  .simple-mode-trigger { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .simple-mode-trigger > span { display: none; }
   .theme-options { position: fixed; top: 64px; right: 12px; }
+  .topbar.is-task .topbar-actions { gap: 6px; }
+  .topbar.is-task h1 { font-size: 22px; }
+}
+@media (max-width: 400px) {
+  .topbar-actions > .simple-mode-trigger { display: none; }
+  .theme-simple-option { display: flex; }
+}
+@media (min-width: 681px) and (max-width: 900px) {
+  .topbar.is-task h1 { font-size: 24px; }
+  .theme-trigger,
+  .simple-mode-trigger {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .theme-trigger > span,
+  .simple-mode-trigger > span {
+    display: none;
+  }
 }
 @media (max-width: 360px) {
   .main:has(.workspace-home) > .topbar .topbar-title h1 { font-size: 19px; letter-spacing: 0; }
   .main:has(.workspace-home) > .topbar .topbar-actions { gap: 3px; }
+}
+
+/* 简约模式：保留任务状态和纯图标操作，移除装饰、背景纹理与全部动画。 */
+:root[data-simple-mode="true"] *,
+:root[data-simple-mode="true"] *::before,
+:root[data-simple-mode="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+:root[data-simple-mode="true"] body {
+  background: var(--bg);
+}
+:root[data-simple-mode="true"] body::before,
+:root[data-simple-mode="true"] :is(
+  .login-grid,
+  .login-terrain,
+  .login-orb,
+  .login-contours,
+  .login-scan,
+  .login-flow-line,
+  .welcome-mark,
+  .workspace-overview-mark,
+  .document-center-mark,
+  .kg-summary-icon,
+  .document-directory-icon,
+  .drop-icon,
+  .login-feature-icon,
+  .login-demo-icon,
+  .dossier-art,
+  .report-seal,
+  .nav-pill
+) {
+  display: none !important;
+}
+:root[data-simple-mode="true"] .lucide {
+  display: none !important;
+}
+:root[data-simple-mode="true"] :is(
+  .icon-btn,
+  .mobile-nav-btn,
+  .sidebar-toggle,
+  .user-avatar,
+  .theme-option,
+  .theme-simple-option
+) > .lucide {
+  display: block !important;
+}
+:root[data-simple-mode="true"] :is(
+  .panel,
+  .work-deck,
+  .workspace-ledger,
+  .workspace-overview-deck,
+  .document-center-layout,
+  .document-center-bar,
+  .kg-summary
+) {
+  box-shadow: none;
+}
+:root[data-simple-mode="true"] :is(
+  .workspace-ledger,
+  .workspace-overview-deck,
+  .document-center-bar,
+  .kg-summary,
+  .work-deck-rail,
+  .work-deck-rail-head,
+  .work-deck-head,
+  .work-deck-footer,
+  .chat-toolbar,
+  .composer,
+  .composer-hint,
+  .chat-model-controls,
+  .chat-model-panel,
+  .sources-panel .panel-head,
+  .document-reader,
+  .document-reader-head,
+  .document-reader-actions,
+  .document-reader-pager
+) {
+  background: var(--panel);
+}
+:root[data-simple-mode="true"] :is(
+  .workspace-ledger::after,
+  .work-deck-rail-head::after,
+  .chart-dark::after,
+  .btn::after,
+  .chip::after,
+  .icon-btn::after
+) {
+  display: none !important;
+}
+:root[data-simple-mode="true"] .document-page-spine {
+  display: none;
+}
+@media (min-width: 681px) and (max-width: 980px) {
+  :root[data-simple-mode="true"] :is(.sidebar, .app-shell.sidebar-collapsed .sidebar) .nav-item .lucide {
+    display: block !important;
+  }
+}
+@media (min-width: 681px) {
+  :root[data-simple-mode="true"] .app-shell.sidebar-collapsed .nav-item .lucide {
+    display: block !important;
+  }
+}
+@media (max-width: 900px) {
+  :root[data-simple-mode="true"] :is(
+    .theme-trigger,
+    .simple-mode-trigger,
+    .topbar-actions > .btn-primary,
+    .dossier-workbench-actions .btn
+  ) > .lucide {
+    display: block !important;
+  }
 }
 
 /* 原有少量固定底色需跟随主题，避免表单、阅读器或对话出现旧纸色。 */

@@ -52,11 +52,14 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
         await expect(chartPanels).toHaveCount(2);
         const chartMetrics = await chartPanels.evaluateAll(panels => panels.map(panel => ({
           clientHeight: panel.clientHeight,
-          scrollHeight: panel.scrollHeight,
           width: panel.getBoundingClientRect().width,
+          contentBottom: panel.getBoundingClientRect().bottom
+            - parseFloat(getComputedStyle(panel).paddingBottom)
+            - parseFloat(getComputedStyle(panel).borderBottomWidth),
+          childBottom: Math.max(...Array.from(panel.children).map(child => child.getBoundingClientRect().bottom)),
         })));
         expect(chartMetrics.every(panel => panel.width >= 180 && panel.clientHeight >= 100), `${scale}x 趋势图表被压缩`).toBeTruthy();
-        expect(chartMetrics.every(panel => panel.scrollHeight <= panel.clientHeight + 5), `${scale}x 趋势图表内容裁切`).toBeTruthy();
+        expect(chartMetrics.every(panel => panel.childBottom <= panel.contentBottom + 1), `${scale}x 趋势图表内容裁切`).toBeTruthy();
       }
       await expect.poll(() => page.locator('.workspace-tab > span:not(.workspace-tab-marker)').evaluateAll(items => items.every(item => { const line = parseFloat(getComputedStyle(item).lineHeight); return item.getBoundingClientRect().height <= line * 1.15; })), `${scale}x ${path} 功能索引换行`).toBeTruthy();
       const upload = page.getByRole('button', { name: '上传文档' }).first();

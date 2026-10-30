@@ -2034,6 +2034,8 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .chat-setting-trigger:hover, .chat-setting-trigger[aria-expanded="true"] { color: var(--teal-deep); }
 .chat-setting-trigger:disabled { opacity: .6; cursor: default; }
 .chat-model-panel { position: absolute; z-index: 35; bottom: calc(100% + 4px); left: 12px; width: min(360px, calc(100% - 24px)); max-height: min(340px, 45dvh); overflow-y: auto; background: #fffdf8; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 32px rgba(16,36,46,.14); padding: 8px 12px 12px; }
+.chat-panel:has(.chat-model-panel) { overflow: visible; }
+.chat-model-controls:has(.chat-model-panel) { z-index: 35; }
 .chat-model-panel-head { display: flex; justify-content: space-between; align-items: center; padding-left: 6px; font-size: 13px; }
 .chat-model-panel fieldset { margin: 0; padding: 0; border: 0; }
 .chat-model-option { display: flex; align-items: flex-start; gap: 9px; padding: 10px 6px; border-radius: 4px; cursor: pointer; }
@@ -6417,25 +6419,46 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   }
 }
 
-/* 文档中心优先分配正文高度，保留顶栏和全部文档操作。 */
-.main:has(.library-page) > .topbar {
+/* 所有工作面共用文档中心的紧凑外壳，把高度优先留给当前任务内容。 */
+.main:has(.workspace-home) > .topbar {
   padding-bottom: 7px;
   margin-bottom: 8px;
 }
-.workspace-home:has(.library-page) .workspace-ledger {
+.workspace-home.is-task .workspace-ledger {
   padding-top: 5px;
   padding-bottom: 5px;
 }
-.workspace-home:has(.library-page) .workspace-stage { margin-top: 5px; }
+.workspace-home.is-task .workspace-stage { margin-top: 5px; }
 .library-page .document-center-bar { padding-top: 6px; padding-bottom: 6px; }
 .library-page .document-reader-head { padding: 10px 20px 8px 24px; }
 .library-page .document-reader-head h2 { font-size: clamp(16px, 1.4vw, 21px); margin: 3px 0; }
 .library-page .document-reader-actions { padding: 5px 20px 5px 24px; }
 .library-page .document-reader-pager { min-height: 42px; padding-top: 4px; padding-bottom: 4px; }
 @media (min-width: 681px) {
-  .workspace-home:has(.library-page) .workspace-tab { min-height: 42px; }
+  .workspace-home .workspace-tab { min-height: 42px; }
+}
+@media (min-width: 681px) and (max-height: 720px) {
+  .trend-chart-page .chart-panel > .panel-head {
+    min-height: 30px;
+    margin-bottom: 2px;
+    padding: 0;
+    align-items: center;
+  }
+  .trend-chart-page .chart-panel > .panel-head h2 {
+    font-size: 13px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .trend-chart-page .chart-panel > .panel-head p,
+  .trend-chart-page .chart-panel > .panel-head .mode-badge {
+    display: none;
+  }
 }
 @media (max-width: 680px) {
+  .main:has(.dossier-workbench) {
+    padding-top: 16px;
+    padding-bottom: 28px;
+  }
   .library-page .document-reader-head { padding: 7px 12px 5px 18px; }
   .library-page .document-reader-head h2 { font-size: 15px; }
   .library-page .document-reader-actions { padding: 4px 8px 4px 14px; }

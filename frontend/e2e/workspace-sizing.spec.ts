@@ -1,5 +1,44 @@
 import { test, expect, password } from './fixtures';
 
+test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: page }) => {
+  const taskRoutes = ['/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library'];
+  const allRoutes = ['/welcome', ...taskRoutes];
+
+  for (const [width, height] of [[1440, 900], [1280, 720]] as const) {
+    await page.setViewportSize({ width, height });
+    const shells = [];
+
+    for (const path of allRoutes) {
+      await page.goto(path);
+      await expect(page.locator('.workspace-home')).toBeVisible();
+      shells.push(await page.evaluate(path => {
+        const box = (selector: string) => {
+          const rect = document.querySelector(selector)!.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        };
+        return {
+          path,
+          task: path !== '/welcome',
+          topbar: box('.topbar'),
+          ledger: box('.workspace-ledger'),
+          index: box('.workspace-index'),
+          stage: box('.workspace-stage'),
+        };
+      }, path));
+    }
+
+    const taskShells = shells.filter(shell => shell.task);
+    const unique = (values: number[]) => Math.max(...values) - Math.min(...values) <= 1;
+    expect(unique(shells.map(shell => shell.topbar.y)), `${width}px 顶栏起点应一致`).toBeTruthy();
+    expect(unique(shells.map(shell => shell.topbar.height)), `${width}px 顶栏高度应一致`).toBeTruthy();
+    expect(unique(shells.map(shell => shell.index.height)), `${width}px 功能索引高度应一致`).toBeTruthy();
+    expect(unique(taskShells.map(shell => shell.ledger.height)), `${width}px 卷宗栏高度应一致`).toBeTruthy();
+    expect(unique(taskShells.map(shell => shell.index.y)), `${width}px 功能索引起点应一致`).toBeTruthy();
+    expect(unique(taskShells.map(shell => shell.stage.y)), `${width}px 工作面起点应一致`).toBeTruthy();
+    expect(unique(taskShells.map(shell => shell.stage.height)), `${width}px 工作面高度应一致`).toBeTruthy();
+  }
+});
+
 test('用户管理工作面占满宽度，底部空间得到利用', async ({ app: page, context }, testInfo) => {
   expect((await context.request.post('/api/auth/login', { data: { username: 'admin', password } })).ok()).toBeTruthy();
   await page.setViewportSize({ width: 1440, height: 900 });

@@ -42,7 +42,7 @@
      84 frontend/src/components/Markdown.tsx
     170 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
-    161 frontend/src/components/Topbar.tsx
+    185 frontend/src/components/Topbar.tsx
     293 frontend/src/components/UploadModal.tsx
     211 frontend/src/components/WorkDeck.tsx
     421 frontend/src/data/knowledge.ts
@@ -51,21 +51,22 @@
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
      11 frontend/src/main.tsx
-     51 frontend/src/motion.ts
+     57 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
     592 frontend/src/pages/ChatPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
     396 frontend/src/pages/LibraryPage.tsx
     312 frontend/src/pages/LoginPage.tsx
-    414 frontend/src/pages/MatchPage.tsx
+    413 frontend/src/pages/MatchPage.tsx
     559 frontend/src/pages/ReviewPage.tsx
     205 frontend/src/pages/TrendPage.tsx
     204 frontend/src/pages/WelcomePage.tsx
-   6457 frontend/src/styles.css
+     61 frontend/src/simpleMode.ts
+   6480 frontend/src/styles.css
      44 frontend/src/theme.ts
-    116 frontend/src/themes.css
+    284 frontend/src/themes.css
     390 frontend/src/types.ts
-  14809 total
+  15090 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -92,18 +93,18 @@
      10 frontend/e2e/infrastructure.spec.ts
     244 frontend/e2e/knowledge-document.spec.ts
     197 frontend/e2e/library.spec.ts
-    172 frontend/e2e/mobile.spec.ts
-    238 frontend/e2e/review-match.spec.ts
+    173 frontend/e2e/mobile.spec.ts
+    244 frontend/e2e/review-match.spec.ts
     119 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
-     65 frontend/e2e/themes.spec.ts
-     78 frontend/e2e/trend-zoom.spec.ts
-     41 frontend/e2e/workspace-sizing.spec.ts
-     99 frontend/e2e/zoom-layout.spec.ts
+     96 frontend/e2e/themes.spec.ts
+     84 frontend/e2e/trend-zoom.spec.ts
+     80 frontend/e2e/workspace-sizing.spec.ts
+    102 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2304 total
+   2390 total
 合计
-  27544 total（92 个文件）
+  27911 total（93 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

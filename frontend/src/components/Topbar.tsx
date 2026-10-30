@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { Check, LogOut, Menu, Palette, Upload, UserRound } from "lucide-react";
+import { Check, Feather, LogOut, Menu, Palette, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { WORKSPACE_VIEWS } from "../data/workspaceViews";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
+import { setSimpleMode, useSimpleMode } from "../simpleMode";
 import { setTheme, themes, useTheme } from "../theme";
 
 const WELCOME_META = { title: "工作台", description: "围绕当前卷宗连续办理" };
@@ -19,6 +20,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   const userRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
+  const simpleMode = useSimpleMode();
 
   useEffect(() => {
     if (!themeOpen) return;
@@ -96,8 +98,30 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
               <span>{item.label}</span>
               {theme === item.id && <Check size={15} aria-hidden="true" />}
             </label>)}
+            <button
+              type="button"
+              className="theme-simple-option"
+              aria-pressed={simpleMode}
+              aria-label={simpleMode ? "关闭简约模式" : "开启简约模式"}
+              onClick={() => setSimpleMode(!simpleMode)}
+            >
+              <Feather size={15} aria-hidden="true" />
+              <span>简约模式</span>
+              <strong>{simpleMode ? "已开启" : "关闭"}</strong>
+            </button>
           </div>}
         </div>
+        <button
+          type="button"
+          className="simple-mode-trigger btn btn-ghost"
+          aria-label={simpleMode ? "关闭简约模式" : "开启简约模式"}
+          aria-pressed={simpleMode}
+          title={simpleMode ? "关闭简约模式" : "开启简约模式"}
+          onClick={() => setSimpleMode(!simpleMode)}
+        >
+          <Feather size={16} />
+          <span>简约</span>
+        </button>
         {can("upload") && (
           <motion.button
             className="btn btn-primary"

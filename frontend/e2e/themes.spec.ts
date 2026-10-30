@@ -41,6 +41,27 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     await page.screenshot({ path: testInfo.outputPath(`${value}-upload.png`) });
     await page.keyboard.press('Escape');
   }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/welcome');
+  await expect(page.locator('.theme-menu + .simple-mode-trigger')).toBeVisible();
+  await page.getByRole('button', { name: '开启简约模式' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
+  await expect(page.getByRole('button', { name: '关闭简约模式' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.topbar-title h1')).toHaveCSS('animation-name', 'none');
+  await expect(page.locator('.workspace-tab .lucide').first()).toHaveCSS('display', 'none');
+  await expect(page.locator('.sidebar-toggle .lucide')).toHaveCSS('display', 'block');
+  expect(await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === 'running').length)).toBe(0);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
+  await page.goto('/review');
+  await page.getByRole('tab', { name: '结论概览', exact: true }).click();
+  await expect.poll(() => page.locator('.review-deck .work-deck-panel').last().evaluate(panel => panel.getAnimations().length)).toBe(0);
+  await page.goto('/welcome');
+  await page.getByRole('button', { name: '关闭简约模式' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'false');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'false');
 });
 
 test('手机和窄屏主题入口可见，选项可切换且不挤压上传', async ({ app: page }, testInfo) => {
@@ -48,11 +69,13 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
     await page.setViewportSize({ width, height: 812 });
     await page.goto('/chat');
     const toggle = page.getByRole('button', { name: '切换主题' });
+    const simple = page.getByRole('button', { name: '开启简约模式' });
     const upload = page.locator('.topbar-actions').getByRole('button', { name: '上传文档' });
     await expect(toggle).toBeVisible();
     await expect(upload).toBeVisible();
     expect(await page.locator('.topbar-title h1').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
     await toggle.click();
+    await expect(simple).toBeVisible();
     await page.getByRole('radio', { name: '极光紫' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'aurora');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 237, 246)');
@@ -61,5 +84,13 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
     await page.screenshot({ path: testInfo.outputPath(`theme-mobile-${width}.png`) });
     await page.keyboard.press('Escape');
+    if (width === 320) {
+      await toggle.click();
+      await simple.click();
+      await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
+      await expect(page.getByRole('button', { name: '关闭简约模式' })).toHaveAttribute('aria-pressed', 'true');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+      await page.getByRole('button', { name: '关闭简约模式' }).click();
+    }
   }
 });

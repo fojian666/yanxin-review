@@ -124,7 +124,6 @@ export function MatchPage() {
       setDuplicatePage(0);
       setExpertPage(0);
       setBoundaryPage(0);
-      setSection("experts");
     } catch (err) {
       if (token !== checkIdRef.current) return;
       setError((err as Error).message);

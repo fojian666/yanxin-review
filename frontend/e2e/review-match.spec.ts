@@ -112,6 +112,9 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await navigate(page, '查重匹配');
   await page.getByLabel('当前卷宗').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
+  await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.match-deck .work-deck-head h3')).toHaveText('运行检查');
+  await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
   await page.screenshot({ path: testInfo.outputPath('match-desktop.png') });
   await page.getByRole('tab', { name: '回避边界', exact: true }).click();
@@ -149,6 +152,7 @@ test('匹配锁定文档，离页后旧请求不覆盖新本子结果', async ({
   await navigate(page, '查重匹配');
   await page.getByLabel('当前卷宗').selectOption(documents[1].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
+  await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-callout').last()).toContainText('独立测试研究院');
   const received = page.waitForResponse(response => response.url().endsWith('/api/tool/check') && response.request().postDataJSON().doc_id === documents[0].id);
   release();
@@ -173,6 +177,7 @@ test('匹配请求失败后恢复，缺申报信息独立告警', async ({ app: 
   await expect(page.locator('.error-panel')).toContainText('网络错误');
   await page.unroute('**/api/tool/check');
   await page.getByRole('button', { name: '运行一体化检查' }).click();
+  await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-constraint-warning')).toContainText('申报单位、负责人');
 });
 
@@ -197,6 +202,7 @@ test('真实空专家库仍展示回避边界与可解释空态', async ({ app: 
   await page.goto('/match');
   await page.getByLabel('当前卷宗').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
+  await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
   await expect(page.getByText('暂无满足约束的候选专家，请检查专家库或回避 / 负载设置。')).toBeVisible();
   await expect(page.locator('.expert-card')).toHaveCount(0);

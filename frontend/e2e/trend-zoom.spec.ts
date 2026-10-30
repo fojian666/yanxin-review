@@ -39,12 +39,18 @@ test('趋势页在 25%–500% 全部标准缩放下保持可用', async ({ app: 
           controls: box('.trend-controls-page'),
           kpis: box('.trend-controls-page .kpi-grid'),
           chart: box('.trend-chart-page'),
-          panels: [...document.querySelectorAll<HTMLElement>('.trend-chart-page .chart-panel')].map(panel => ({
-            width: Math.round(panel.getBoundingClientRect().width),
-            height: Math.round(panel.getBoundingClientRect().height),
-            clientHeight: panel.clientHeight,
-            scrollHeight: panel.scrollHeight,
-          })),
+          panels: [...document.querySelectorAll<HTMLElement>('.trend-chart-page .chart-panel')].map(panel => {
+            const rect = panel.getBoundingClientRect();
+            const style = getComputedStyle(panel);
+            return {
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+              clientHeight: panel.clientHeight,
+              scrollHeight: panel.scrollHeight,
+              contentBottom: rect.bottom - parseFloat(style.paddingBottom) - parseFloat(style.borderBottomWidth),
+              childBottom: Math.max(...Array.from(panel.children).map(child => child.getBoundingClientRect().bottom)),
+            };
+          }),
         };
       });
       console.log(`TREND_ZOOM ${scale} ${tab} ${JSON.stringify(metrics)}`);
@@ -64,7 +70,7 @@ test('趋势页在 25%–500% 全部标准缩放下保持可用', async ({ app: 
       if (tab === '趋势图表') {
         expect(metrics.panels).toHaveLength(2);
         for (const panel of metrics.panels) {
-          expect(panel.scrollHeight, `${scale} 图表内容裁切`).toBeLessThanOrEqual(panel.clientHeight + 5);
+          expect(panel.childBottom, `${scale} 图表内容裁切`).toBeLessThanOrEqual(panel.contentBottom + 1);
         }
         if (metrics.chart && metrics.chart.scrollHeight > metrics.chart.clientHeight + 1) {
           expect(['auto', 'scroll'], `${scale} 图表窗格裁切但没有内部滚动`).toContain(metrics.chart.overflowY);
