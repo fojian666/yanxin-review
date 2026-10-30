@@ -1,10 +1,10 @@
 import { test, expect, password } from './fixtures';
 
-test('三套主题在各工作面切换、保留并支持键盘操作', async ({ app: page, context }, testInfo) => {
+test('四套主题在各工作面切换、保留并支持键盘操作', async ({ app: page, context }, testInfo) => {
   test.setTimeout(180_000);
   expect((await context.request.post('/api/auth/login', { data: { username: 'admin', password } })).ok()).toBeTruthy();
   const routes = ['/welcome', '/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library', '/admin'];
-  for (const [label, value] of [['黑白', 'mono'], ['深海蓝', 'blue'], ['青绿纸色', 'paper']] as const) {
+  for (const [label, value] of [['黑白', 'mono'], ['深海蓝', 'blue'], ['极光紫', 'aurora'], ['青绿纸色', 'paper']] as const) {
     await page.goto('/welcome');
     await page.getByRole('button', { name: '切换主题' }).click();
     await page.getByRole('radio', { name: label }).check();
@@ -53,9 +53,9 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
     await expect(upload).toBeVisible();
     expect(await page.locator('.topbar-title h1').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
     await toggle.click();
-    await page.getByRole('radio', { name: '深海蓝' }).check();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'blue');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(234, 240, 245)');
+    await page.getByRole('radio', { name: '极光紫' }).check();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'aurora');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 237, 246)');
     const rect = await page.locator('.theme-options').boundingBox();
     expect(rect && rect.x >= 0 && rect.x + rect.width <= width).toBeTruthy();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();

@@ -6,7 +6,7 @@ test('文档正文与文献数据独立切换并保持可阅读', async ({ app: 
     await page.goto('/library');
     const reader = page.locator('.document-reader-body');
     await expect(reader).toBeVisible();
-    await expect.poll(() => reader.evaluate(el => el.clientHeight)).toBeGreaterThan(100);
+    await expect.poll(() => reader.evaluate(el => el.clientHeight)).toBeGreaterThan(width === 720 ? 120 : 200);
     await page.screenshot({ path: testInfo.outputPath(`reader-${width}.png`) });
     await reader.focus();
     await reader.press('End');

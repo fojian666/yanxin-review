@@ -67,7 +67,7 @@ frontend/src/
   data/proposalWorkflow.ts  课题流程基线：指南、申请、评审、实施、验收、备案六个导航节点
   components/          WorkDeck(固定章节舞台与方向切换)、DocumentDirectory(目录)、DocumentReader(书页正文)、EChart(关系图)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
-  theme.ts / themes.css  本地持久化青绿纸色、黑白、深海蓝；主题入口位于顶栏上传文档旁，风险语义色保留
+  theme.ts / themes.css  本地持久化青绿纸色、黑白、深海蓝、极光紫；主题入口位于顶栏上传文档旁，风险语义色保留
   styles.css           全局尺度（正文 15px/控件 40px/侧栏 264）、登录页地形/网格/纸纹关键帧、状态动效类；
                        动效只用 transform 入场，prefers-reduced-motion 全关；≤680px 抽屉导航与 skip link
 ```

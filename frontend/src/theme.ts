@@ -1,16 +1,17 @@
 import { useSyncExternalStore } from "react";
 
-export type Theme = "paper" | "mono" | "blue";
+export type Theme = "paper" | "mono" | "blue" | "aurora";
 export const themes: ReadonlyArray<{ id: Theme; label: string }> = [
   { id: "paper", label: "青绿纸色" },
   { id: "mono", label: "黑白" },
   { id: "blue", label: "深海蓝" },
+  { id: "aurora", label: "极光紫" },
 ];
 
 function savedTheme(): Theme {
   try {
     const saved = localStorage.getItem("yanxin.theme");
-    if (saved === "mono" || saved === "blue") return saved;
+    if (saved === "mono" || saved === "blue" || saved === "aurora") return saved;
   } catch { /* 本地存储不可用时使用默认主题 */ }
   return "paper";
 }
