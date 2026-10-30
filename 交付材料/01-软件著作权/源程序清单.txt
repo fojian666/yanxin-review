@@ -42,7 +42,7 @@
      84 frontend/src/components/Markdown.tsx
     170 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
-    128 frontend/src/components/Topbar.tsx
+    161 frontend/src/components/Topbar.tsx
     293 frontend/src/components/UploadModal.tsx
     211 frontend/src/components/WorkDeck.tsx
     421 frontend/src/data/knowledge.ts
@@ -50,7 +50,7 @@
      97 frontend/src/data/workspaceViews.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
-     10 frontend/src/main.tsx
+     11 frontend/src/main.tsx
      51 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
     592 frontend/src/pages/ChatPage.tsx
@@ -62,8 +62,10 @@
     205 frontend/src/pages/TrendPage.tsx
     204 frontend/src/pages/WelcomePage.tsx
    6418 frontend/src/styles.css
+     43 frontend/src/theme.ts
+    101 frontend/src/themes.css
     390 frontend/src/types.ts
-  14576 total
+  14754 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -94,13 +96,14 @@
     238 frontend/e2e/review-match.spec.ts
     119 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
+     65 frontend/e2e/themes.spec.ts
      78 frontend/e2e/trend-zoom.spec.ts
      41 frontend/e2e/workspace-sizing.spec.ts
      99 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2239 total
+   2304 total
 合计
-  27246 total（89 个文件）
+  27489 total（92 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

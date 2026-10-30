@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: yanxin-review-design
-description: 研信智评内网评审工作台的设计契约——米色纸面与青绿强调色、宋体标题与黑体界面、简洁的业务文案；React 19 + 手写 CSS，token 全部取自 frontend/src/styles.css，组件覆盖按钮/输入/面板/表格/导航/徽章/图表容器，动效只允许 transform 与 opacity，并遵守 reduced-motion。
+description: 研信智评内网评审工作台的设计契约——青绿纸色、黑白与深海蓝主题，宋体标题与黑体界面、简洁的业务文案；React 19 + 手写 CSS，主题令牌取自 frontend/src/styles.css 与 themes.css，并遵守 reduced-motion。
 colors:
   primary: "#0e7c6b"
   primary-deep: "#0a5f52"
@@ -343,7 +343,7 @@ components:
 
 # 研信智评 · 设计系统契约
 
-> 面向人类与编码 agent 的设计约定。**以代码为准**：token 取自 `frontend/src/styles.css`，
+> 面向人类与编码 agent 的设计约定。**以代码为准**：基础 token 取自 `frontend/src/styles.css`，主题覆盖取自 `frontend/src/themes.css`，
 > 动效取自 `frontend/src/motion.ts`；本文若与实现冲突，先修本文或先改代码，不要两套并存。
 > 产品背景与安全边界见 `README.md`、`SECURITY.md`。
 
@@ -736,3 +736,4 @@ components:
 - `/welcome` 只承载总览与当前卷宗提示，不再嵌入其他任务工作面。问答与图谱在窄屏使用互斥分区；图谱在宽度不超过 1050px 或高度不超过 720px 时切换分区，720×450 下仍保留至少 100px 的可拖动画布。文档中心固定左目录与右书页，矮屏压缩页头和工具条；聊天消息、证据、正文和图谱仅在各自固定窗格内滚动。预审打印使用独立完整报告，不受当前章节限制。
 
 - 桌面工作面步骤栏随可用高度分布步骤，栏头以淡青色块与短色条建立层次；矮屏和窄屏保持原有紧凑步骤布局，不减少正文空间。
+- 顶栏上传入口旁提供青绿纸色、黑白和深海蓝主题选择；使用浏览器本地存储并跨页保留。导航、正文、表单、弹窗和图表同步适配，警告与错误保留语义颜色；窄屏主题入口保持 44px 并允许键盘操作。

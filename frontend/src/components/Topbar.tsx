@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { LogOut, Menu, Upload, UserRound } from "lucide-react";
+import { Check, LogOut, Menu, Palette, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { WORKSPACE_VIEWS } from "../data/workspaceViews";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
+import { setTheme, themes, useTheme } from "../theme";
 
 const WELCOME_META = { title: "工作台", description: "围绕当前卷宗连续办理" };
 
@@ -14,7 +15,26 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   const reduce = useMotionPreference();
   const { auth, openUpload, can, logout } = useApp();
   const [userOpen, setUserOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
+  const themeRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
+
+  useEffect(() => {
+    if (!themeOpen) return;
+    const onDown = (event: MouseEvent) => {
+      if (!themeRef.current?.contains(event.target as Node)) setThemeOpen(false);
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setThemeOpen(false);
+        themeRef.current?.querySelector<HTMLButtonElement>(".theme-trigger")?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [themeOpen]);
 
   // 点击菜单外关闭 + ESC
   useEffect(() => {
@@ -65,6 +85,19 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
         >
           <Menu size={18} />
         </button>
+        <div className="theme-menu" ref={themeRef}>
+          <button type="button" className="theme-trigger btn btn-ghost" aria-label="切换主题" aria-expanded={themeOpen} aria-controls="theme-options" onClick={() => setThemeOpen(open => !open)}>
+            <Palette size={17} /><span>主题</span>
+          </button>
+          {themeOpen && <div className="theme-options" id="theme-options" role="group" aria-label="选择主题">
+            {themes.map(item => <label key={item.id} className="theme-option">
+              <input type="radio" name="theme" value={item.id} checked={theme === item.id} onChange={() => setTheme(item.id)} />
+              <span className={`theme-swatch theme-swatch-${item.id}`} aria-hidden="true" />
+              <span>{item.label}</span>
+              {theme === item.id && <Check size={15} aria-hidden="true" />}
+            </label>)}
+          </div>}
+        </div>
         {can("upload") && (
           <motion.button
             className="btn btn-primary"

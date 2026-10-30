@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 70 项浏览器回归（首次需安装 Chromium）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 72 项浏览器回归（首次需安装 Chromium）
 python3 -m pytest tests/ -q                                 # 回归测试（151 个测试函数，参数化展开 164 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -67,6 +67,7 @@ frontend/src/
   data/proposalWorkflow.ts  课题流程基线：指南、申请、评审、实施、验收、备案六个导航节点
   components/          WorkDeck(固定章节舞台与方向切换)、DocumentDirectory(目录)、DocumentReader(书页正文)、EChart(关系图)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
+  theme.ts / themes.css  本地持久化青绿纸色、黑白、深海蓝；主题入口位于顶栏上传文档旁，风险语义色保留
   styles.css           全局尺度（正文 15px/控件 40px/侧栏 264）、登录页地形/网格/纸纹关键帧、状态动效类；
                        动效只用 transform 入场，prefers-reduced-motion 全关；≤680px 抽屉导航与 skip link
 ```
