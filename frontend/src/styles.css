@@ -2443,7 +2443,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 
 /* 单页工作区：卷宗上下文常驻，功能导航由侧栏承担，任务内容在同一工作区内切换。 */
 .workspace-home {
-  max-width: 1440px;
+  max-width: none;
   gap: 0;
 }
 .workspace-ledger {
@@ -2565,7 +2565,8 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   container-type: inline-size;
 }
 .workspace-stage .match-controls {
-  max-width: 860px;
+  width: 100%;
+  max-width: none;
 }
 .workspace-stage .trend-controls {
   width: 100%;
@@ -3752,6 +3753,37 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
+@media (min-width: 901px) and (min-height: 721px) {
+  .review-run-page .review-control {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(280px, .85fr) minmax(420px, 1.15fr);
+    grid-template-areas:
+      "title progress"
+      "doc progress"
+      "action progress"
+      "ready note";
+    column-gap: clamp(32px, 4vw, 64px);
+    align-items: start;
+  }
+  .review-run-page .review-control h2 { grid-area: title; }
+  .review-run-page .review-run-doc { grid-area: doc; }
+  .review-run-page .review-control .btn-block { grid-area: action; margin-top: 8px; }
+  .review-run-page .review-ready { grid-area: ready; }
+  .review-run-page .review-steps {
+    grid-area: progress;
+    min-height: 100%;
+    margin: 0;
+    padding: 8px 0 8px 28px;
+    border-left: 1px solid var(--line);
+    justify-content: center;
+  }
+  .review-run-page .control-note {
+    grid-area: note;
+    align-self: end;
+    margin-top: 12px;
+  }
+}
 .review-run-doc {
   margin: 4px 0 14px;
   color: var(--muted);
@@ -4101,7 +4133,19 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   overflow: auto;
 }
 .admin-create-form {
-  max-width: 720px;
+  max-width: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+}
+@media (max-width: 1300px) {
+  .admin-create-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 680px) {
+  .admin-create-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .admin-role-page .role-matrix {
   min-height: 0;

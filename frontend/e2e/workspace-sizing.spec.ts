@@ -102,3 +102,50 @@ test('宽屏分析设置横向利用卡片空间，缩放后保持不溢出', as
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), `${width}px 页面纵向溢出`).toBeTruthy();
   }
 });
+
+test('宽屏工作面、预审控制、匹配控制和新建用户表单铺满可用宽度', async ({ app: page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+
+  for (const path of ['/welcome', '/review', '/match', '/chat', '/graph', '/trend', '/library']) {
+    await page.goto(path);
+    await expect(page.locator('.workspace-home')).toBeVisible();
+    const widths = await page.evaluate(() => {
+      const pageElement = document.querySelector<HTMLElement>('.page')!;
+      const home = document.querySelector<HTMLElement>('.workspace-home')!;
+      const style = getComputedStyle(pageElement);
+      return {
+        pageInner: pageElement.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+        home: home.getBoundingClientRect().width,
+      };
+    });
+    expect(widths.home, `${path} 工作区未铺满页面内容宽度`).toBeGreaterThanOrEqual(widths.pageInner - 1);
+  }
+
+  await page.goto('/review');
+  await expect(page.locator('.review-run-page')).toBeVisible();
+  const reviewWidths = await page.evaluate(() => ({
+    page: document.querySelector<HTMLElement>('.review-run-page')!.getBoundingClientRect().width,
+    control: document.querySelector<HTMLElement>('.review-control')!.getBoundingClientRect().width,
+  }));
+  expect(reviewWidths.control, '预审运行面板未铺满').toBeGreaterThanOrEqual(reviewWidths.page - 1);
+
+  await page.goto('/match');
+  await expect(page.locator('.match-run-page')).toBeVisible();
+  const matchWidths = await page.evaluate(() => ({
+    hero: document.querySelector<HTMLElement>('.match-hero')!.getBoundingClientRect().width,
+    controls: document.querySelector<HTMLElement>('.match-controls')!.getBoundingClientRect().width,
+  }));
+  expect(matchWidths.controls, '匹配控制区未铺满').toBeGreaterThan(matchWidths.hero * 0.9);
+
+  expect((await page.context().request.post('/api/auth/login', { data: { username: 'admin', password } })).ok()).toBeTruthy();
+  await page.goto('/admin');
+  await expect(page.locator('.admin-deck')).toBeVisible();
+  await page.getByRole('tab', { name: '新建用户', exact: true }).click();
+  await expect(page.locator('.admin-create-form')).toBeVisible();
+  const adminWidths = await page.evaluate(() => ({
+    page: document.querySelector<HTMLElement>('.admin-deck-page')!.getBoundingClientRect().width,
+    form: document.querySelector<HTMLElement>('.admin-create-form')!.getBoundingClientRect().width,
+  }));
+  expect(adminWidths.form, '新建用户表单未利用横向空间').toBeGreaterThan(adminWidths.page * 0.9);
+  await page.screenshot({ path: testInfo.outputPath('wide-work-surfaces.png') });
+});
