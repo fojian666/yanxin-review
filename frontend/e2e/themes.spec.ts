@@ -38,13 +38,28 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       const shellBar = await page.evaluate(() => {
         const sidebar = document.querySelector<HTMLElement>('.sidebar')!;
         const topbar = document.querySelector<HTMLElement>('.topbar')!;
+        const brand = document.querySelector<HTMLElement>('.brand')!;
+        const brandHome = document.querySelector<HTMLElement>('.brand-home')!;
+        const topbarTitle = document.querySelector<HTMLElement>('.topbar-title h1')!;
         const sidebarBox = sidebar.getBoundingClientRect();
         const topbarBox = topbar.getBoundingClientRect();
+        const brandBox = brand.getBoundingClientRect();
+        const brandHomeBox = brandHome.getBoundingClientRect();
+        const topbarTitleBox = topbarTitle.getBoundingClientRect();
         const style = getComputedStyle(topbar);
         return {
           sidebarRight: sidebarBox.right,
           topbarLeft: topbarBox.left,
           topbarRight: topbarBox.right,
+          topbarTop: topbarBox.top,
+          topbarHeight: topbarBox.height,
+          brandLeft: brandBox.left,
+          brandRight: brandBox.right,
+          brandTop: brandBox.top,
+          brandHeight: brandBox.height,
+          brandBackground: getComputedStyle(brand).backgroundColor,
+          brandCenterY: brandHomeBox.top + brandHomeBox.height / 2,
+          titleCenterY: topbarTitleBox.top + topbarTitleBox.height / 2,
           bodyRight: document.body.getBoundingClientRect().right,
           viewportWidth: innerWidth,
           background: style.backgroundImage,
@@ -54,9 +69,15 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       expect(Math.abs(shellBar.topbarLeft - shellBar.sidebarRight), `${value} ${route} 顶栏未贴合侧栏`).toBeLessThanOrEqual(1);
       expect(shellBar.topbarRight, `${value} ${route} 顶栏未贯穿可用宽度`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 1);
       expect(shellBar.bodyRight, `${value} ${route} 右侧保留了滚动条空槽`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 1);
+      expect(Math.abs(shellBar.brandLeft), `${value} ${route} 品牌区未从窗口左边开始`).toBeLessThanOrEqual(1);
+      expect(Math.abs(shellBar.brandRight - shellBar.sidebarRight), `${value} ${route} 品牌区未与侧栏同宽`).toBeLessThanOrEqual(1);
+      expect(Math.abs(shellBar.brandTop - shellBar.topbarTop), `${value} ${route} 品牌区与系统栏起点不一致`).toBeLessThanOrEqual(1);
+      expect(Math.abs(shellBar.brandHeight - shellBar.topbarHeight), `${value} ${route} 品牌区与系统栏高度不一致`).toBeLessThanOrEqual(1);
+      expect(Math.abs(shellBar.brandCenterY - shellBar.titleCenterY), `${value} ${route} 品牌与页面标题中线未对齐`).toBeLessThanOrEqual(1);
       expect(shellBar.radius, `${value} ${route} 顶栏不应是独立卡片`).toBe('0px');
       expect(shellBar.background, `${value} ${route} 顶栏缺少主题底色`).toContain('linear-gradient');
       expect(shellBar.background, `${value} ${route} 顶栏与侧栏顶部颜色未衔接`).toContain(topbarLeadingColors[value]);
+      expect(shellBar.brandBackground, `${value} ${route} 品牌区与系统栏起点颜色不一致`).toBe(topbarLeadingColors[value]);
       topbarBackgrounds.add(shellBar.background);
       if (route === '/trend') {
         await page.getByRole('tab', { name: '趋势图表', exact: true }).click();

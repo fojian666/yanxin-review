@@ -7,7 +7,8 @@
   --gold: #727775; --gold-soft: #edeeec;
   --idle: #eceeec; --idle-ink: #505654;
   --navy: #171a1c; --navy-2: #272b2d;
-  --topbar-bg: linear-gradient(100deg, #303638 0%, #42494b 62%, #262b2d 100%);
+  --topbar-start: #303638;
+  --topbar-bg: linear-gradient(100deg, var(--topbar-start) 0%, #42494b 62%, #262b2d 100%);
   --topbar-ink: #fff;
   --topbar-line: rgba(255,255,255,.14);
   --topbar-control-bg: rgba(255,255,255,.08);
@@ -22,7 +23,8 @@
   --gold: #a47c3b; --gold-soft: #f4ecd9;
   --idle: #e7edf2; --idle-ink: #516575;
   --navy: #0d2336; --navy-2: #153b56;
-  --topbar-bg: linear-gradient(100deg, #164d70 0%, #1f6d9d 62%, #123f61 100%);
+  --topbar-start: #164d70;
+  --topbar-bg: linear-gradient(100deg, var(--topbar-start) 0%, #1f6d9d 62%, #123f61 100%);
   --topbar-ink: #fff;
   --topbar-line: rgba(255,255,255,.15);
   --topbar-control-bg: rgba(255,255,255,.09);
@@ -37,7 +39,8 @@
   --gold: #a77b42; --gold-soft: #f7ecdc;
   --idle: #edeaf3; --idle-ink: #60596e;
   --navy: #221b35; --navy-2: #3a2d55;
-  --topbar-bg: linear-gradient(100deg, #514372 0%, #7055a4 62%, #453363 100%);
+  --topbar-start: #514372;
+  --topbar-bg: linear-gradient(100deg, var(--topbar-start) 0%, #7055a4 62%, #453363 100%);
   --topbar-ink: #fff;
   --topbar-line: rgba(255,255,255,.16);
   --topbar-control-bg: rgba(255,255,255,.09);
