@@ -6,6 +6,12 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   const routes = ['/welcome', '/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library', '/admin'];
   const topbarBackgrounds = new Set<string>();
   const tableHeaderBackgrounds = new Set<string>();
+  const topbarLeadingColors = {
+    mono: 'rgb(48, 54, 56)',
+    blue: 'rgb(22, 77, 112)',
+    aurora: 'rgb(81, 67, 114)',
+    paper: 'rgb(11, 26, 35)',
+  } as const;
   for (const [label, value] of [['黑白', 'mono'], ['深海蓝', 'blue'], ['极光紫', 'aurora'], ['青绿纸色', 'paper']] as const) {
     await page.goto('/welcome');
     await page.getByRole('button', { name: '切换主题' }).click();
@@ -33,15 +39,18 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
           sidebarRight: sidebarBox.right,
           topbarLeft: topbarBox.left,
           topbarRight: topbarBox.right,
+          bodyRight: document.body.getBoundingClientRect().right,
           viewportWidth: innerWidth,
           background: style.backgroundImage,
           radius: style.borderTopLeftRadius,
         };
       });
       expect(Math.abs(shellBar.topbarLeft - shellBar.sidebarRight), `${value} ${route} 顶栏未贴合侧栏`).toBeLessThanOrEqual(1);
-      expect(shellBar.topbarRight, `${value} ${route} 顶栏未贯穿可用宽度`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 12);
+      expect(shellBar.topbarRight, `${value} ${route} 顶栏未贯穿可用宽度`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 1);
+      expect(shellBar.bodyRight, `${value} ${route} 右侧保留了滚动条空槽`).toBeGreaterThanOrEqual(shellBar.viewportWidth - 1);
       expect(shellBar.radius, `${value} ${route} 顶栏不应是独立卡片`).toBe('0px');
       expect(shellBar.background, `${value} ${route} 顶栏缺少主题底色`).toContain('linear-gradient');
+      expect(shellBar.background, `${value} ${route} 顶栏与侧栏顶部颜色未衔接`).toContain(topbarLeadingColors[value]);
       topbarBackgrounds.add(shellBar.background);
       if (route === '/trend') {
         await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
