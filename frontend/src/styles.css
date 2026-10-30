@@ -6305,9 +6305,15 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     background-position: left top;
     border-bottom: 0;
   }
-  .app-shell:not(.sidebar-collapsed) .main:has(.workspace-home) > .topbar {
+  .brand-mark,
+  .brand .sidebar-toggle {
+    transform: translateY(3px);
+  }
+  .main:has(.workspace-home) > .topbar {
     height: 68px;
     min-height: 68px;
+  }
+  .app-shell:not(.sidebar-collapsed) .main:has(.workspace-home) > .topbar {
     background-image: var(--topbar-bg);
     background-repeat: no-repeat;
     background-size: 100vw 68px;

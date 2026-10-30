@@ -94,6 +94,10 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
           brandBackgroundSize: getComputedStyle(brand).backgroundSize,
           topbarBackgroundSize: style.backgroundSize,
           brandCenterY: brandHomeBox.top + brandHomeBox.height / 2,
+          logoCenterY: document.querySelector<HTMLElement>('.brand-mark')!.getBoundingClientRect().top
+            + document.querySelector<HTMLElement>('.brand-mark')!.getBoundingClientRect().height / 2,
+          toggleCenterY: document.querySelector<HTMLElement>('.sidebar-toggle')!.getBoundingClientRect().top
+            + document.querySelector<HTMLElement>('.sidebar-toggle')!.getBoundingClientRect().height / 2,
           titleCenterY: topbarTitleBox.top + topbarTitleBox.height / 2,
           bodyRight: document.body.getBoundingClientRect().right,
           viewportWidth: innerWidth,
@@ -111,6 +115,9 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       expect(Math.abs(shellBar.brandTop - shellBar.topbarTop), `${value} ${route} 品牌区与系统栏起点不一致`).toBeLessThanOrEqual(1);
       expect(Math.abs(shellBar.brandHeight - shellBar.topbarHeight), `${value} ${route} 品牌区与系统栏高度不一致`).toBeLessThanOrEqual(1);
       expect(Math.abs(shellBar.brandCenterY - shellBar.titleCenterY), `${value} ${route} 品牌与页面标题中线未对齐`).toBeLessThanOrEqual(1);
+      expect(shellBar.logoCenterY - shellBar.titleCenterY, `${value} ${route} logo 视觉重心未下移`).toBeGreaterThanOrEqual(2);
+      expect(shellBar.logoCenterY - shellBar.titleCenterY, `${value} ${route} logo 视觉重心下移过多`).toBeLessThanOrEqual(4);
+      expect(Math.abs(shellBar.logoCenterY - shellBar.toggleCenterY), `${value} ${route} logo 与展开按钮未对齐`).toBeLessThanOrEqual(1);
       expect(shellBar.brandBorderBottom, `${value} ${route} 品牌区底部出现分隔线`).toBe('0px');
       expect(shellBar.topbarBorderBottom, `${value} ${route} 系统栏底部出现分隔线`).toBe('0px');
       expect(shellBar.radius, `${value} ${route} 顶栏不应是独立卡片`).toBe('0px');
