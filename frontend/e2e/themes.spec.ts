@@ -8,7 +8,7 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   const tableHeaderBackgrounds = new Set<string>();
   const tableHeaderPanelColors = {
     mono: 'rgb(245, 245, 244)',
-    blue: 'rgb(241, 246, 250)',
+    blue: 'rgb(244, 249, 253)',
     aurora: 'rgb(244, 242, 250)',
     paper: 'rgb(251, 248, 241)',
   } as const;
@@ -18,13 +18,24 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     aurora: 'rgb(81, 67, 114)',
     paper: 'rgb(11, 26, 35)',
   } as const;
-  for (const [label, value] of [['黑白', 'mono'], ['深海蓝', 'blue'], ['极光紫', 'aurora'], ['青绿纸色', 'paper']] as const) {
+  for (const [label, value] of [['黑白', 'mono'], ['蓝白', 'blue'], ['极光紫', 'aurora'], ['青绿纸色', 'paper']] as const) {
     await page.goto('/welcome');
     await page.getByRole('button', { name: '切换主题' }).click();
     await page.getByRole('radio', { name: label }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', value);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: '切换主题' })).toBeFocused();
+    if (value === 'blue') {
+      const sidebarLook = await page.locator('.sidebar').evaluate(element => {
+        const inactive = element.querySelector<HTMLElement>('.nav-item:not(.active)')!;
+        return {
+          background: getComputedStyle(element).backgroundColor,
+          inactiveColor: getComputedStyle(inactive).color,
+        };
+      });
+      expect(sidebarLook.background, '蓝白主题侧栏应为白色').toBe('rgb(255, 255, 255)');
+      expect(sidebarLook.inactiveColor, '蓝白主题导航不应继续使用浅色文字').not.toBe('rgb(233, 242, 239)');
+    }
     for (const route of routes) {
       await page.goto(route);
       await expect(page.locator('.workspace-home')).toBeVisible();
@@ -157,6 +168,19 @@ test('手机和窄屏主题入口可见，选项可切换且不挤压上传', as
     await page.getByRole('radio', { name: '极光紫' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'aurora');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 237, 246)');
+    await page.getByRole('radio', { name: '蓝白' }).check();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'blue');
+    await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(page.locator('.brand')).toHaveCSS('background-color', 'rgb(22, 77, 112)');
+    const blueSidebar = await page.evaluate(() => {
+      const brand = document.querySelector<HTMLElement>('.brand')!;
+      return {
+        brandTop: brand.getBoundingClientRect().top,
+        brandHeight: brand.getBoundingClientRect().height,
+      };
+    });
+    expect(blueSidebar.brandTop, `${width}px 蓝白主题品牌带应从顶部开始`).toBeLessThanOrEqual(1);
+    expect(blueSidebar.brandHeight, `${width}px 蓝白主题品牌带高度异常`).toBeGreaterThanOrEqual(67);
     const rect = await page.locator('.theme-options').boundingBox();
     expect(rect && rect.x >= 0 && rect.x + rect.width <= width).toBeTruthy();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();

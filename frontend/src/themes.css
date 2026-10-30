@@ -16,12 +16,12 @@
   --topbar-control-line: rgba(255,255,255,.32);
 }
 :root[data-theme="blue"] {
-  --bg: #eaf0f5; --panel: #fcfdff; --panel-2: #f1f6fa;
-  --ink: #152d42; --ink-2: #24465f; --muted: #4e6575; --muted-2: #5b7080;
-  --line: #cbd9e4; --line-strong: #a8bece;
-  --teal: #276c9b; --teal-deep: #195174; --teal-soft: #e1eff8;
+  --bg: #f2f8fd; --panel: #fff; --panel-2: #f4f9fd;
+  --ink: #123149; --ink-2: #234b67; --muted: #587284; --muted-2: #687f8f;
+  --line: #d5e4ef; --line-strong: #acc9dc;
+  --teal: #1d75a8; --teal-deep: #15577f; --teal-soft: #e3f2fb;
   --gold: #a47c3b; --gold-soft: #f4ecd9;
-  --idle: #e7edf2; --idle-ink: #516575;
+  --idle: #e9f1f6; --idle-ink: #526b7b;
   --navy: #0d2336; --navy-2: #153b56;
   --topbar-start: #164d70;
   --topbar-bg: linear-gradient(100deg, var(--topbar-start) 0%, #1f6d9d 62%, #123f61 100%);
@@ -311,16 +311,71 @@
   background: var(--topbar-control-bg);
 }
 :root[data-theme="mono"] .sidebar { background: linear-gradient(180deg, #303638, #171a1c 75%); }
-:root:is([data-theme="blue"], [data-theme="aurora"]) .sidebar { background: linear-gradient(180deg, #164d70, #102b42 75%); }
+:root[data-theme="aurora"] .sidebar { background: linear-gradient(180deg, #514372, #241d39 75%); }
 :root[data-theme="mono"] .login-page, :root:is([data-theme="blue"], [data-theme="aurora"]) .login-page { background: var(--bg); }
 :root[data-theme="mono"] .login-brand { background: linear-gradient(158deg, #22282a, #444b4c); }
 :root:is([data-theme="blue"], [data-theme="aurora"]) .login-brand { background: linear-gradient(158deg, #12364e, #276c9b); }
 :root[data-theme="mono"] :is(.login-grid, .login-terrain, .login-orb, .login-contours) { filter: grayscale(1); }
 :root:is([data-theme="blue"], [data-theme="aurora"]) :is(.login-grid, .login-terrain, .login-orb, .login-contours) { filter: hue-rotate(38deg); }
-:root[data-theme="mono"] .nav-pill, :root:is([data-theme="blue"], [data-theme="aurora"]) .nav-pill {
+:root[data-theme="blue"] .sidebar {
+  color: var(--ink-2);
+  background: #fff;
+}
+:root[data-theme="blue"] .nav-item {
+  color: #567183;
+}
+:root[data-theme="blue"] .nav-item svg {
+  color: #6f8999;
+  opacity: 1;
+}
+:root[data-theme="blue"] .nav-item:hover {
+  color: var(--teal-deep);
+  background: #eef7fc;
+}
+:root[data-theme="blue"] .nav-pill {
+  background: linear-gradient(90deg, #dceff9, #eef8fd);
+  border-left-color: var(--teal);
+}
+:root[data-theme="blue"] .nav-item.active {
+  color: var(--teal-deep);
+}
+:root[data-theme="blue"] .nav-item.active svg {
+  color: var(--teal);
+}
+:root[data-theme="blue"] .sidebar::after {
+  background: linear-gradient(90deg, transparent, var(--line), transparent);
+}
+:root[data-theme="blue"] .sidebar-note {
+  color: #627b8c;
+}
+@media (min-width: 681px) and (max-width: 980px) {
+  :root[data-theme="blue"] .sidebar {
+    padding-top: 0;
+  }
+  :root[data-theme="blue"] .brand {
+    width: calc(100% + 20px);
+    min-height: 68px;
+    margin: 0 -10px;
+    padding: 0;
+    background: var(--topbar-start);
+  }
+}
+@media (max-width: 680px) {
+  :root[data-theme="blue"] .sidebar {
+    padding-top: 0;
+  }
+  :root[data-theme="blue"] .brand {
+    width: calc(100% + 36px);
+    min-height: 68px;
+    margin: 0 -18px;
+    padding: 0 18px;
+    background: var(--topbar-start);
+  }
+}
+:root[data-theme="mono"] .nav-pill, :root[data-theme="aurora"] .nav-pill {
   background: color-mix(in srgb, var(--teal) 55%, transparent); border-left-color: color-mix(in srgb, var(--teal-soft) 65%, white);
 }
-:root[data-theme="mono"] .nav-item.active svg, :root:is([data-theme="blue"], [data-theme="aurora"]) .nav-item.active svg { color: #fff; }
+:root[data-theme="mono"] .nav-item.active svg, :root[data-theme="aurora"] .nav-item.active svg { color: #fff; }
 :root[data-theme="mono"] .workspace-ledger, :root:is([data-theme="blue"], [data-theme="aurora"]) .workspace-ledger,
 :root[data-theme="mono"] .workspace-overview-deck, :root:is([data-theme="blue"], [data-theme="aurora"]) .workspace-overview-deck,
 :root[data-theme="mono"] .document-center-bar, :root:is([data-theme="blue"], [data-theme="aurora"]) .document-center-bar,

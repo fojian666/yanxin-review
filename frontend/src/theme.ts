@@ -4,7 +4,7 @@ export type Theme = "paper" | "mono" | "blue" | "aurora";
 export const themes: ReadonlyArray<{ id: Theme; label: string }> = [
   { id: "paper", label: "青绿纸色" },
   { id: "mono", label: "黑白" },
-  { id: "blue", label: "深海蓝" },
+  { id: "blue", label: "蓝白" },
   { id: "aurora", label: "极光紫" },
 ];
 
