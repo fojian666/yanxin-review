@@ -3340,9 +3340,10 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   overscroll-behavior: contain;
 }
 .document-prose {
-  max-width: 76ch;
-  margin: 0 auto;
-  padding: 24px 46px 34px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px clamp(28px, 4vw, 56px) 34px;
 }
 .document-chunk { position: relative; margin-bottom: 20px; }
 .document-chunk h3 {

@@ -7,6 +7,9 @@ test('文档正文与文献数据独立切换并保持可阅读', async ({ app: 
     const reader = page.locator('.document-reader-body');
     await expect(reader).toBeVisible();
     await expect.poll(() => reader.evaluate(el => el.clientHeight)).toBeGreaterThan(width === 720 ? 120 : 200);
+    const proseWidth = await page.locator('.document-prose').evaluate(el => el.getBoundingClientRect().width);
+    const readerWidth = await reader.evaluate(el => el.getBoundingClientRect().width);
+    expect(proseWidth, `${width}px 文档正文未铺满书页`).toBeGreaterThanOrEqual(readerWidth - 1);
     await page.screenshot({ path: testInfo.outputPath(`reader-${width}.png`) });
     await reader.focus();
     await reader.press('End');
