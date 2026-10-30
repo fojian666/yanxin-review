@@ -52,7 +52,7 @@ export function TrendPage() {
   const initialized = useRef(false);
   const loadingRef = useRef(false);
 
-  const run = async (q: string, s: number, e: number, revealCharts = true) => {
+  const run = async (q: string, s: number, e: number, revealCharts: boolean) => {
     const topic = q.trim();
     if (!topic) {
       toast("请输入一个分析主题", "error");
@@ -112,7 +112,7 @@ export function TrendPage() {
       const result = await api.removeSamplePapers();
       await refreshPapers();
       toast(`已移除 ${result.removed || 0} 篇演示文献`);
-      await run(query, start, end);
+      await run(query, start, end, false);
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
     }
@@ -135,13 +135,13 @@ export function TrendPage() {
                 <div className="trend-controls">
                   <div className="search-box">
                     <Search size={18} />
-                    <input aria-label="分析主题" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.nativeEvent.isComposing || event.keyCode === 229) return; if (event.key === "Enter") void run(query, start, end); }} placeholder="任意方面，如：大模型在科研诚信中的应用" />
+                    <input aria-label="分析主题" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.nativeEvent.isComposing || event.keyCode === 229) return; if (event.key === "Enter") void run(query, start, end, true); }} placeholder="任意方面，如：大模型在科研诚信中的应用" />
                   </div>
                   <div className="year-row">
                     <select aria-label="起始年份" value={start} onChange={(event) => setStart(Number(event.target.value))}>{startOptions.map((year) => <option key={year} value={year}>{year}</option>)}</select>
                     <span>—</span>
                     <select aria-label="结束年份" value={end} onChange={(event) => setEnd(Number(event.target.value))}>{endOptions.map((year) => <option key={year} value={year}>{year}</option>)}</select>
-                    <motion.button className="btn btn-primary" onClick={() => void run(query, start, end)} disabled={loading} whileTap={loading ? undefined : { scale: 0.97 }} transition={{ duration: 0.34, ease: EASE }}>{showLoading ? "分析中…" : "分析趋势"}</motion.button>
+                    <motion.button className="btn btn-primary" onClick={() => void run(query, start, end, true)} disabled={loading} whileTap={loading ? undefined : { scale: 0.97 }} transition={{ duration: 0.34, ease: EASE }}>{showLoading ? "分析中…" : "分析趋势"}</motion.button>
                   </div>
                 </div>
               </div>

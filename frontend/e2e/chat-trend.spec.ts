@@ -122,6 +122,13 @@ test('@smoke 趋势主题、年份联动与2D视图', async ({ app: page }) => {
   const ends = await page.getByLabel('结束年份').locator('option').allTextContents();
   expect(Math.max(...starts.map(Number))).toBeLessThanOrEqual(2025);
   expect(Math.min(...ends.map(Number))).toBeGreaterThanOrEqual(2023);
+  const cleared = page.waitForResponse(r => r.url().endsWith('/api/papers/sample') && r.request().method() === 'DELETE');
+  const refreshed = page.waitForResponse(r => r.url().endsWith('/api/trends'));
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '移除演示文献' }).click();
+  expect((await cleared).ok()).toBeTruthy();
+  expect((await refreshed).ok()).toBeTruthy();
+  await expect(page.getByRole('tab', { name: '分析设置', exact: true })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('无WebGL回退2D且正常显示统计', async ({ app: page }) => {
