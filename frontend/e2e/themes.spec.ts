@@ -198,7 +198,15 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       brandColor: getComputedStyle(brand).backgroundColor,
       brandTop: brand.getBoundingClientRect().top,
       brandHeight: brand.getBoundingClientRect().height,
+      logoLeft: mark.getBoundingClientRect().left,
+      logoTop: mark.getBoundingClientRect().top,
+      logoWidth: mark.getBoundingClientRect().width,
+      logoHeight: mark.getBoundingClientRect().height,
       logoCenterY: mark.getBoundingClientRect().top + mark.getBoundingClientRect().height / 2,
+      toggleLeft: toggle.getBoundingClientRect().left,
+      toggleTop: toggle.getBoundingClientRect().top,
+      toggleWidth: toggle.getBoundingClientRect().width,
+      toggleHeight: toggle.getBoundingClientRect().height,
       toggleCenterY: toggle.getBoundingClientRect().top + toggle.getBoundingClientRect().height / 2,
       inactiveColor: getComputedStyle(inactive).color,
     };
@@ -228,14 +236,62 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     return {
       brandTop: brand.getBoundingClientRect().top,
       brandHeight: brand.getBoundingClientRect().height,
+      logoLeft: mark.getBoundingClientRect().left,
+      logoTop: mark.getBoundingClientRect().top,
+      logoWidth: mark.getBoundingClientRect().width,
+      logoHeight: mark.getBoundingClientRect().height,
       logoCenterY: mark.getBoundingClientRect().top + mark.getBoundingClientRect().height / 2,
+      toggleLeft: toggle.getBoundingClientRect().left,
+      toggleTop: toggle.getBoundingClientRect().top,
+      toggleWidth: toggle.getBoundingClientRect().width,
+      toggleHeight: toggle.getBoundingClientRect().height,
       toggleCenterY: toggle.getBoundingClientRect().top + toggle.getBoundingClientRect().height / 2,
     };
   });
   expect(collapsedMono.brandTop, '黑白主题折叠品牌带未从顶部开始').toBe(0);
   expect(collapsedMono.brandHeight, '黑白主题折叠品牌带高度未与系统栏一致').toBe(68);
   expect(Math.abs(collapsedMono.logoCenterY - collapsedMono.toggleCenterY), '黑白主题折叠按钮与 logo 未共用中线').toBeLessThanOrEqual(1);
+  expect(collapsedMono.toggleLeft, '黑白与蓝白折叠按钮横向位置不一致').toBe(collapsedBlue.toggleLeft);
+  expect(collapsedMono.toggleTop, '黑白与蓝白折叠按钮纵向位置不一致').toBe(collapsedBlue.toggleTop);
+  expect(collapsedMono.toggleWidth, '黑白与蓝白折叠按钮宽度不一致').toBe(collapsedBlue.toggleWidth);
+  expect(collapsedMono.toggleHeight, '黑白与蓝白折叠按钮高度不一致').toBe(collapsedBlue.toggleHeight);
   await page.screenshot({ path: testInfo.outputPath('mono-sidebar-collapsed.png') });
+
+  for (const [label, value, brandColor] of [
+    ['极光紫', 'aurora', 'rgb(81, 67, 114)'],
+    ['青绿纸色', 'paper', 'rgb(11, 26, 35)'],
+  ] as const) {
+    await page.getByRole('button', { name: '展开侧边栏' }).click();
+    await page.getByRole('button', { name: '切换主题' }).click();
+    await page.getByRole('radio', { name: label }).check();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '收起侧边栏' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', value);
+    await expect(page.locator('.brand')).toHaveCSS('background-color', brandColor);
+    const geometry = await page.evaluate(() => {
+      const brand = document.querySelector<HTMLElement>('.brand')!;
+      const mark = document.querySelector<HTMLElement>('.brand-mark')!;
+      const toggle = document.querySelector<HTMLElement>('.sidebar-toggle')!;
+      return {
+        brandTop: brand.getBoundingClientRect().top,
+        brandHeight: brand.getBoundingClientRect().height,
+        logoCenterY: mark.getBoundingClientRect().top + mark.getBoundingClientRect().height / 2,
+        toggleLeft: toggle.getBoundingClientRect().left,
+        toggleTop: toggle.getBoundingClientRect().top,
+        toggleWidth: toggle.getBoundingClientRect().width,
+        toggleHeight: toggle.getBoundingClientRect().height,
+        toggleCenterY: toggle.getBoundingClientRect().top + toggle.getBoundingClientRect().height / 2,
+      };
+    });
+    expect(geometry.brandTop, `${label}折叠品牌带未从顶部开始`).toBe(0);
+    expect(geometry.brandHeight, `${label}折叠品牌带高度未与系统栏一致`).toBe(68);
+    expect(Math.abs(geometry.logoCenterY - geometry.toggleCenterY), `${label}折叠按钮与 logo 未共用中线`).toBeLessThanOrEqual(1);
+    expect(geometry.toggleLeft, `${label}折叠按钮横向位置与蓝白不一致`).toBe(collapsedBlue.toggleLeft);
+    expect(geometry.toggleTop, `${label}折叠按钮纵向位置与蓝白不一致`).toBe(collapsedBlue.toggleTop);
+    expect(geometry.toggleWidth, `${label}折叠按钮宽度与蓝白不一致`).toBe(collapsedBlue.toggleWidth);
+    expect(geometry.toggleHeight, `${label}折叠按钮高度与蓝白不一致`).toBe(collapsedBlue.toggleHeight);
+    await page.screenshot({ path: testInfo.outputPath(`${value}-sidebar-collapsed.png`) });
+  }
 });
 
 test('手机和窄屏主题入口可见，选项可切换且不挤压上传', async ({ app: page }, testInfo) => {

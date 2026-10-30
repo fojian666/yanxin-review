@@ -6305,6 +6305,24 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     background-position: left top;
     border-bottom: 0;
   }
+  .app-shell.sidebar-collapsed .sidebar {
+    padding-top: 0;
+  }
+  .app-shell.sidebar-collapsed .brand {
+    width: calc(100% + 20px);
+    min-height: 68px;
+    margin: 0 -10px;
+    padding: 0 2px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    background: var(--topbar-start);
+    border-bottom: 0;
+  }
+  .app-shell.sidebar-collapsed .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
   .brand-mark,
   .brand .sidebar-toggle {
     transform: translateY(3px);
