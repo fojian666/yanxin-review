@@ -149,7 +149,7 @@ test('受控DeepSeek与千问来源逐次保存，回退不冒认当前模型', 
   await page.route('**/api/health', route => route.fulfill({ json: health }));
   await page.reload();
   await navigate(page, '智能问答');
-  await expect(page.locator('.mode-chip')).toContainText('DeepSeek · deepseek-flash');
+  await expect(page.locator('.topbar .mode-chip')).toHaveCount(0);
   let turn = 0;
   const generations = [
     { provider: 'deepseek', label: 'DeepSeek', model: 'deepseek-flash', status: 'complete' },

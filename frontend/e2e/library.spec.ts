@@ -1,5 +1,27 @@
 import { test, expect, navigate, proposalText, downloadText } from './fixtures';
 
+test('文档正文与文献数据独立切换并保持可阅读', async ({ app: page }, testInfo) => {
+  for (const [width, height] of [[1440, 900], [720, 450], [375, 812]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/library');
+    const reader = page.locator('.document-reader-body');
+    await expect(reader).toBeVisible();
+    await expect.poll(() => reader.evaluate(el => el.clientHeight)).toBeGreaterThan(40);
+    await page.getByRole('button', { name: /文献数据/ }).click();
+    await expect(page.getByRole('button', { name: '导入文献 CSV' })).toBeVisible();
+    const table = page.locator('.document-literature .table-wrap');
+    await expect(table).toBeVisible();
+    await expect.poll(() => table.evaluate(el => el.clientHeight)).toBeGreaterThan(40);
+    await table.focus();
+    await table.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    expect(await table.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await page.screenshot({ path: testInfo.outputPath(`literature-${width}.png`) });
+    await page.getByRole('button', { name: '文档正文', exact: true }).click();
+    await expect(reader).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBeTruthy();
+  }
+});
+
 test('@smoke 文档上传、索引、问答跳转、预审跳转与删除闭环', async ({ app: page }, testInfo) => {
   await navigate(page, '文档中心');
   await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
@@ -31,7 +53,7 @@ test('@smoke 文档上传、索引、问答跳转、预审跳转与删除闭环'
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '删除文档', exact: true }).click();
   await expect(page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ })).toHaveCount(0);
-  await page.locator('.document-literature > summary').click();
+  await page.getByRole('button', { name: /文献数据/ }).click();
   const template = await downloadText(page, () => page.getByRole('button', { name: '下载 CSV 模板' }).click(), testInfo);
   expect(template).toContain('标题,年份,作者');
 });
@@ -64,7 +86,7 @@ test('上传校验、键盘焦点与服务端失败后重试', async ({ app: pag
 
 test('文献 CSV 导入和重复导入保持幂等', async ({ app: page, context }) => {
   await navigate(page, '文档中心');
-  await page.locator('.document-literature > summary').click();
+  await page.getByRole('button', { name: /文献数据/ }).click();
   const csv = { name: '文献.csv', mimeType: 'text/csv', buffer: Buffer.from('标题,年份,作者,期刊,摘要,关键词\nE2E文献,2025,测试作者,测试期刊,科研诚信数据治理研究,科研诚信;数据治理\n') };
   const input = page.locator('input[type=file]');
   await input.setInputFiles(csv);
@@ -101,7 +123,7 @@ test('清理演示数据保留自建文档、文献、专家与公开政策', as
   await page.getByRole('button', { name: '移除演示本子' }).click();
   await expect(page.locator('.document-directory').getByRole('button', { name: /演示本子：/ })).toHaveCount(0);
   await expect(page.locator('.document-directory').getByRole('button', { name: new RegExp(documents[0].name) })).toBeVisible();
-  await page.locator('.document-literature > summary').click();
+  await page.getByRole('button', { name: /文献数据/ }).click();
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '移除演示文献' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'E2E保留文献' })).toBeVisible();

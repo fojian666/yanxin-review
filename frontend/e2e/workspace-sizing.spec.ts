@@ -32,7 +32,10 @@ test('窄屏分析设置的控件与指标均可访问，2D 图表滚轮缩放',
   await chart.hover();
   await page.waitForTimeout(300);
   const before = await chart.screenshot();
-  await page.mouse.wheel(0, -500);
+  for (let i = 0; i < 5; i += 1) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(80);
+  }
   await page.waitForTimeout(500);
   expect(await chart.screenshot()).not.toEqual(before);
 });

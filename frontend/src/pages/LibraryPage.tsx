@@ -55,6 +55,7 @@ export function LibraryPage() {
   }, []);
   const [dragging, setDragging] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [libraryView, setLibraryView] = useState<"documents" | "literature">("documents");
   const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [content, setContent] = useState<DocumentContent | null>(null);
@@ -102,7 +103,7 @@ export function LibraryPage() {
   useEffect(() => {
     const onUploaded = (event: Event) => {
       const doc = (event as CustomEvent<DocItem>).detail;
-      if (doc?.id) setUploadedDocId(doc.id);
+      if (doc?.id) { setLibraryView("documents"); setUploadedDocId(doc.id); }
     };
     window.addEventListener("yanxin:document-uploaded", onUploaded);
     return () => window.removeEventListener("yanxin:document-uploaded", onUploaded);
@@ -265,7 +266,11 @@ export function LibraryPage() {
         </div>
       </section>
 
-      <div className="document-center-layout">
+      <div className="library-view-switch" role="group" aria-label="文档中心视图">
+        <button type="button" aria-pressed={libraryView === "documents"} onClick={() => setLibraryView("documents")}>文档正文</button>
+        <button type="button" aria-pressed={libraryView === "literature"} onClick={() => setLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
+      </div>
+      <div className="document-center-layout" hidden={libraryView !== "documents"}>
         <aside className={directoryOpen ? "document-directory-shell is-open" : "document-directory-shell"}>
           <button
             type="button"
@@ -327,11 +332,7 @@ export function LibraryPage() {
         />
       </div>
 
-      <details className="panel document-literature">
-        <summary>
-          <span><FileSpreadsheet size={17} />文献数据</span>
-          <span>{papers.length} 篇 · 趋势分析数据</span>
-        </summary>
+      <section className="panel document-literature" aria-label="文献数据" hidden={libraryView !== "literature"}>
         <div className="document-literature-body">
           <div className="document-literature-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
@@ -367,7 +368,7 @@ export function LibraryPage() {
               </motion.div>
             )}
           </AnimatePresence>
-          <div className="table-wrap scroll-area">
+          <div className="table-wrap scroll-area" role="region" aria-label="文献列表，可滚动" tabIndex={0}>
             {papers.length === 0 ? (
               <EmptyState icon={<FileText size={32} />} description="文献尚空。导入 CSV，趋势分析即可成图。" />
             ) : (
@@ -387,7 +388,7 @@ export function LibraryPage() {
             )}
           </div>
         </div>
-      </details>
+      </section>
 
       {dragging && <div className="document-drop-overlay" aria-hidden="true"><UploadCloud size={28} />松开以上传文档</div>}
     </div>
