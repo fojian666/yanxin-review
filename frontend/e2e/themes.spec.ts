@@ -149,6 +149,8 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   expect(Math.abs(collapsed.toggleCenter - collapsed.brandCenter)).toBeLessThanOrEqual(3);
   await page.locator('.nav .nav-item').first().hover();
   await expect(page.locator('.nav .nav-item').first()).toHaveCSS('transform', 'none');
+  await expect(page.locator('.nav .nav-item').first()).toHaveCSS('background-color', 'rgb(242, 247, 250)');
+  await expect(page.locator('.nav .nav-item.active')).toHaveCSS('background-color', 'rgb(220, 239, 249)');
   const hoveredItem = await page.locator('.nav .nav-item').first().evaluate(element => {
     const rect = element.getBoundingClientRect();
     return { left: rect.left, width: rect.width, height: rect.height };
