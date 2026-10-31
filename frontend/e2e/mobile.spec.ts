@@ -48,7 +48,7 @@ test('手机匹配证据换行与实际报告下载', async ({ app: page, docume
   await expect(page.locator('.expert-card').last()).toHaveCSS('opacity', '1');
   await page.getByRole('tab', { name: '回避边界', exact: true }).click(); await expect(page.locator('.match-deck-excluded')).toContainText('原名一致');
   await page.screenshot({ path: testInfo.outputPath('mobile-evidence.png'), fullPage: true });
-  expect(await page.locator('.exclusion-evidence').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth))).toBeTruthy();
+  expect(await page.locator('.match-deck-excluded .adaptive-pager-page .exclusion-evidence').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth))).toBeTruthy();
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出结果' }).click(), testInfo); expect(text).toContain(documents[0].name);
 });
 

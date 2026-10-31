@@ -135,27 +135,41 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
       </div>
 
       <nav className="nav">
-        {nav.map(({ path, title, icon: Icon }) => (
-          <NavLink
-            key={path}
-            to={path}
-            draggable={false}
-            title={sidebarCollapsed ? title : undefined}
-            onClick={() => onClose?.()}
-            aria-current={path === workspacePath ? "page" : undefined}
-            className={() => `nav-item ${path === workspacePath ? "active" : ""}`}
-          >
-            {path === workspacePath && (
-              <motion.span
-                layoutId="nav-pill"
-                className="nav-pill"
-                transition={SPRING}
-              />
-            )}
-            <Icon size={19} className="nav-icon" />
-            <span className="nav-label">{title}</span>
-          </NavLink>
-        ))}
+        {nav.map(({ path, title, icon: Icon, component }) => {
+          const preload = () => {
+            void component.preload().catch(() => {
+              // 点击或聚焦时由 Suspense/ErrorBoundary 再次尝试并呈现真实错误。
+            });
+          };
+          return (
+            <NavLink
+              key={path}
+              to={path}
+              draggable={false}
+              title={sidebarCollapsed ? title : undefined}
+              onPointerEnter={preload}
+              onPointerDown={preload}
+              onFocus={preload}
+              onTouchStart={preload}
+              onClick={() => {
+                preload();
+                onClose?.();
+              }}
+              aria-current={path === workspacePath ? "page" : undefined}
+              className={() => `nav-item ${path === workspacePath ? "active" : ""}`}
+            >
+              {path === workspacePath && (
+                <motion.span
+                  layoutId="nav-pill"
+                  className="nav-pill"
+                  transition={SPRING}
+                />
+              )}
+              <Icon size={19} className="nav-icon" />
+              <span className="nav-label">{title}</span>
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="sidebar-foot">

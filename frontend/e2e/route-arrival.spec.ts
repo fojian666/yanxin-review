@@ -72,6 +72,50 @@ test('长桌面工作区卷宗栏文字与操作不重叠', async ({ app: page }
   }
 });
 
+test('首次进入懒加载路由时，在主工作面显示过渡加载态', async ({ app: page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  let releaseRequest!: () => void;
+  const requestGate = new Promise<void>(resolve => { releaseRequest = resolve; });
+  let delayedRequests = 0;
+  await page.route('**/assets/ChatPage-*.js', async route => {
+    delayedRequests += 1;
+    await requestGate;
+    await route.continue();
+  });
+
+  const chatLink = page.locator('.nav').getByRole('link', { name: '智能问答', exact: true });
+  await chatLink.hover();
+  await expect.poll(() => delayedRequests).toBe(1);
+  await chatLink.click();
+
+  const loader = page.locator('.workspace-route-loader');
+  await expect(loader).toBeVisible();
+  await expect(loader).toContainText('正在打开智能问答');
+  await expect.poll(() => loader.locator('.workspace-route-loader-sheet').first().evaluate(
+    element => element.getAnimations().filter(animation => animation.playState === 'running').length
+  )).toBeGreaterThan(0);
+  const geometry = await page.evaluate(() => {
+    const stage = document.querySelector<HTMLElement>('.workspace-stage')!.getBoundingClientRect();
+    const loaderBox = document.querySelector<HTMLElement>('.workspace-route-loader')!.getBoundingClientRect();
+    return {
+      stage: { left: stage.left, top: stage.top, right: stage.right, bottom: stage.bottom },
+      loader: { left: loaderBox.left, top: loaderBox.top, right: loaderBox.right, bottom: loaderBox.bottom },
+    };
+  });
+  expect(geometry.loader.left).toBeGreaterThanOrEqual(geometry.stage.left);
+  expect(geometry.loader.top).toBeGreaterThanOrEqual(geometry.stage.top);
+  expect(geometry.loader.right).toBeLessThanOrEqual(geometry.stage.right);
+  expect(geometry.loader.bottom).toBeLessThanOrEqual(geometry.stage.bottom);
+  await expect(page.locator('.topbar')).toBeVisible();
+  await expect(page.locator('.sidebar')).toBeVisible();
+  await expect(page.locator('.page-skeleton')).toHaveCount(0);
+
+  releaseRequest();
+  await expect(loader).toHaveCount(0);
+  await expect(page.locator('.topbar-title h1')).toHaveText('智能问答');
+  await expect(page.locator('.welcome')).toBeVisible();
+});
+
 for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812]] as const) {
   test(`${label}路由标题保持简洁，工作面切换尊重动态偏好`, async ({ app: page }, testInfo) => {
     await page.setViewportSize({ width, height });

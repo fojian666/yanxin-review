@@ -1,11 +1,58 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { FolderKanban, MessageSquareText, ShieldCheck } from "lucide-react";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
-import { visibleWorkspaceViews } from "../data/workspaceViews";
+import { WorkspaceRouteLoader } from "../components/WorkspaceRouteLoader";
+import { visibleWorkspaceViews, type WorkspaceView } from "../data/workspaceViews";
 import { pageVariants, useMotionPreference, useSessionEntrance } from "../motion";
 import { ROLE_LABELS, type UserRole } from "../types";
+
+function TaskWorkspace({ view, reduce }: { view: WorkspaceView; reduce: boolean }) {
+  const [readyPath, setReadyPath] = useState<string | null>(null);
+  const routeReady = readyPath === view.path;
+  const SelectedPanel = view.component;
+
+  useEffect(() => {
+    if (routeReady) return;
+    let cancelled = false;
+    let timer = 0;
+    const started = performance.now();
+    void view.component.preload().catch(() => {
+      // 预取失败后仍交给懒加载组件和错误边界呈现最终错误。
+    }).finally(() => {
+      const remaining = Math.max(0, 180 - (performance.now() - started));
+      timer = window.setTimeout(() => {
+        if (!cancelled) setReadyPath(view.path);
+      }, remaining);
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [routeReady, view.component, view.path]);
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={view.path}
+        className="workspace-stage-body"
+        variants={pageVariants}
+        initial={reduce ? false : "initial"}
+        animate="animate"
+        exit={reduce ? { opacity: 1, transition: { duration: 0 } } : "exit"}
+      >
+        {routeReady
+          ? (
+              <Suspense fallback={<WorkspaceRouteLoader title={view.title} icon={view.icon} />}>
+                <SelectedPanel />
+              </Suspense>
+            )
+          : <WorkspaceRouteLoader title={view.title} icon={view.icon} />}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -42,7 +89,6 @@ export function WelcomePage() {
   }
   const active = requested ?? entries.find((item) => item.path === defaultPath) ?? entries[0];
   if (!active) return <Navigate to="/" replace />;
-  const SelectedPanel = active.component;
   const proposalCount = docs.filter((doc) => doc.kind === "proposal").length;
   const policyCount = docs.filter((doc) => doc.kind === "policy").length;
   const selectedDoc = docs.find((doc) => doc.id === activeDocId);
@@ -168,28 +214,7 @@ export function WelcomePage() {
             </div>
           </section>
         ) : (
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={active.path}
-              className="workspace-stage-body"
-              variants={pageVariants}
-              initial={reduce ? false : "initial"}
-              animate="animate"
-              exit={reduce ? { opacity: 1, transition: { duration: 0 } } : "exit"}
-            >
-              <Suspense
-                fallback={
-                  <div className="page-skeleton" role="status">
-                    <span className="sr-only">正在加载工作区…</span>
-                    <div className="skeleton skeleton-title" aria-hidden="true" />
-                    <div className="skeleton" aria-hidden="true" />
-                  </div>
-                }
-              >
-                <SelectedPanel />
-              </Suspense>
-            </motion.div>
-          </AnimatePresence>
+          <TaskWorkspace view={active} reduce={reduce} />
         )}
       </div>
 

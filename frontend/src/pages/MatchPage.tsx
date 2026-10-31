@@ -17,9 +17,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
+import { AdaptivePager } from "../components/AdaptivePager";
 import { EmptyState } from "../components/EmptyState";
 import { KpiCard } from "../components/KpiCard";
-import { InlinePager, WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
+import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
 import { EASE, staggerItem } from "../motion";
 import type { Expert, ExpertCandidate, ToolCheckResult } from "../types";
 
@@ -58,9 +59,6 @@ export function MatchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [section, setSection] = useState<MatchSection>("run");
-  const [duplicatePage, setDuplicatePage] = useState(0);
-  const [expertPage, setExpertPage] = useState(0);
-  const [boundaryPage, setBoundaryPage] = useState(0);
   const loadingRef = useRef(false);
   const checkIdRef = useRef(0);
   const csvRef = useRef<HTMLInputElement>(null);
@@ -107,9 +105,6 @@ export function MatchPage() {
     setResult(null);
     setError("");
     setSection("run");
-    setDuplicatePage(0);
-    setExpertPage(0);
-    setBoundaryPage(0);
   }, [activeDocId, activeDocExists]);
 
   const run = async () => {
@@ -126,9 +121,6 @@ export function MatchPage() {
       const data = await api.toolCheck(docId);
       if (token !== checkIdRef.current) return;  // 期间已改选或重跑，丢弃过期结果
       setResult(data);
-      setDuplicatePage(0);
-      setExpertPage(0);
-      setBoundaryPage(0);
     } catch (err) {
       if (token !== checkIdRef.current) return;
       setError((err as Error).message);
@@ -226,14 +218,8 @@ export function MatchPage() {
   const duplicate = result?.duplicate;
   const match = result?.match;
   const duplicateMatches = duplicate?.matches ?? [];
-  const visibleDuplicateIndex = Math.min(duplicatePage, Math.max(0, duplicateMatches.length - 1));
-  const currentDuplicate = duplicateMatches[visibleDuplicateIndex];
   const candidates = match?.candidates ?? [];
-  const visibleExpertIndex = Math.min(expertPage, Math.max(0, candidates.length - 1));
-  const currentCandidate = candidates[visibleExpertIndex];
   const excluded = match?.excluded ?? [];
-  const visibleBoundaryIndex = Math.min(boundaryPage, Math.max(0, excluded.length - 1));
-  const currentExcluded = excluded[visibleBoundaryIndex];
 
   return (
     <div className="match-page match-deck-workspace">
@@ -290,18 +276,26 @@ export function MatchPage() {
                   {duplicate ? (duplicate.high_count ? "高风险" : duplicate.watch_count ? "需关注" : "未发现高相似") : "待检查"}
                 </span>
               </div>
-              {currentDuplicate ? (
+              {duplicateMatches.length ? (
                 <>
                   <div className="match-callout">{duplicate?.summary}</div>
-                  <div className="duplicate-card">
-                    <div className="duplicate-head">
-                      <div><div className="duplicate-title"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(currentDuplicate.matched_doc_id)}`} aria-label={`打开《${currentDuplicate.matched_doc_name}》原文`}>{currentDuplicate.matched_doc_name}</Link></div><div className="muted">最高段落相似度 {currentDuplicate.similarity.toFixed(2)}</div></div>
-                      <span className={`status-pill ${scoreClass(currentDuplicate.similarity)}`}>{currentDuplicate.similarity >= 0.55 ? "高相似" : currentDuplicate.similarity >= 0.3 ? "关注" : "低相似"}</span>
-                    </div>
-                    <div className="check-evidence">本子：{currentDuplicate.source_snippet}</div>
-                    <div className="check-evidence">比对：{currentDuplicate.matched_snippet}</div>
-                  </div>
-                  <InlinePager label="查重结果" index={visibleDuplicateIndex} total={duplicateMatches.length} onChange={setDuplicatePage} />
+                  <AdaptivePager
+                    className="match-duplicate-list"
+                    label="查重结果"
+                    items={duplicateMatches}
+                    resetKey={result?.generated_at}
+                    getKey={(item) => item.matched_doc_id}
+                    renderItem={(item) => (
+                      <article className="duplicate-card">
+                        <div className="duplicate-head">
+                          <div><div className="duplicate-title"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(item.matched_doc_id)}`} aria-label={`打开《${item.matched_doc_name}》原文`}>{item.matched_doc_name}</Link></div><div className="muted">最高段落相似度 {item.similarity.toFixed(2)}</div></div>
+                          <span className={`status-pill ${scoreClass(item.similarity)}`}>{item.similarity >= 0.55 ? "高相似" : item.similarity >= 0.3 ? "关注" : "低相似"}</span>
+                        </div>
+                        <div className="check-evidence">本子：{item.source_snippet}</div>
+                        <div className="check-evidence">比对：{item.matched_snippet}</div>
+                      </article>
+                    )}
+                  />
                 </>
               ) : result ? (
                 <EmptyState icon={<CheckCircle2 size={34} />} description="当前已入库文档范围内未发现相似文档；入库范围越大，查重越有效。" />
@@ -319,11 +313,15 @@ export function MatchPage() {
                   {match.applicant_warning && <div className="match-constraint-warning" role="status"><AlertTriangle size={16} aria-hidden="true" /><span>{match.applicant_warning}</span></div>}
                   <p className="match-method-note">{match.institution_match_note}</p>
                   <div className="keyword-chips">{match.proposal_keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}</div>
-                  {currentCandidate ? (
-                    <>
-                      <div className="expert-card-list"><ExpertCard candidate={currentCandidate} index={visibleExpertIndex} /></div>
-                      <InlinePager label="专家候选" index={visibleExpertIndex} total={candidates.length} onChange={setExpertPage} />
-                    </>
+                  {candidates.length ? (
+                    <AdaptivePager
+                      className="expert-card-list"
+                      label="专家候选"
+                      items={candidates}
+                      resetKey={result.generated_at}
+                      getKey={(candidate, index) => `${candidate.expert.id}:${index}`}
+                      renderItem={(candidate, index) => <ExpertCard candidate={candidate} index={index} />}
+                    />
                   ) : <EmptyState icon={<UserX size={34} />} description="暂无满足约束的候选专家，请检查专家库或回避 / 负载设置。" />}
                 </>
               ) : <EmptyState icon={<Users size={38} />} description="运行检查后，候选专家、匹配理由与排除原因将列于此。" />}
@@ -335,16 +333,20 @@ export function MatchPage() {
               {result && match ? (
                 <>
                   <div className="match-callout"><strong>匹配口径：</strong>{match.institution_match_note}</div>
-                  {currentExcluded ? (
-                    <>
-                      <div className="excluded-list match-deck-excluded" key={`${currentExcluded.name}-${currentExcluded.institution}`}>
-                        <div>
-                          <strong>{currentExcluded.name}</strong>（{currentExcluded.institution}）：{currentExcluded.reason}
-                          <p className="exclusion-evidence">{currentExcluded.evidence}</p>
+                  {excluded.length ? (
+                    <AdaptivePager
+                      className="excluded-list match-deck-excluded"
+                      label="排除专家"
+                      items={excluded}
+                      resetKey={result.generated_at}
+                      getKey={(item, index) => `${item.name}:${item.institution}:${index}`}
+                      renderItem={(item) => (
+                        <div className="match-excluded-item">
+                          <strong>{item.name}</strong>（{item.institution}）：{item.reason}
+                          <p className="exclusion-evidence">{item.evidence}</p>
                         </div>
-                      </div>
-                      <InlinePager label="排除专家" index={visibleBoundaryIndex} total={excluded.length} onChange={setBoundaryPage} />
-                    </>
+                      )}
+                    />
                   ) : <EmptyState icon={<ShieldCheck size={32} />} description="本次没有因负载或回避条件被排除的专家。" />}
                   <div className="disclaimer">{result.disclaimer}</div>
                 </>

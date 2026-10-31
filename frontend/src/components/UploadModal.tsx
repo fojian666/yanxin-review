@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, FileText, UploadCloud, X } from "lucide-react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EASE, prefersReducedMotion } from "../motion";
 
 export function UploadModal() {
   const { health, uploadOpen, setUploadOpen, uploadSeedFile, clearUploadSeed, refreshDocs, refreshPapers, toast } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [kind, setKind] = useState("auto");
   const [year, setYear] = useState("");
@@ -129,6 +132,9 @@ export function UploadModal() {
       setDone(true);
       await Promise.all([refreshDocs(), refreshPapers()]);
       window.dispatchEvent(new CustomEvent("yanxin:document-uploaded", { detail: result.document }));
+      if (location.pathname === "/library") {
+        navigate(`/library?doc=${encodeURIComponent(result.document.id)}`);
+      }
       if (!prefersReducedMotion()) {
         await new Promise((resolve) => window.setTimeout(resolve, 420));
       }

@@ -30,11 +30,11 @@ export function InlinePager({
   return (
     <div className="inline-pager" role="group" aria-label={`${label}分页`}>
       <button type="button" className="btn btn-ghost btn-sm" disabled={index === 0} onClick={() => onChange(index - 1)}>
-        <ChevronLeft size={14} />上一项
+        <ChevronLeft size={14} />上一页
       </button>
       <span>{index + 1} / {total}</span>
       <button type="button" className="btn btn-ghost btn-sm" disabled={index >= total - 1} onClick={() => onChange(index + 1)}>
-        下一项<ChevronRight size={14} />
+        下一页<ChevronRight size={14} />
       </button>
     </div>
   );

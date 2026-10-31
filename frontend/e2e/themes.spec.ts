@@ -25,6 +25,12 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
     await expect(page.locator('html')).toHaveAttribute('data-theme', value);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: '切换主题' })).toBeFocused();
+    const toggleColors = await page.locator('.sidebar-toggle').evaluate(element => ({
+      button: getComputedStyle(element).color,
+      icon: getComputedStyle(element.querySelector('svg')!).color,
+    }));
+    expect(toggleColors.button, `${value} 主题侧栏折叠箭头未使用白色`).toBe('rgb(255, 255, 255)');
+    expect(toggleColors.icon, `${value} 主题侧栏折叠图标未继承白色`).toBe('rgb(255, 255, 255)');
     if (value === 'blue') {
       const sidebarLook = await page.locator('.sidebar').evaluate(element => {
         const inactive = element.querySelector<HTMLElement>('.nav-item:not(.active)')!;

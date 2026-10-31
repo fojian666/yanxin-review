@@ -15,14 +15,14 @@ async function uploadRefreshDocument(page: Page, name: string) {
   await expect(dialog).toBeHidden();
 }
 
-async function showReviewCheck(page: Page, title: string, selector = '.review-check-page h3') {
+async function showReviewCheck(page: Page, title: string, selector = 'h3') {
   await page.getByRole('tab', { name: '检查项', exact: true }).click();
-  const target = page.locator(selector).filter({ hasText: title });
+  const target = page.locator('.review-check-list .adaptive-pager-page').locator(selector).filter({ hasText: title });
   const pager = page.getByRole('group', { name: '检查项分页' });
   for (let index = 0; index < 30; index += 1) {
     if (await target.isVisible().catch(() => false)) return;
-    const next = pager.getByRole('button', { name: '下一项' });
-    if (!(await next.isEnabled())) break;
+    const next = pager.getByRole('button', { name: '下一页' });
+    if (!(await next.isVisible().catch(() => false)) || !(await next.isEnabled())) break;
     const before = await pager.locator('span').innerText();
     await next.click();
     await expect(pager.locator('span')).not.toHaveText(before);
@@ -33,11 +33,11 @@ async function showReviewCheck(page: Page, title: string, selector = '.review-ch
 async function showExcludedExpert(page: Page, name: string) {
   await page.getByRole('tab', { name: '回避边界', exact: true }).click();
   const pager = page.getByRole('group', { name: '排除专家分页' });
-  const target = page.locator('.match-deck-excluded').getByText(name, { exact: true });
+  const target = page.locator('.match-deck-excluded .adaptive-pager-page .match-excluded-item').filter({ hasText: name });
   for (let index = 0; index < 30; index += 1) {
     if (await target.isVisible().catch(() => false)) return;
-    const next = pager.getByRole('button', { name: '下一项' });
-    if (!(await next.isEnabled())) break;
+    const next = pager.getByRole('button', { name: '下一页' });
+    if (!(await next.isVisible().catch(() => false)) || !(await next.isEnabled())) break;
     const before = await pager.locator('span').innerText();
     await next.click();
     await expect(pager.locator('span')).not.toHaveText(before);
@@ -61,13 +61,13 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await showReviewCheck(page, '文本查重');
   await expect(page.getByRole('heading', { name: '文本查重', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: '查重与追问', exact: true }).click();
-  await expect(page.locator('.review-finding-page .review-evidence-body')).toHaveCSS('overflow-y', 'auto');
+  await expect(page.locator('.review-finding-list .adaptive-pager-page .review-evidence-body').first()).toHaveCSS('overflow-y', 'auto');
   const findingEvidence = page.locator('.review-finding-page .check-evidence').first();
   await expect(findingEvidence).toBeVisible();
   await expect.poll(() => findingEvidence.evaluate(element =>
     element.scrollHeight <= element.clientHeight + 1 && getComputedStyle(element).webkitLineClamp === 'none'
   )).toBeTruthy();
-  await expect(page.getByRole('group', { name: '查重与追问分页' })).toBeInViewport();
+  await expect(page.locator('[data-adaptive-pager="查重与追问"]')).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath('review-findings-expanded.png') });
   await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
   await expect(page.locator('.review-boundary-layout')).toBeVisible();
@@ -158,7 +158,7 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await expect(page.getByRole('button', { name: '导出结果' })).toBeEnabled();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: '查重结果', exact: true }).click();
-  await expect(page.locator('.duplicate-title .evidence-doc-link')).toHaveAttribute('href', /^\/library\?doc=/);
+  await expect(page.locator('.match-duplicate-list .adaptive-pager-page .duplicate-title .evidence-doc-link').first()).toHaveAttribute('href', /^\/library\?doc=/);
   await page.screenshot({ path: testInfo.outputPath('match-duplicate-link.png') });
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
@@ -166,7 +166,7 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await page.getByRole('tab', { name: '回避边界', exact: true }).click();
   await expect(page.locator('.match-deck-excluded')).toContainText('示例专家A');
   await expect(page.locator('.match-deck-excluded')).toContainText('与申报单位存在同单位回避');
-  await expect(page.locator('.exclusion-evidence').first()).toContainText('原名一致');
+  await expect(page.locator('.match-deck-excluded .adaptive-pager-page .exclusion-evidence').first()).toContainText('原名一致');
   await expect(page.locator('.expert-card').filter({ hasText: '示例专家A' })).toHaveCount(0);
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出结果' }).click(), testInfo);
   expect(text).toContain(documents[0].name);
@@ -270,8 +270,9 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   await page.route('**/api/review', route => route.fulfill({ json: report }));
   await page.goto(`/review?doc=${documents[0].id}`);
   await page.getByRole('button', { name: '开始预审' }).click();
-  await showReviewCheck(page, item.label, '.review-check-page .check-label');
-  const row = page.locator('.check-item').filter({ hasText: item.label });
+  await showReviewCheck(page, item.label, '.check-label');
+  const checkSection = page.locator('.review-check-list .adaptive-pager-page .section-block').filter({ hasText: item.label }).first();
+  const row = checkSection.locator('.check-item').filter({ hasText: item.label });
   await expect(row.locator('.evidence-doc-link')).toHaveAttribute('href', /^\/library\?doc=/);
   await page.screenshot({ path: testInfo.outputPath('review-policy-link.png') });
   await expect(row.locator('.check-evidence')).toHaveText(item.evidence);
@@ -281,14 +282,14 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   await expect.poll(() => row.locator('.check-evidence').evaluate(element =>
     element.scrollHeight <= element.clientHeight + 1
   )).toBeTruthy();
-  const evidencePane = page.locator('.review-check-page .review-evidence-body');
+  const evidencePane = checkSection.locator('.review-evidence-body');
   await expect(evidencePane).toHaveCSS('overflow-y', 'auto');
   await expect.poll(() => evidencePane.evaluate(element => element.scrollHeight > element.clientHeight + 1)).toBeTruthy();
   await page.screenshot({ path: testInfo.outputPath('review-check-expanded-top.png') });
   await evidencePane.hover();
   await page.mouse.wheel(0, 300);
   await expect.poll(() => evidencePane.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
-  await expect(page.getByRole('group', { name: '检查项分页' })).toBeInViewport();
+  await expect(page.locator('[data-adaptive-pager="检查项"]')).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath('review-check-expanded.png') });
   await expect(row.getByRole('button', { name: '收起原文' })).toHaveAttribute('aria-expanded', 'true');
   await row.getByRole('button', { name: '收起原文' }).click();

@@ -317,6 +317,15 @@
 :root:is([data-theme="blue"], [data-theme="aurora"]) .login-brand { background: linear-gradient(158deg, #12364e, #276c9b); }
 :root[data-theme="mono"] :is(.login-grid, .login-terrain, .login-orb, .login-contours) { filter: grayscale(1); }
 :root:is([data-theme="blue"], [data-theme="aurora"]) :is(.login-grid, .login-terrain, .login-orb, .login-contours) { filter: hue-rotate(38deg); }
+:root:is([data-theme="paper"], [data-theme="aurora"]) .sidebar-toggle {
+  color: #fff;
+  border-color: var(--topbar-control-line);
+  background: var(--topbar-control-bg);
+}
+:root:is([data-theme="paper"], [data-theme="aurora"]) .sidebar-toggle:hover {
+  color: #fff;
+  background: var(--topbar-control-hover);
+}
 :root[data-theme="blue"] .sidebar {
   color: var(--ink-2);
   background: #fff;

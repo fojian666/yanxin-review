@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
   ChevronDown,
@@ -16,11 +15,11 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { currentWorkflowIndex, PROPOSAL_WORKFLOW } from "../data/proposalWorkflow";
-import { EASE } from "../motion";
 import type { Dossier, DossierChecklist } from "../types";
+import { AdaptivePager } from "./AdaptivePager";
 import { DossierModal } from "./DossierModal";
 import { StatusPill } from "./StatusPill";
-import { InlinePager, WorkDeck } from "./WorkDeck";
+import { WorkDeck } from "./WorkDeck";
 
 type DossierSection = "overview" | "materials" | "attach" | "history" | "checklist" | "workflow" | "limitations";
 
@@ -51,11 +50,6 @@ export function DossierWorkbench() {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [section, setSection] = useState<DossierSection>("overview");
-  const [materialPage, setMaterialPage] = useState(0);
-  const [historyPage, setHistoryPage] = useState(0);
-  const [checkPage, setCheckPage] = useState(0);
-  const [workflowPage, setWorkflowPage] = useState(0);
-  const [limitPage, setLimitPage] = useState(0);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -65,9 +59,6 @@ export function DossierWorkbench() {
   const checklistRequest = useRef(0);
 
   const dossier = dossiers.find((item) => item.id === activeDossierId) ?? null;
-  useEffect(() => {
-    setMaterialPage(0); setHistoryPage(0); setCheckPage(0); setWorkflowPage(0); setLimitPage(0);
-  }, [activeDossierId]);
   const availableDocs = useMemo(() => {
     const attached = new Set(dossier?.materials.map((item) => item.doc_id) ?? []);
     return docs.filter(
@@ -198,11 +189,16 @@ export function DossierWorkbench() {
   const currentMaterials = dossier?.materials.filter((item) => item.is_current) ?? [];
   const previousMaterials = dossier?.materials.filter((item) => !item.is_current) ?? [];
   const checks = checklist?.sections.flatMap((group) => group.items.map((item) => ({ group, item }))) ?? [];
-  const materialIndex = Math.min(materialPage, Math.max(0, currentMaterials.length - 1));
-  const historyIndex = Math.min(historyPage, Math.max(0, previousMaterials.length - 1));
-  const checkIndex = Math.min(checkPage, Math.max(0, checks.length - 1));
-  const limits = checklist ? [...checklist.limitations, checklist.disclaimer] : [];
-  const limitIndex = Math.min(limitPage, Math.max(0, limits.length - 1));
+  const limits = checklist
+    ? [
+        ...checklist.limitations.map((text, index) => ({
+          key: `limit:${index}`,
+          label: `检查边界 ${String(index + 1).padStart(2, "0")}`,
+          text,
+        })),
+        { key: "disclaimer", label: "免责声明", text: checklist.disclaimer },
+      ]
+    : [];
   const overallStatus = checklist?.overall.status ?? "warn";
   const workflowIndex = dossier ? currentWorkflowIndex(dossier.phase) : -1;
   const dossierSteps = DOSSIER_STEPS.filter((step) => step.id !== "attach" || can("upload"));
@@ -290,13 +286,18 @@ export function DossierWorkbench() {
                   </button>
                 </div>
                 {currentMaterials.length ? (
-                  <div className="dossier-material-list">
-                    {currentMaterials.slice(materialIndex, materialIndex + 1).map((material) => {
+                  <AdaptivePager
+                    className="dossier-material-list"
+                    label="材料"
+                    items={currentMaterials}
+                    resetKey={activeDossierId}
+                    getKey={(material) => material.doc_id}
+                    renderItem={(material) => {
                       const role = roles.find((item) => item.value === material.role);
                       const requiresVerification = Boolean(role?.requires_verification);
                       const operation = `verify-${material.doc_id}`;
                       return (
-                        <div className="dossier-material-row" key={material.doc_id}>
+                        <div className="dossier-material-row">
                           <div className="dossier-material-copy">
                             <span className="dossier-role">{role?.short ?? material.role}</span>
                             <strong title={material.doc_name}><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(material.doc_id)}`} aria-label={`打开《${material.doc_name}》原文`}>{material.doc_name}</Link></strong>
@@ -330,12 +331,11 @@ export function DossierWorkbench() {
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                    }}
+                  />
                 ) : (
                   <p className="dossier-inline-empty">尚无归卷材料。先进入“归入资料”，选择文档和材料角色。</p>
                 )}
-                <InlinePager label="材料" index={materialIndex} total={currentMaterials.length} onChange={setMaterialPage} />
               </div>
             ),
             attach: can("upload") ? (
@@ -367,9 +367,14 @@ export function DossierWorkbench() {
             history: previousMaterials.length > 0 ? (
               <div className="dossier-history">
                 <strong>历史版本 · {previousMaterials.length} 份</strong>
-                <div>
-                  {previousMaterials.slice(historyIndex, historyIndex + 1).map((material) => (
-                    <div className="dossier-history-row" key={material.doc_id}>
+                <AdaptivePager
+                  className="dossier-history-list"
+                  label="历史版本"
+                  items={previousMaterials}
+                  resetKey={activeDossierId}
+                  getKey={(material) => material.doc_id}
+                  renderItem={(material) => (
+                    <div className="dossier-history-row">
                       <span>v{material.version} · <Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(material.doc_id)}`} aria-label={`打开《${material.doc_name}》历史版本原文`}>{material.doc_name}</Link></span>
                       {can("upload") && (
                         <button type="button" className="link-btn" onClick={() => void makeCurrent(material.doc_id)} disabled={saving === `current-${material.doc_id}`}>
@@ -377,9 +382,8 @@ export function DossierWorkbench() {
                         </button>
                       )}
                     </div>
-                  ))}
-                </div>
-                <InlinePager label="历史版本" index={historyIndex} total={previousMaterials.length} onChange={setHistoryPage} />
+                  )}
+                />
               </div>
             ) : <p className="dossier-inline-empty">暂无历史版本。</p>,
             checklist: (
@@ -396,16 +400,14 @@ export function DossierWorkbench() {
                     <button type="button" className="link-btn" onClick={() => void loadChecklist()}>重试</button>
                   </div>
                 ) : checklist ? (
-                  <AnimatePresence initial={false} mode="wait">
-                    {checks.slice(checkIndex, checkIndex + 1).map(({ group, item }) => (
-                      <motion.section
-                        className="dossier-check-section"
-                        key={`${group.key}:${item.key}`}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -3 }}
-                        transition={{ duration: 0.18, ease: EASE }}
-                      >
+                  <AdaptivePager
+                    className="dossier-check-sections"
+                    label="体检项目"
+                    items={checks}
+                    resetKey={`${activeDossierId}:${checklist.overall.generated_at}`}
+                    getKey={({ group, item }) => `${group.key}:${item.key}`}
+                    renderItem={({ group, item }) => (
+                      <section className="dossier-check-section">
                         <div className="dossier-check-head">
                           <h4>{group.title}</h4>
                           <StatusPill status={group.status} />
@@ -419,13 +421,12 @@ export function DossierWorkbench() {
                           </div>
                           <StatusPill status={item.status} />
                         </div>
-                      </motion.section>
-                    ))}
-                  </AnimatePresence>
+                      </section>
+                    )}
+                  />
                 ) : loading ? (
                   <div className="dossier-loading" role="status"><Loader2 size={18} className="spin" /> 正在生成材料体检…</div>
                 ) : null}
-                <InlinePager label="体检项目" index={checkIndex} total={checks.length} onChange={setCheckPage} />
               </div>
             ),
             workflow: (
@@ -434,26 +435,44 @@ export function DossierWorkbench() {
                   <span>课题实施流程</span>
                   <strong>当前材料阶段：{dossier.phase_label}</strong>
                 </div>
-                <ol>
-                  {PROPOSAL_WORKFLOW.slice(workflowPage, workflowPage + 1).map((stage) => (
-                    <li key={stage.key} className={workflowPage === workflowIndex ? "is-current" : ""}>
-                      <span>{String(workflowPage + 1).padStart(2, "0")}</span>
+                <AdaptivePager
+                  className="dossier-process-list"
+                  label="流程"
+                  items={PROPOSAL_WORKFLOW}
+                  resetKey={activeDossierId}
+                  getKey={(stage) => stage.key}
+                  renderItem={(stage, index) => (
+                    <article className={`dossier-process-stage${index === workflowIndex ? " is-current" : ""}`}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
                       <div>
                         <strong>{stage.label}</strong>
                         <p>{stage.summary}</p>
                         <small>{stage.materials.join(" · ")}</small>
                       </div>
-                    </li>
-                  ))}
-                </ol>
-                <InlinePager label="流程" index={workflowPage} total={PROPOSAL_WORKFLOW.length} onChange={setWorkflowPage} />
+                    </article>
+                  )}
+                />
                 <p className="dossier-process-note">
                   流程节点用于材料导航，不代表官方系统已受理、推荐、立项或验收。
                 </p>
               </div>
             ),
             limitations: checklist
-              ? <div className="dossier-limitations"><strong>检查边界</strong><p>{limits[limitIndex]}</p><InlinePager label="检查边界" index={limitIndex} total={limits.length} onChange={setLimitPage} /></div>
+              ? (
+                  <AdaptivePager
+                    className="dossier-limitations"
+                    label="检查边界"
+                    items={limits}
+                    resetKey={`${activeDossierId}:${checklist.overall.generated_at}`}
+                    getKey={(item) => item.key}
+                    renderItem={(item) => (
+                      <article className="dossier-boundary-item">
+                        <strong>{item.label}</strong>
+                        <p>{item.text}</p>
+                      </article>
+                    )}
+                  />
+                )
               : <p className="dossier-inline-empty">材料体检生成后，在这里查看检查边界。</p>,
           }}
         />

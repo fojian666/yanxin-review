@@ -10,10 +10,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
+import { AdaptivePager } from "../components/AdaptivePager";
 import { generationLabel } from "../generation";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
-import { InlinePager, WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
+import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
 import { EASE, SPRING, useMotionPreference } from "../motion";
 import type { CheckStatus, ReviewReport } from "../types";
 
@@ -53,9 +54,6 @@ export function ReviewPage() {
   const [error, setError] = useState("");
   const [reportReady, setReportReady] = useState(false);
   const [section, setSection] = useState<ReviewSection>("run");
-  const [checkPage, setCheckPage] = useState(0);
-  const [findingPage, setFindingPage] = useState(0);
-  const [boundaryPage, setBoundaryPage] = useState(0);
   // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(() => new Set());
   useEffect(() => setExpandedEvidence(new Set()), [report]);
@@ -124,9 +122,6 @@ export function ReviewPage() {
     setReportReady(false);
     setError("");
     setSection("run");
-    setCheckPage(0);
-    setFindingPage(0);
-    setBoundaryPage(0);
   }, [activeDocId, activeDocExists]);
 
   useEffect(() => {
@@ -189,9 +184,6 @@ export function ReviewPage() {
     setBusy(true);
     setError("");
     setReport(null);
-    setCheckPage(0);
-    setFindingPage(0);
-    setBoundaryPage(0);
     try {
       const result = await api.review(docId);
       if (requestId !== requestSequence.current) return;
@@ -269,18 +261,13 @@ export function ReviewPage() {
       itemIndex,
     }))
   ) ?? [];
-  const visibleCheckIndex = Math.min(checkPage, Math.max(0, flattenedChecks.length - 1));
-  const currentCheck = flattenedChecks[visibleCheckIndex];
   const findings = report
     ? [
         ...report.duplicate.matches.map((match, index) => ({ type: "duplicate" as const, match, key: `duplicate-${index}` })),
         ...report.questions.map((question, index) => ({ type: "question" as const, question, key: `question-${index}` })),
       ]
     : [];
-  const visibleFindingIndex = Math.min(findingPage, Math.max(0, findings.length - 1));
-  const currentFinding = findings[visibleFindingIndex];
   const limitations = report?.limitations ?? [];
-  const visibleBoundaryIndex = Math.min(boundaryPage, Math.max(0, limitations.length - 1));
 
   return (
     <div className="review-workspace review-deck-workspace">
@@ -347,47 +334,55 @@ export function ReviewPage() {
           ),
           checks: (
             <div className="review-report review-check-page" role="region" aria-label="检查项" tabIndex={0}>
-              {currentCheck ? (
-                <div className="section-block">
-                  <div className="section-head">
-                    <h3>{currentCheck.section.title}</h3>
-                    <StatusPill status={currentCheck.section.status} />
-                  </div>
-                  <div className="review-evidence-body">
-                    <div className="check-item">
-                      <div className="check-top">
-                        <div>
-                          <div className="check-label">{currentCheck.item.label}</div>
-                          <div className="check-detail">{currentCheck.item.detail}</div>
-                        </div>
-                        <StatusPill status={currentCheck.item.status} />
+              {flattenedChecks.length ? (
+                <AdaptivePager
+                  className="review-check-list"
+                  label="检查项"
+                  items={flattenedChecks}
+                  resetKey={report?.overall.generated_at}
+                  getKey={(entry) => entry.key}
+                  renderItem={(entry) => (
+                    <section className="section-block">
+                      <div className="section-head">
+                        <h3>{entry.section.title}</h3>
+                        <StatusPill status={entry.section.status} />
                       </div>
-                      {currentCheck.item.evidence && (
-                        <div className={`check-evidence ${expandedEvidence.has(currentCheck.key) ? "is-expanded" : ""}`}>
-                          {expandedEvidence.has(currentCheck.key) ? currentCheck.item.evidence_full || currentCheck.item.evidence : currentCheck.item.evidence}
-                        </div>
-                      )}
-                      {(currentCheck.item.source_doc_id || (currentCheck.item.evidence_full || "").length > currentCheck.item.evidence.length) && (
-                        <div className="check-evidence-actions">
-                          {currentCheck.item.source_doc_id && (
-                            <Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(currentCheck.item.source_doc_id)}`} aria-label={`打开《${currentCheck.item.label}》依据原文`}>打开依据原文</Link>
+                      <div className="review-evidence-body">
+                        <div className="check-item">
+                          <div className="check-top">
+                            <div>
+                              <div className="check-label">{entry.item.label}</div>
+                              <div className="check-detail">{entry.item.detail}</div>
+                            </div>
+                            <StatusPill status={entry.item.status} />
+                          </div>
+                          {entry.item.evidence && (
+                            <div className={`check-evidence ${expandedEvidence.has(entry.key) ? "is-expanded" : ""}`}>
+                              {expandedEvidence.has(entry.key) ? entry.item.evidence_full || entry.item.evidence : entry.item.evidence}
+                            </div>
                           )}
-                          {(currentCheck.item.evidence_full || "").length > currentCheck.item.evidence.length && (
-                            <button
-                              type="button"
-                              className="source-toggle"
-                              aria-expanded={expandedEvidence.has(currentCheck.key)}
-                              onClick={() => toggleEvidence(currentCheck.key)}
-                            >
-                              {expandedEvidence.has(currentCheck.key) ? "收起原文" : `展开全文（${(currentCheck.item.evidence_full || "").length} 字）`}
-                            </button>
+                          {(entry.item.source_doc_id || (entry.item.evidence_full || "").length > entry.item.evidence.length) && (
+                            <div className="check-evidence-actions">
+                              {entry.item.source_doc_id && (
+                                <Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(entry.item.source_doc_id)}`} aria-label={`打开《${entry.item.label}》依据原文`}>打开依据原文</Link>
+                              )}
+                              {(entry.item.evidence_full || "").length > entry.item.evidence.length && (
+                                <button
+                                  type="button"
+                                  className="source-toggle"
+                                  aria-expanded={expandedEvidence.has(entry.key)}
+                                  onClick={() => toggleEvidence(entry.key)}
+                                >
+                                  {expandedEvidence.has(entry.key) ? "收起原文" : `展开全文（${(entry.item.evidence_full || "").length} 字）`}
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <InlinePager label="检查项" index={visibleCheckIndex} total={flattenedChecks.length} onChange={setCheckPage} />
-                </div>
+                      </div>
+                    </section>
+                  )}
+                />
               ) : (
                 <EmptyState icon={<FileSearch size={38} />} description="完成预审后，在这里逐项查看检查结果。" />
               )}
@@ -395,30 +390,38 @@ export function ReviewPage() {
           ),
           findings: (
             <div className="review-report review-finding-page" role="region" aria-label="查重与追问" tabIndex={0}>
-              {currentFinding ? (
-                currentFinding.type === "duplicate" ? (
-                  <div className="section-block">
-                    <div className="section-head">
-                      <h3>查重命中</h3>
-                      <span className="muted">相似度不等于抄袭，需人工判断</span>
-                    </div>
-                    <div className="review-evidence-body review-finding-body">
-                      <div className="check-label"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(currentFinding.match.matched_doc_id)}`} aria-label={`打开《${currentFinding.match.matched_doc_name}》原文`}>{currentFinding.match.matched_doc_name}</Link> · 相似度 {currentFinding.match.similarity.toFixed(2)}</div>
-                      <div className="check-evidence">本子：{currentFinding.match.source_snippet}<br />比对：{currentFinding.match.matched_snippet}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="section-block">
-                    <div className="section-head"><h3>建议核实的问题</h3><span className="muted">{visibleFindingIndex + 1} / {findings.length}</span></div>
-                    <div className="review-evidence-body">
-                      <div className="check-item review-question-card">{currentFinding.question}</div>
-                    </div>
-                  </div>
-                )
+              {findings.length ? (
+                <AdaptivePager
+                  className="review-finding-list"
+                  label="查重与追问"
+                  items={findings}
+                  resetKey={report?.overall.generated_at}
+                  getKey={(entry) => entry.key}
+                  renderItem={(entry, index) => (
+                    entry.type === "duplicate" ? (
+                      <section className="section-block">
+                        <div className="section-head">
+                          <h3>查重命中</h3>
+                          <span className="muted">相似度不等于抄袭，需人工判断</span>
+                        </div>
+                        <div className="review-evidence-body review-finding-body">
+                          <div className="check-label"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(entry.match.matched_doc_id)}`} aria-label={`打开《${entry.match.matched_doc_name}》原文`}>{entry.match.matched_doc_name}</Link> · 相似度 {entry.match.similarity.toFixed(2)}</div>
+                          <div className="check-evidence">本子：{entry.match.source_snippet}<br />比对：{entry.match.matched_snippet}</div>
+                        </div>
+                      </section>
+                    ) : (
+                      <section className="section-block">
+                        <div className="section-head"><h3>建议核实的问题</h3><span className="muted">{index + 1} / {findings.length}</span></div>
+                        <div className="review-evidence-body">
+                          <div className="check-item review-question-card">{entry.question}</div>
+                        </div>
+                      </section>
+                    )
+                  )}
+                />
               ) : (
                 <EmptyState icon={<FileSearch size={38} />} description="完成预审后，查重命中与建议追问将在这里逐项查看。" />
               )}
-              <InlinePager label="查重与追问" index={visibleFindingIndex} total={findings.length} onChange={setFindingPage} />
             </div>
           ),
           boundaries: (
@@ -429,13 +432,19 @@ export function ReviewPage() {
                     <div className="section-head"><h3 id="review-boundary-title">能力边界</h3></div>
                     <div className="review-boundary-body">
                       <p className="review-boundary-intro">以下内容说明本次预审能覆盖什么、不能替代谁作出判断。</p>
-                      <ul className="report-limits questions">
-                        {(limitations.length ? [limitations[visibleBoundaryIndex]] : DEFAULT_REVIEW_BOUNDARIES)
-                          .map(item => <li key={item}>{item}</li>)}
-                      </ul>
-                      {limitations.length > 0 && (
-                        <InlinePager label="检查边界" index={visibleBoundaryIndex} total={limitations.length} onChange={setBoundaryPage} />
-                      )}
+                      <AdaptivePager
+                        className="review-limits-list report-limits"
+                        label="检查边界"
+                        items={limitations.length ? limitations : DEFAULT_REVIEW_BOUNDARIES}
+                        resetKey={report.overall.generated_at}
+                        getKey={(item, index) => `${index}:${item}`}
+                        renderItem={(item, index) => (
+                          <div className="review-boundary-item">
+                            <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                            <p>{item}</p>
+                          </div>
+                        )}
+                      />
                       <div className="review-boundary-disclaimer">
                         <strong>使用边界</strong>
                         <p>{report.disclaimer}</p>

@@ -11,14 +11,30 @@ import {
 } from "lucide-react";
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 
-const ChatPanel = lazy(() => import("../pages/ChatPage").then((module) => ({ default: module.ChatPage })));
-const TrendPanel = lazy(() => import("../pages/TrendPage").then((module) => ({ default: module.TrendPage })));
-const MatchPanel = lazy(() => import("../pages/MatchPage").then((module) => ({ default: module.MatchPage })));
-const ReviewPanel = lazy(() => import("../pages/ReviewPage").then((module) => ({ default: module.ReviewPage })));
-const DossierPanel = lazy(() => import("../components/DossierWorkbench").then((module) => ({ default: module.DossierWorkbench })));
-const LibraryPanel = lazy(() => import("../pages/LibraryPage").then((module) => ({ default: module.LibraryPage })));
-const AdminPanel = lazy(() => import("../pages/AdminPage").then((module) => ({ default: module.AdminPage })));
-const KnowledgeGraphPanel = lazy(() => import("../pages/KnowledgeGraphPage").then((module) => ({ default: module.KnowledgeGraphPage })));
+type WorkspaceComponent = LazyExoticComponent<ComponentType> & {
+  preload: () => Promise<{ default: ComponentType }>;
+};
+
+function workspaceComponent(loader: () => Promise<{ default: ComponentType }>): WorkspaceComponent {
+  let loading: Promise<{ default: ComponentType }> | undefined;
+  const load = () => {
+    loading ??= loader().catch((error: unknown) => {
+      loading = undefined;
+      throw error;
+    });
+    return loading;
+  };
+  return Object.assign(lazy(load), { preload: load });
+}
+
+const ChatPanel = workspaceComponent(() => import("../pages/ChatPage").then((module) => ({ default: module.ChatPage })));
+const TrendPanel = workspaceComponent(() => import("../pages/TrendPage").then((module) => ({ default: module.TrendPage })));
+const MatchPanel = workspaceComponent(() => import("../pages/MatchPage").then((module) => ({ default: module.MatchPage })));
+const ReviewPanel = workspaceComponent(() => import("../pages/ReviewPage").then((module) => ({ default: module.ReviewPage })));
+const DossierPanel = workspaceComponent(() => import("../components/DossierWorkbench").then((module) => ({ default: module.DossierWorkbench })));
+const LibraryPanel = workspaceComponent(() => import("../pages/LibraryPage").then((module) => ({ default: module.LibraryPage })));
+const AdminPanel = workspaceComponent(() => import("../pages/AdminPage").then((module) => ({ default: module.AdminPage })));
+const KnowledgeGraphPanel = workspaceComponent(() => import("../pages/KnowledgeGraphPage").then((module) => ({ default: module.KnowledgeGraphPage })));
 
 export interface WorkspaceView {
   path: string;
@@ -26,7 +42,7 @@ export interface WorkspaceView {
   description: string;
   icon: LucideIcon;
   permission?: string;
-  component: LazyExoticComponent<ComponentType>;
+  component: WorkspaceComponent;
 }
 
 export const WORKSPACE_VIEWS: WorkspaceView[] = [
