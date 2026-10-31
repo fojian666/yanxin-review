@@ -291,8 +291,10 @@ export function MatchPage() {
                           <div><div className="duplicate-title"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(item.matched_doc_id)}`} aria-label={`打开《${item.matched_doc_name}》原文`}>{item.matched_doc_name}</Link></div><div className="muted">最高段落相似度 {item.similarity.toFixed(2)}</div></div>
                           <span className={`status-pill ${scoreClass(item.similarity)}`}>{item.similarity >= 0.55 ? "高相似" : item.similarity >= 0.3 ? "关注" : "低相似"}</span>
                         </div>
-                        <div className="check-evidence">本子：{item.source_snippet}</div>
-                        <div className="check-evidence">比对：{item.matched_snippet}</div>
+                        <div className="duplicate-body">
+                          <div className="check-evidence">本子：{item.source_snippet}</div>
+                          <div className="check-evidence">比对：{item.matched_snippet}</div>
+                        </div>
                       </article>
                     )}
                   />

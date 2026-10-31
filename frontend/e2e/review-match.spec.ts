@@ -158,7 +158,25 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await expect(page.getByRole('button', { name: '导出结果' })).toBeEnabled();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: '查重结果', exact: true }).click();
+  const duplicatePanel = page.locator('.match-deck-page').filter({ has: page.getByRole('heading', { name: '文本查重', exact: true }) });
+  const panelRisk = duplicatePanel.locator(':scope > .panel-head > .status-pill');
+  const cardRisk = duplicatePanel.locator('.match-duplicate-list .adaptive-pager-page .duplicate-head > .status-pill').first();
+  expect(panelRisk).toBeVisible();
+  await expect(cardRisk).toBeVisible();
+  const riskRects = await Promise.all([panelRisk.boundingBox(), cardRisk.boundingBox()]);
+  expect(
+    Math.abs((riskRects[0]?.x ?? 0) + (riskRects[0]?.width ?? 0) - ((riskRects[1]?.x ?? 0) + (riskRects[1]?.width ?? 0))),
+    `查重状态徽标右边界未对齐：${JSON.stringify(riskRects)}`,
+  ).toBeLessThanOrEqual(1);
   await expect(page.locator('.match-duplicate-list .adaptive-pager-page .duplicate-title .evidence-doc-link').first()).toHaveAttribute('href', /^\/library\?doc=/);
+  const duplicateBody = page.locator('.match-duplicate-list .adaptive-pager-page .duplicate-body').first();
+  await expect(duplicateBody).toBeVisible();
+  await expect(duplicateBody).toHaveCSS('overflow-y', 'auto');
+  await expect(duplicateBody.locator('.check-evidence')).toHaveCount(2);
+  expect(await duplicateBody.locator('.check-evidence').evaluateAll(elements => elements.every(element => {
+    const style = getComputedStyle(element);
+    return style.display === 'block' && style.webkitLineClamp === 'none' && style.overflow === 'visible';
+  }))).toBeTruthy();
   await page.screenshot({ path: testInfo.outputPath('match-duplicate-link.png') });
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
