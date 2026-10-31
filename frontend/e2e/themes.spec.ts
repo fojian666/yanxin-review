@@ -8,6 +8,8 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'blue');
   await expect(page.locator('.brand-name')).toHaveText(SYSTEM_NAME);
   await expect(page.locator('.brand-mark')).toHaveCount(0);
+  await expect(page.locator('.brand-name')).toHaveCSS('white-space', 'nowrap');
+  await expect(page.locator('.brand-name')).toHaveCSS('font-size', '16px');
   await expect(page.locator('.topbar-actions').getByRole('button', { name: '切换主题' })).toHaveCount(0);
   await expect(page.locator('.topbar-actions').getByRole('button', { name: /简约模式/ })).toHaveCount(0);
   await expect(page.locator('.theme-menu, .theme-trigger, .simple-mode-trigger')).toHaveCount(0);
@@ -38,6 +40,11 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   expect(Math.abs(shell.brandTop)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.brandHeight - shell.topbarHeight)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.toggleCenter - shell.brandCenter)).toBeLessThanOrEqual(3);
+  const brandNameLayout = await page.locator('.brand-name').evaluate(element => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }));
+  expect(brandNameLayout.scrollWidth).toBeLessThanOrEqual(brandNameLayout.clientWidth + 1);
   await page.screenshot({ path: testInfo.outputPath('unified-blue-welcome.png') });
 
   for (const route of ['/dossiers', '/review', '/match', '/trend'] as const) {
@@ -83,6 +90,7 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   await page.getByRole('button', { name: '打开导航' }).click();
   await expect(page.locator('.brand-name')).toHaveText(SYSTEM_NAME);
   await expect(page.locator('.brand-name')).toBeVisible();
+  await expect(page.locator('.brand-name')).toHaveCSS('white-space', 'nowrap');
   const mobileLayout = await page.locator('.brand-name').evaluate(element => ({
     scrollWidth: element.scrollWidth,
     clientWidth: element.clientWidth,

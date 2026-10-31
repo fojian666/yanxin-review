@@ -14,6 +14,12 @@ test('桌面步骤栏随高度均匀展开并保持可操作', async ({ app: pag
       return { top: rect.top, bottom: rect.bottom, height: rect.height, centerDifference: Math.abs((number.top + number.bottom - copy.top - copy.bottom) / 2) };
     }));
     expect(boxes.every(box => box.height >= 36 && box.centerDifference < 3)).toBeTruthy();
+    const stepTypography = await tabs.evaluateAll(elements => elements.map(element => ({
+      label: Number.parseFloat(getComputedStyle(element.querySelector<HTMLElement>('.work-deck-copy strong')!).fontSize),
+      number: Number.parseFloat(getComputedStyle(element.querySelector<HTMLElement>('.work-deck-number')!).fontSize),
+    })));
+    expect(stepTypography.every(item => item.label >= (height > 800 ? 15 : 11.5))).toBeTruthy();
+    expect(stepTypography.every(item => item.number >= (height > 800 ? 11 : 9))).toBeTruthy();
     if (height > 800) {
       for (let i = 1; i < boxes.length; i++) expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom);
       expect(boxes[0].height).toBeGreaterThan(44);
