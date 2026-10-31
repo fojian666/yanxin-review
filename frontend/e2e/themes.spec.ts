@@ -44,6 +44,8 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
       navWidth: nav.width,
       sidebarBottom: sidebar.bottom,
       navBottom: nav.bottom,
+      topbarRight: topbar.right,
+      viewportRight: window.innerWidth,
       topbarHeight: topbar.height,
       toggleCenter: toggle.top + toggle.height / 2,
       brandCenter: brand.top + brand.height / 2,
@@ -58,6 +60,7 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   expect(shell.navLeft).toBe(shell.sidebarLeft);
   expect(Math.abs(shell.navTop - shell.brandBottom)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.navBottom - shell.sidebarBottom)).toBeLessThanOrEqual(1);
+  expect(Math.abs(shell.topbarRight - shell.viewportRight)).toBeLessThanOrEqual(1);
   const brandNameLayout = await page.locator('.brand-name').evaluate(element => ({
     scrollWidth: element.scrollWidth,
     clientWidth: element.clientWidth,

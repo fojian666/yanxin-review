@@ -6669,6 +6669,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   }
   .app-shell:not(.sidebar-collapsed) .main > .topbar {
     margin-left: calc(var(--brand-width) - var(--sidebar-width));
+    width: calc(100% - (var(--brand-width) - var(--sidebar-width)));
   }
   .app-shell.sidebar-collapsed .sidebar {
     padding-top: 0;
