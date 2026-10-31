@@ -31,6 +31,7 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
     const topbar = document.querySelector<HTMLElement>('.topbar')!.getBoundingClientRect();
     const sidebar = document.querySelector<HTMLElement>('.sidebar')!.getBoundingClientRect();
     const nav = document.querySelector<HTMLElement>('.nav')!.getBoundingClientRect();
+    const brandName = document.querySelector<HTMLElement>('.brand-name')!.getBoundingClientRect();
     const toggle = document.querySelector<HTMLElement>('.sidebar-toggle')!.getBoundingClientRect();
     return {
       brandTop: brand.top,
@@ -48,12 +49,13 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
       viewportRight: window.innerWidth,
       topbarHeight: topbar.height,
       toggleCenter: toggle.top + toggle.height / 2,
+      brandNameCenter: brandName.top + brandName.height / 2,
       brandCenter: brand.top + brand.height / 2,
     };
   });
   expect(Math.abs(shell.brandTop)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.brandHeight - shell.topbarHeight)).toBeLessThanOrEqual(1);
-  expect(Math.abs(shell.toggleCenter - shell.brandCenter)).toBeLessThanOrEqual(3);
+  expect(Math.abs(shell.toggleCenter - shell.brandNameCenter)).toBeLessThanOrEqual(1);
   expect(shell.brandWidth).toBe(380);
   expect(shell.sidebarWidth).toBe(240);
   expect(shell.navWidth).toBe(shell.sidebarWidth);
@@ -145,5 +147,19 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   });
   expect(collapsed.brandHeight).toBe(68);
   expect(Math.abs(collapsed.toggleCenter - collapsed.brandCenter)).toBeLessThanOrEqual(3);
+  await page.locator('.nav .nav-item').first().hover();
+  await expect(page.locator('.nav .nav-item').first()).toHaveCSS('transform', 'none');
+  const hoveredItem = await page.locator('.nav .nav-item').first().evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, width: rect.width, height: rect.height };
+  });
+  const activeItem = await page.locator('.nav .nav-item.active').evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, width: rect.width, height: rect.height };
+  });
+  expect(Math.abs(hoveredItem.left - activeItem.left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(hoveredItem.width - activeItem.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(hoveredItem.height - activeItem.height)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath('unified-blue-collapsed-hover.png') });
   await page.screenshot({ path: testInfo.outputPath('unified-blue-collapsed.png') });
 });

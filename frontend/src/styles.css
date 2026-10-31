@@ -1608,7 +1608,15 @@ a, img, svg, canvas,
 .app-shell.sidebar-collapsed .llm-status div,
 .app-shell.sidebar-collapsed .user-info,
 .app-shell.sidebar-collapsed .user-chip .icon-btn { display: none; }
-.app-shell.sidebar-collapsed .nav-item { justify-content: center; padding: 14px 0; border-left: 0; border-radius: 4px; }
+.app-shell.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: 14px 0;
+  border-left: 0;
+  border-radius: 4px;
+  transition: color .18s ease, background-color .18s ease;
+}
+.app-shell.sidebar-collapsed .nav-item:hover { transform: none; }
+.app-shell.sidebar-collapsed .nav-item:hover .nav-icon { transform: none; }
 .app-shell.sidebar-collapsed .nav-item.active { background: rgba(14, 124, 107, .28); }
 .app-shell.sidebar-collapsed .sidebar-foot { align-items: center; }
 .app-shell.sidebar-collapsed .llm-status { padding: 10px; justify-content: center; }
@@ -6689,9 +6697,6 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .app-shell.sidebar-collapsed .brand-mark {
     width: 44px;
     height: 44px;
-  }
-  .brand .sidebar-toggle {
-    transform: translateY(3px);
   }
   .main:has(.workspace-home) > .topbar {
     height: 68px;
