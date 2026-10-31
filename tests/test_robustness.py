@@ -425,6 +425,12 @@ def test_demo_users_skipped_when_not_loopback(tmp_path, monkeypatch):
     assert auth.list_users() == []
 
 
+@pytest.mark.parametrize("value", ["0", "false", "FALSE", "no", "off", "n"])
+def test_boolean_env_flag_recognizes_explicit_false(monkeypatch, value):
+    monkeypatch.setenv("TEST_SECURITY_FLAG", value)
+    assert config._env_flag("TEST_SECURITY_FLAG", True) is False
+
+
 def test_demo_users_use_configured_password(tmp_path, monkeypatch):
     _tmp_db(tmp_path, monkeypatch)
     from rag import auth

@@ -17,7 +17,7 @@
   --success: #0e7c6b;
   --success-deep: #0b6256;
   --success-soft: #e4f2ed;
-  --warning: #9a5e1a;
+  --warning: #955918;
   --warning-soft: #f5ead6;
   --red: #b3453f;
   --red-soft: #f8e6e3;
@@ -6662,6 +6662,13 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 }
 
 @media (min-width: 981px) {
+  .app-shell:not(.sidebar-collapsed) .nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   .app-shell:not(.sidebar-collapsed) .sidebar {
     padding-top: 0;
     overflow: visible;

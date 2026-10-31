@@ -173,6 +173,9 @@
 :root[data-simple-mode="true"] .lucide {
   display: none !important;
 }
+:root[data-simple-mode="true"] button:is([aria-label], [title]):has(> .lucide):not(:has(> :not(.lucide))) > .lucide {
+  display: block !important;
+}
 :root[data-simple-mode="true"] :is(
   .icon-btn,
   .mobile-nav-btn,

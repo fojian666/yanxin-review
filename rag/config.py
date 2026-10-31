@@ -72,13 +72,8 @@ def is_loopback(host: str | None = None) -> bool:
     return value in {"localhost", "::1"} or value.startswith("127.")
 
 
-_demo_users_opt = (os.getenv("SEED_DEMO_USERS") or "").strip().lower()
 # 默认只在本机监听时写入演示账号；对外监听必须显式开启并改密
-SEED_DEMO_USERS = (
-    is_loopback()
-    if not _demo_users_opt
-    else _demo_users_opt not in {"0", "false", "no"}
-)
+SEED_DEMO_USERS = _env_flag("SEED_DEMO_USERS", is_loopback())
 DEMO_USER_PASSWORD = (os.getenv("DEMO_USER_PASSWORD") or "").strip()
 
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"

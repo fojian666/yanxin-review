@@ -4,7 +4,7 @@
    1081 app.py
       1 rag/__init__.py
     220 rag/auth.py
-    287 rag/config.py
+    282 rag/config.py
     272 rag/corpus.py
     744 rag/db.py
     293 rag/demo_proposals.py
@@ -17,16 +17,16 @@
     298 rag/parsers.py
     193 rag/qa.py
     237 rag/retrieval.py
-    488 rag/review.py
+    499 rag/review.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   6830 total
+   6836 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     356 frontend/src/AppContext.tsx
-    318 frontend/src/api.ts
+    319 frontend/src/api.ts
       1 frontend/src/branding.ts
     365 frontend/src/charts/TrendCharts.tsx
     143 frontend/src/components/AdaptivePager.tsx
@@ -65,22 +65,22 @@
     232 frontend/src/pages/TrendPage.tsx
     225 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   7206 frontend/src/styles.css
+   7213 frontend/src/styles.css
      44 frontend/src/theme.ts
-    639 frontend/src/themes.css
+    642 frontend/src/themes.css
     393 frontend/src/types.ts
-  16492 total
+  16503 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
-     23 tests/test_docs.py
+     42 tests/test_docs.py
     369 tests/test_dossiers.py
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
-    445 tests/test_llm_provider.py
+    470 tests/test_llm_provider.py
     417 tests/test_retrieval_embedding.py
-   1197 tests/test_robustness.py
-   2931 total
+   1203 tests/test_robustness.py
+   2981 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -100,14 +100,14 @@
     363 frontend/e2e/review-match.spec.ts
     165 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
-    167 frontend/e2e/themes.spec.ts
+    219 frontend/e2e/themes.spec.ts
      89 frontend/e2e/trend-zoom.spec.ts
     151 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   2862 total
+   2914 total
 合计
-  30224 total（96 个文件）
+  30343 total（96 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

@@ -21,7 +21,8 @@ import type {
 } from "./types";
 
 const API = "/api";
-const DEFAULT_TIMEOUT_MS = 60000;
+// 后端 LLM 默认预算为 90s，客户端应留出网络和响应解析余量。
+const DEFAULT_TIMEOUT_MS = 100_000;
 
 function errorMessage(data: unknown, status: number): string {
   if (data && typeof data === "object") {

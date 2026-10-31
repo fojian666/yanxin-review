@@ -63,6 +63,25 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   expect(Math.abs(shell.navTop - shell.brandBottom)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.navBottom - shell.sidebarBottom)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.topbarRight - shell.viewportRight)).toBeLessThanOrEqual(1);
+  const warningContrast = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--warning)';
+    probe.style.background = 'var(--warning-soft)';
+    document.body.appendChild(probe);
+    const parse = (value: string) => value.match(/\d+(?:\.\d+)?/g)!.slice(0, 3).map(Number);
+    const luminance = (rgb: number[]) => {
+      const values = rgb.map(channel => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+    };
+    const foreground = luminance(parse(getComputedStyle(probe).color));
+    const background = luminance(parse(getComputedStyle(probe).backgroundColor));
+    probe.remove();
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  });
+  expect(warningContrast).toBeGreaterThanOrEqual(4.5);
   const brandNameLayout = await page.locator('.brand-name').evaluate(element => ({
     scrollWidth: element.scrollWidth,
     clientWidth: element.clientWidth,
@@ -80,7 +99,7 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   await expect(page.locator('.document-center-title > div > span')).toHaveCount(0);
 });
 
-test('主题与简约模式仍可由持久化状态生效但不再显示入口', async ({ app: page }) => {
+test('主题与简约模式仍可由持久化状态生效但不再显示入口', async ({ app: page, documents }) => {
   test.setTimeout(120_000);
   for (const theme of ['paper', 'mono', 'blue', 'aurora'] as const) {
     await page.evaluate(value => localStorage.setItem('yanxin.theme', value), theme);
@@ -99,6 +118,19 @@ test('主题与简约模式仍可由持久化状态生效但不再显示入口',
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
   await expect(page.locator('.nav-item .lucide').first()).toHaveCSS('display', 'none');
   await expect(page.locator('.topbar-title')).toHaveCount(0);
+
+  await page.goto('/graph');
+  await page.getByRole('button', { name: '人工知识图谱', exact: true }).click();
+  await page.getByLabel('检索知识图谱').fill('科研');
+  const clearGraph = page.getByRole('button', { name: '清空图谱搜索' });
+  await expect(clearGraph).toBeVisible();
+  await expect(clearGraph.locator('svg')).toBeVisible();
+
+  await page.goto(`/review?doc=${documents[0].id}`);
+  await page.getByRole('button', { name: '开始预审' }).click();
+  const exportReport = page.getByRole('button', { name: '导出完整报告' });
+  await expect(exportReport).toBeVisible();
+  await expect(exportReport.locator('svg')).toBeVisible();
 
   await page.evaluate(() => localStorage.setItem('yanxin.simple-mode', '0'));
   await page.goto('/chat');
@@ -164,4 +196,24 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   expect(Math.abs(hoveredItem.height - activeItem.height)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('unified-blue-collapsed-hover.png') });
   await page.screenshot({ path: testInfo.outputPath('unified-blue-collapsed.png') });
+
+  for (const theme of ['mono', 'paper'] as const) {
+    await page.setViewportSize({ width: 1000, height: 300 });
+    await page.evaluate(value => {
+      localStorage.setItem('yanxin.theme', value);
+      localStorage.setItem('yanxin.sidebar', '0');
+    }, theme);
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    const navScroller = page.locator('.nav');
+    await expect(navScroller).toHaveCSS('overflow-y', 'auto');
+    expect(await navScroller.evaluate(element => element.scrollHeight > element.clientHeight + 1)).toBeTruthy();
+    await navScroller.hover();
+    await page.mouse.wheel(0, 260);
+    await expect.poll(() => navScroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    const lastItem = page.locator('.nav .nav-item').last();
+    await lastItem.scrollIntoViewIfNeeded();
+    const box = await lastItem.boundingBox();
+    expect(box && box.y + box.height <= 300).toBeTruthy();
+  }
 });

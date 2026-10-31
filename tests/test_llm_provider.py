@@ -138,6 +138,31 @@ def _fake_db(monkeypatch):
     )
 
 
+def test_review_uses_source_char_count_not_overlapping_chunks(monkeypatch):
+    doc = {
+        "id": "d1", "name": "测试本子", "kind": "proposal", "year": 2026,
+        "path": "", "text_len": 1200,
+    }
+    chunks = [
+        {"id": f"c{i}", "doc_id": "d1", "idx": i, "section": "研究内容", "text": "重复内容" * 300}
+        for i in range(3)
+    ]
+    monkeypatch.setattr(review_service.db, "get_document", lambda _id: doc)
+    monkeypatch.setattr(review_service.db, "get_chunks", lambda _id: chunks)
+    monkeypatch.setattr(review_service.db, "list_documents", lambda: [])
+    monkeypatch.setattr(review_service.retriever, "similarity_between_docs", lambda *a, **k: [])
+    monkeypatch.setattr(review_service.retriever, "search", lambda *a, **k: [])
+    monkeypatch.setattr(review_service, "llm", SimpleNamespace(configured=False))
+
+    report = review_service.review_document("d1")
+    completeness = next(section for section in report["sections"] if section["key"] == "integrity")
+    count_item = next(item for item in completeness["items"] if item["label"] == "文档完整性")
+    assert report["doc"]["char_count"] == 1200
+    assert "共 1200 字" in count_item["detail"]
+    assert "共 1200 字" in report["overall"]["summary"]
+    assert count_item["status"] == "fail"
+
+
 def test_offline_review_reports_limitations(monkeypatch):
     """没模型时报告要自带「只到规则这一步」的说明，不能让人以为做过语义判断。"""
     _fake_db(monkeypatch)

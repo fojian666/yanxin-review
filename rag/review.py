@@ -73,6 +73,15 @@ def _map_status(value: str, default: str = "warn") -> str:
     return default
 
 
+def _document_char_count(doc: dict, text: str) -> int:
+    """Use source text length; joined chunks repeat overlap and section headings."""
+    try:
+        stored = int(doc.get("text_len") or 0)
+    except (TypeError, ValueError):
+        stored = 0
+    return stored if stored > 0 else len(text)
+
+
 def _overall_status(items: list[dict]) -> str:
     statuses = [i.get("status") for i in items]
     if "fail" in statuses:
@@ -83,6 +92,7 @@ def _overall_status(items: list[dict]) -> str:
 
 
 def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], policy_cites: list[dict], has_policy_docs: bool) -> tuple[list[dict], list[str]]:
+    char_count = _document_char_count(doc, text)
     completeness_items = []
     questions: list[str] = []
     for sec in REQUIRED_SECTIONS:
@@ -134,8 +144,8 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
     integrity_items.append(
         {
             "label": "文档完整性",
-            "status": "pass" if len(text) >= 1500 else "fail",
-            "detail": f"共 {len(text)} 字、{len(text.splitlines())} 个文本段落" + ("，内容偏短，可能解析不完整" if len(text) < 1500 else ""),
+            "status": "pass" if char_count >= 1500 else "fail",
+            "detail": f"共 {char_count} 字、{len(text.splitlines())} 个文本段落" + ("，内容偏短，可能解析不完整" if char_count < 1500 else ""),
             "evidence": "",
         }
     )
@@ -236,11 +246,12 @@ def _risk_level(sections: list[dict]) -> str:
 
 
 def _summary(doc: dict, text: str, sections: list[dict], questions: list[str]) -> str:
+    char_count = _document_char_count(doc, text)
     fail = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "fail")
     warn = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "warn")
     passed = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "pass")
     return (
-        f"文档《{doc['name']}》共 {len(text)} 字。本次预审共检查 {passed + warn + fail} 项："
+        f"文档《{doc['name']}》共 {char_count} 字。本次预审共检查 {passed + warn + fail} 项："
         f"通过 {passed} 项、需关注 {warn} 项、风险 {fail} 项；"
         f"形成 {len(questions)} 个建议向申报人/评审专家核实的问题。"
     )
@@ -283,7 +294,7 @@ def _build_llm_prompt(doc: dict, text: str, chunks: list[dict], duplicate_matche
 严格依据提供的本子内容和政策资料，不编造条款、数据或结论；不给出立项结论和评分。
 每个判断必须给出 evidence（原文摘录或“未识别到”）。"""
     user = f"""申报书名称：{doc['name']}
-文档字数：{len(text)}
+文档字数：{_document_char_count(doc, text)}
 
 【本子内容】
 {context}
@@ -450,7 +461,7 @@ def review_document(doc_id: str) -> dict:
             "name": doc["name"],
             "kind": doc.get("kind"),
             "year": doc.get("year"),
-            "char_count": len(text),
+            "char_count": _document_char_count(doc, text),
             "chunk_count": len(chunks),
         },
         "overall": {
