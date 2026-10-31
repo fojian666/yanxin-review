@@ -144,7 +144,7 @@ export function WelcomePage() {
               <optgroup label="历史课题">
                 {dossiers.map((dossier) => (
                   <option key={dossier.id} value={dossier.id}>
-                    {dossier.name} · {dossier.plan_type_label} · {dossier.phase_label}
+                    {dossier.name}
                   </option>
                 ))}
               </optgroup>
