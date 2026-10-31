@@ -2,6 +2,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "./AppContext";
+import { SYSTEM_NAME } from "./branding";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
@@ -180,8 +181,7 @@ function Shell() {
             transition={{ duration: reduce ? 0 : 0.18, ease: "easeOut" }}
           >
             <div className="enter-veil-inner">
-              <span className="enter-seal" aria-hidden="true">研</span>
-              <strong>研信智评</strong>
+              <strong>{SYSTEM_NAME}</strong>
               <span className="enter-sub">正在进入评审工作台</span>
               <span className="enter-line" aria-hidden="true" />
             </div>

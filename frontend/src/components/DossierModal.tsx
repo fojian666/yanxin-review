@@ -125,7 +125,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
         ? await api.updateDossier(dossier.id, payload)
         : await api.createDossier(payload);
       onSaved(result.dossier);
-      toast(dossier ? "卷宗信息已更新" : "卷宗已建立");
+      toast(dossier ? "历史课题信息已更新" : "历史课题已建立");
       onClose();
     } catch (err) {
       toast(`保存失败：${(err as Error).message}`, "error");
@@ -135,11 +135,11 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
   };
 
   const remove = async () => {
-    if (!dossier || !confirm(`确定删除卷宗《${dossier.name}》？卷内文档不会被删除。`)) return;
+    if (!dossier || !confirm(`确定删除历史课题《${dossier.name}》？课题文档不会被删除。`)) return;
     setBusy(true);
     try {
       await api.deleteDossier(dossier.id);
-      toast("卷宗已删除，卷内文档仍保留");
+      toast("历史课题已删除，课题文档仍保留");
       onDeleted();
       onClose();
     } catch (err) {
@@ -164,7 +164,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
             className="modal-card dossier-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={dossier ? "编辑卷宗" : "新建卷宗"}
+            aria-label={dossier ? "编辑历史课题" : "新建历史课题"}
             tabIndex={-1}
             initial={{ opacity: 0, y: 14, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -172,7 +172,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
           >
             <div className="modal-head">
               <div>
-                <h2>{dossier ? "编辑卷宗" : "建立课题卷宗"}</h2>
+                <h2>{dossier ? "编辑历史课题" : "建立历史课题"}</h2>
                 <p>先登记课题与材料阶段，再归入申报书及附件。</p>
               </div>
               <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭" disabled={busy}>
@@ -243,13 +243,13 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
             <div className="modal-actions">
               {dossier && (
                 <button type="button" className="btn btn-ghost dossier-delete" onClick={() => void remove()} disabled={busy}>
-                  <Trash2 size={15} />删除卷宗
+                  <Trash2 size={15} />删除历史课题
                 </button>
               )}
               <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>取消</button>
               {step === 1 && <button type="button" className="btn btn-ghost" onClick={() => setStep(0)} disabled={busy}>上一步</button>}
               {step === 0 ? <button type="button" className="btn btn-primary" onClick={() => { if (validateBasic()) setStep(1); }} disabled={busy}>下一步</button> :
-                <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>{busy ? "保存中…" : "保存卷宗"}</button>}
+                <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>{busy ? "保存中…" : "保存历史课题"}</button>}
             </div>
           </motion.div>
         </motion.div>

@@ -108,14 +108,14 @@ export function WelcomePage() {
 
   return (
     <div className={`welcome-home workspace-home ${location.pathname === "/welcome" ? "is-overview" : "is-task"}`}>
-      <motion.section className={`workspace-ledger ${unfold ? "is-unfolding" : ""}`} aria-label="卷宗工作区">
+      <motion.section className={`workspace-ledger ${unfold ? "is-unfolding" : ""}`} aria-label="历史课题工作区">
         <div className="workspace-ledger-main">
         <div className="welcome-greeting-row">
           <h2>{greeting()}，{name}</h2>
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
         <div className="workspace-document-row">
-          <label htmlFor="workspace-document">{dossiers.length ? "当前课题卷宗" : "当前卷宗"}</label>
+          <label htmlFor="workspace-document">当前课题</label>
           {dossiers.length ? (
             <select
               id="workspace-document"
@@ -140,8 +140,8 @@ export function WelcomePage() {
                 selectWorkspaceDocument(nextDocId);
               }}
             >
-              <option value="">选择课题卷宗</option>
-              <optgroup label="课题卷宗">
+              <option value="">选择历史课题</option>
+              <optgroup label="历史课题">
                 {dossiers.map((dossier) => (
                   <option key={dossier.id} value={dossier.id}>
                     {dossier.name} · {dossier.plan_type_label} · {dossier.phase_label}
@@ -179,18 +179,18 @@ export function WelcomePage() {
               if (primaryPath === "/chat") selectWorkspaceDocument(activeDocId);
             }}
           >
-            {can("review") ? <><ShieldCheck size={16} />预审当前卷宗</> : <><MessageSquareText size={16} />用此卷宗提问</>}
+            {can("review") ? <><ShieldCheck size={16} />预审当前课题</> : <><MessageSquareText size={16} />用当前课题提问</>}
           </Link>
         </div>}
         </div>
-        <div className="workspace-register" role="group" aria-label="卷宗和文档概况">
+        <div className="workspace-register" role="group" aria-label="历史课题和文档概况">
           <div>
             <strong>{loading ? "读取中" : docs.length}</strong>
             <span>在册文档</span>
           </div>
           <div>
             <strong>{loading ? "读取中" : dossiers.length}</strong>
-            <span>课题卷宗</span>
+            <span>历史课题</span>
           </div>
           <div>
             <strong>{proposalCount}</strong>
@@ -208,9 +208,9 @@ export function WelcomePage() {
           <section className="workspace-overview-deck" aria-label="当前工作面提示">
             <div className="workspace-overview-mark" aria-hidden="true"><FolderKanban size={22} /></div>
             <div>
-              <span>当前卷宗已载入</span>
+              <span>当前课题已载入</span>
               <strong>{selectedDossier?.name ?? selectedDoc?.name ?? "尚未选择资料"}</strong>
-              <p>{selectedDossier ? `${selectedDossier.plan_type_label} · ${selectedDossier.phase_label} · 已归卷 ${selectedDossier.current_material_count} 份材料` : "从上方选择课题卷宗或单独申报书，再从左侧导航进入具体工作面。"}</p>
+              <p>{selectedDossier ? `${selectedDossier.plan_type_label} · ${selectedDossier.phase_label} · 已归卷 ${selectedDossier.current_material_count} 份材料` : "从上方选择历史课题或单独申报书，再从左侧导航进入具体工作面。"}</p>
             </div>
           </section>
         ) : (

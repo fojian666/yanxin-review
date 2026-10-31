@@ -3,7 +3,7 @@ import { test, expect, navigate, downloadText, loginUI } from './fixtures';
 test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }, testInfo) => {
   await page.goto('/welcome');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBeTruthy();
-  for (const label of ['智能问答', '知识图谱', '文献趋势', '查重匹配', '课题卷宗', '项目预审', '文档中心']) {
+  for (const label of ['智能问答', '历史课题', '项目预审', '查重匹配', '知识图谱', '文献趋势', '文档中心']) {
     await navigate(page, label);
     await expect(page.locator('.app-shell')).not.toHaveClass(/nav-open/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
@@ -42,7 +42,7 @@ test('手机上传弹窗焦点不逃出，关闭恢复焦点', async ({ app: pag
 });
 
 test('手机匹配证据换行与实际报告下载', async ({ app: page, documents }, testInfo) => {
-  await navigate(page, '查重匹配'); await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await navigate(page, '查重匹配'); await page.getByLabel('当前课题').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.expert-card').last()).toHaveCSS('opacity', '1');

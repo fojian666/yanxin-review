@@ -42,7 +42,7 @@ export function DocumentDirectory({
     }
   }
   const projectDocs = visible.filter((doc) => rolesByDoc.has(doc.id) || !["policy", "guide", "template"].includes(doc.kind));
-  const roles = materialRoles.length ? materialRoles : [{ value: "proposal_text", label: "申请书（可编辑版）", short: "申请书" }, { value: "other", label: "其他卷宗材料", short: "其他材料" }];
+  const roles = materialRoles.length ? materialRoles : [{ value: "proposal_text", label: "申请书（可编辑版）", short: "申请书" }, { value: "other", label: "其他课题材料", short: "其他材料" }];
   const projectGroups = roles.map((role) => ({
     label: role.short || role.label,
     key: role.value,

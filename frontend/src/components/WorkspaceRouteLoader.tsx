@@ -19,7 +19,7 @@ export function WorkspaceRouteLoader({
         </div>
         <div className="workspace-route-loader-copy">
           <strong>正在打开{title}</strong>
-          <span>正在准备当前工作面与卷宗资料</span>
+          <span>正在准备当前工作面与历史课题资料</span>
         </div>
         <span className="workspace-route-loader-track" aria-hidden="true">
           <span />

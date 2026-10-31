@@ -4,7 +4,7 @@ import { test, expect, password } from './fixtures';
 test('桌面放大时各工作区保持可操作且不横向溢出', async ({ app: page, documents }) => {
   test.setTimeout(120_000);
   const routes = [
-    ['/welcome', '工作台'], ['/chat', '智能问答'], ['/dossiers', '课题卷宗'], ['/review', '项目预审'],
+    ['/welcome', '工作台'], ['/chat', '智能问答'], ['/dossiers', '历史课题'], ['/review', '项目预审'],
     ['/match', '查重匹配'], ['/graph', '知识图谱'], ['/trend', '文献趋势'],
     [`/library?doc=${documents[0].id}`, '文档中心'],
   ];

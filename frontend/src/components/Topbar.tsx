@@ -1,42 +1,23 @@
 import { motion } from "framer-motion";
-import { Check, Feather, LayoutDashboard, LogOut, Menu, Palette, Upload, UserRound } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { SYSTEM_NAME } from "../branding";
 import { WORKSPACE_VIEWS } from "../data/workspaceViews";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
-import { setSimpleMode, useSimpleMode } from "../simpleMode";
-import { setTheme, themes, useTheme } from "../theme";
+import { useSimpleMode } from "../simpleMode";
 
-const WELCOME_META = { title: "工作台", description: "围绕当前卷宗连续办理" };
+const WELCOME_META = { title: "工作台", description: "围绕当前课题连续办理" };
 
 export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void; navOpen?: boolean }) {
   const { pathname } = useLocation();
   const reduce = useMotionPreference();
   const { auth, openUpload, can, logout } = useApp();
   const [userOpen, setUserOpen] = useState(false);
-  const [themeOpen, setThemeOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
-  const themeRef = useRef<HTMLDivElement>(null);
-  const theme = useTheme();
   const simpleMode = useSimpleMode();
-
-  useEffect(() => {
-    if (!themeOpen) return;
-    const onDown = (event: MouseEvent) => {
-      if (!themeRef.current?.contains(event.target as Node)) setThemeOpen(false);
-    };
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setThemeOpen(false);
-        themeRef.current?.querySelector<HTMLButtonElement>(".theme-trigger")?.focus();
-      }
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [themeOpen]);
 
   // 点击菜单外关闭 + ESC
   useEffect(() => {
@@ -67,7 +48,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   const chipName = displayName === roleLabel ? auth?.username || displayName : displayName;
 
   useEffect(() => {
-    document.title = `${meta.title} · 研信智评`;
+    document.title = `${meta.title} · ${SYSTEM_NAME}`;
   }, [meta.title]);
 
   return (
@@ -93,41 +74,6 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
           title="导航"
         >
           <Menu size={18} />
-        </button>
-        <div className="theme-menu" ref={themeRef}>
-          <button type="button" className="theme-trigger btn btn-ghost" aria-label="切换主题" aria-expanded={themeOpen} aria-controls="theme-options" onClick={() => setThemeOpen(open => !open)}>
-            <Palette size={17} /><span>主题</span>
-          </button>
-          {themeOpen && <div className="theme-options" id="theme-options" role="group" aria-label="选择主题">
-            {themes.map(item => <label key={item.id} className="theme-option">
-              <input type="radio" name="theme" value={item.id} checked={theme === item.id} onChange={() => setTheme(item.id)} />
-              <span className={`theme-swatch theme-swatch-${item.id}`} aria-hidden="true" />
-              <span>{item.label}</span>
-              {theme === item.id && <Check size={15} aria-hidden="true" />}
-            </label>)}
-            <button
-              type="button"
-              className="theme-simple-option"
-              aria-pressed={simpleMode}
-              aria-label={simpleMode ? "关闭简约模式" : "开启简约模式"}
-              onClick={() => setSimpleMode(!simpleMode)}
-            >
-              <Feather size={15} aria-hidden="true" />
-              <span>简约模式</span>
-              <strong>{simpleMode ? "已开启" : "关闭"}</strong>
-            </button>
-          </div>}
-        </div>
-        <button
-          type="button"
-          className="simple-mode-trigger btn btn-ghost"
-          aria-label={simpleMode ? "关闭简约模式" : "开启简约模式"}
-          aria-pressed={simpleMode}
-          title={simpleMode ? "关闭简约模式" : "开启简约模式"}
-          onClick={() => setSimpleMode(!simpleMode)}
-        >
-          <Feather size={16} />
-          <span>简约</span>
         </button>
         {can("upload") && (
           <motion.button

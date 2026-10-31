@@ -24,8 +24,8 @@ import { WorkDeck } from "./WorkDeck";
 type DossierSection = "overview" | "materials" | "attach" | "history" | "checklist" | "workflow" | "limitations";
 
 const DOSSIER_STEPS: Array<{ id: DossierSection; label: string; hint: string }> = [
-  { id: "overview", label: "卷宗概况", hint: "课题与当前进度" },
-  { id: "materials", label: "卷宗材料", hint: "查看当前材料" },
+  { id: "overview", label: "课题概况", hint: "历史课题与当前进度" },
+  { id: "materials", label: "课题材料", hint: "查看当前材料" },
   { id: "attach", label: "归入资料", hint: "选择文档和角色" },
   { id: "history", label: "历史版本", hint: "版本与当前稿" },
   { id: "checklist", label: "材料体检", hint: "逐项核对证据" },
@@ -124,7 +124,7 @@ export function DossierWorkbench() {
       await refreshDossiers();
       await loadChecklist();
       if (selectedRole === "proposal_text") setActiveDocId(selectedDoc);
-      toast("资料已归入卷宗");
+      toast("资料已归入历史课题");
     } catch (err) {
       toast(`归档失败：${(err as Error).message}`, "error");
     } finally {
@@ -170,14 +170,14 @@ export function DossierWorkbench() {
   };
 
   const detach = async (docId: string, name: string) => {
-    if (!dossier || !confirm(`确定将《${name}》从卷宗材料中移除？文档本身不会被删除。`)) return;
+    if (!dossier || !confirm(`确定将《${name}》从历史课题材料中移除？文档本身不会被删除。`)) return;
     setSaving(`detach-${docId}`);
     try {
       await api.detachDossierDocument(dossier.id, docId);
       if (dossier.materials.some((item) => item.doc_id === docId && item.role === "proposal_text" && item.is_current)) setActiveDocId("");
       await refreshDossiers();
       await loadChecklist();
-      toast("已从卷宗材料中移除");
+      toast("已从历史课题材料中移除");
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
     } finally {
@@ -204,15 +204,15 @@ export function DossierWorkbench() {
   const dossierSteps = DOSSIER_STEPS.filter((step) => step.id !== "attach" || can("upload"));
 
   return (
-    <section className={`panel dossier-workbench ${expanded ? "is-expanded" : "is-collapsed"}`} aria-label="课题卷宗与材料体检">
+    <section className={`panel dossier-workbench ${expanded ? "is-expanded" : "is-collapsed"}`} aria-label="历史课题与材料体检">
       <header className="dossier-workbench-head">
         <div>
-          <span className="dossier-kicker"><FolderOpen size={15} />卷宗编目</span>
-          <h2 title={dossier?.name}>{dossier?.name ?? (dossiers.length ? "选择或新建课题卷宗" : "建立第一份课题卷宗")}</h2>
+          <span className="dossier-kicker"><FolderOpen size={15} />历史课题编目</span>
+          <h2 title={dossier?.name}>{dossier?.name ?? (dossiers.length ? "选择或新建历史课题" : "建立第一份历史课题")}</h2>
           <p>
             {dossier
               ? `${dossier.year ?? "年度未填"} · ${dossier.plan_type_label} · ${dossier.phase_label}`
-              : dossiers.length ? "从工作区顶部选择已有卷宗，或新建一份课题卷宗。" : "将申请书、盖章件和后续材料归入同一课题，逐项核对缺项。"}
+              : dossiers.length ? "从工作区顶部选择已有历史课题，或新建一份历史课题。" : "将申请书、盖章件和后续材料归入同一历史课题，逐项核对缺项。"}
           </p>
         </div>
         <div className="dossier-workbench-actions">
@@ -220,11 +220,11 @@ export function DossierWorkbench() {
             <span>{expanded ? "收起详情" : "展开详情"}</span><ChevronDown size={14} className={expanded ? "dossier-chevron is-expanded" : "dossier-chevron"} />
           </button>}
           {dossier && can("upload") && (
-            <button type="button" className="btn btn-ghost btn-sm" aria-label="编辑卷宗" onClick={() => { setEditing(true); setModalOpen(true); }}>
-              <Pencil size={14} /><span>编辑卷宗</span>
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="编辑历史课题" onClick={() => { setEditing(true); setModalOpen(true); }}>
+              <Pencil size={14} /><span>编辑历史课题</span>
             </button>
           )}
-          {dossier && can("upload") && <button type="button" className="btn btn-primary btn-sm" aria-label="新建课题卷宗" onClick={() => { setEditing(false); setModalOpen(true); }}><Plus size={14} /><span>新建课题卷宗</span></button>}
+          {dossier && can("upload") && <button type="button" className="btn btn-primary btn-sm" aria-label="新建历史课题" onClick={() => { setEditing(false); setModalOpen(true); }}><Plus size={14} /><span>新建历史课题</span></button>}
         </div>
       </header>
 
@@ -232,10 +232,10 @@ export function DossierWorkbench() {
         <div className="dossier-empty">
           <FilePlus2 size={28} aria-hidden="true" />
           <div>
-            <strong>{dossiers.length ? "选择卷宗后查看材料体检" : "先建立卷宗，再做材料体检"}</strong>
+            <strong>{dossiers.length ? "选择历史课题后查看材料体检" : "先建立历史课题，再做材料体检"}</strong>
             <p>登记课题后，可把现有文档归入申请书、盖章件、承诺书、合同和验收材料。</p>
           </div>
-          {can("upload") && <button type="button" className="btn btn-primary" onClick={() => { setEditing(false); setModalOpen(true); }}>新建课题卷宗</button>}
+          {can("upload") && <button type="button" className="btn btn-primary" onClick={() => { setEditing(false); setModalOpen(true); }}>新建历史课题</button>}
         </div>
       ) : (
         <WorkDeck
@@ -245,7 +245,7 @@ export function DossierWorkbench() {
           steps={dossierSteps}
           active={section}
           onChange={setSection}
-          ariaLabel="卷宗办理"
+          ariaLabel="历史课题办理"
           status={<StatusPill status={overallStatus} />}
           panels={{
             overview: (
@@ -354,7 +354,7 @@ export function DossierWorkbench() {
                     </select>
                     <button type="button" className="btn btn-primary btn-sm" onClick={() => void attach()} disabled={saving === "attach"}>
                       {saving === "attach" ? <Loader2 size={14} className="spin" /> : <FolderOpen size={14} />}
-                      归入卷宗
+                      归入历史课题
                     </button>
                   </div>
                 ) : (
@@ -396,7 +396,7 @@ export function DossierWorkbench() {
                 </div>
                 {error ? (
                   <div className="dossier-error" role="alert">
-                    卷宗体检读取失败：{error}
+                    课题体检读取失败：{error}
                     <button type="button" className="link-btn" onClick={() => void loadChecklist()}>重试</button>
                   </div>
                 ) : checklist ? (

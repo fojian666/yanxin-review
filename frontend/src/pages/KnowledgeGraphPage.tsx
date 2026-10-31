@@ -315,7 +315,7 @@ function CuratedGraph() {
   };
 
   const askModel = () => {
-    navigate(`/chat?prompt=${encodeURIComponent(`请解释“${selected.name}”在研信智评中的作用，并说明它与其他概念的关系。`)}`);
+    navigate(`/chat?prompt=${encodeURIComponent(`请解释“${selected.name}”在江苏省自然资源科研诚信智慧治理平台中的作用，并说明它与其他概念的关系。`)}`);
   };
 
   return (

@@ -221,7 +221,7 @@ test('文档关键词星图显示真实关键词和来源，上传后更新', as
   if (await scope.locator('option').count() > 1) {
     const dossierId = await scope.locator('option').nth(1).getAttribute('value');
     await scope.selectOption(dossierId!);
-    await expect(page.getByText('包含卷宗内所有版本的材料')).toBeVisible();
+    await expect(page.getByText('包含历史课题内所有版本的材料')).toBeVisible();
     await scope.selectOption('');
     await expect(page.locator('.keyword-list button')).toHaveCount(100);
   }

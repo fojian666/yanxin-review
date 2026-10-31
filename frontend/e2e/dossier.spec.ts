@@ -37,47 +37,47 @@ async function revealInAdaptivePage(page: Page, label: string, target: ReturnTyp
   await expect(target).toBeVisible();
 }
 
-test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', async ({ app: page, documents, context }, testInfo) => {
+test('@smoke 历史课题建立、材料归入与人工确认形成体检结果', async ({ app: page, documents, context }, testInfo) => {
   // 概况仅在工作台展示，切入任务后仍验证其共享状态同步。
   const stats = page.locator('.workspace-register');
   const docCounter = stats.locator('div').filter({ hasText: '在册文档' }).locator('strong');
   await expect(docCounter).toHaveText(/^\d+$/);
   const docCount = await docCounter.innerText();
-  await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('0');
-  await navigate(page, '课题卷宗');
-  await expect(page.getByRole('heading', { name: '建立第一份课题卷宗' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /新建.*卷宗/ })).toHaveCount(1);
-  await page.getByRole('button', { name: '新建课题卷宗' }).click();
+  await expect(stats.locator('div').filter({ hasText: '历史课题' }).locator('strong')).toHaveText('0');
+  await navigate(page, '历史课题');
+  await expect(page.getByRole('heading', { name: '建立第一份历史课题' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /新建.*历史课题/ })).toHaveCount(1);
+  await page.getByRole('button', { name: '新建历史课题' }).click();
 
-  const dialog = page.getByRole('dialog', { name: '新建卷宗' });
+  const dialog = page.getByRole('dialog', { name: '新建历史课题' });
   await dialog.getByLabel('课题名称').fill('2026 自然资源科研诚信测试卷宗');
   await dialog.getByRole('button', { name: '下一步' }).click();
   await dialog.getByLabel('课题负责人（可选）').fill('测试负责人');
   await dialog.getByLabel('申报 / 承担单位（可选）').fill('测试自然资源研究院');
   await dialog.getByLabel('申报单位主管部门（建议填写）').fill('测试市自然资源主管部门');
-  await dialog.getByRole('button', { name: '保存卷宗' }).click();
+  await dialog.getByRole('button', { name: '保存历史课题' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '2026 自然资源科研诚信测试卷宗' })).toBeVisible();
-  await page.getByRole('button', { name: '新建课题卷宗' }).click();
-  await expect(page.getByRole('dialog', { name: '新建卷宗' })).toBeVisible();
-  await page.getByRole('dialog', { name: '新建卷宗' }).getByRole('button', { name: '关闭' }).click();
-  await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('1');
+  await page.getByRole('button', { name: '新建历史课题' }).click();
+  await expect(page.getByRole('dialog', { name: '新建历史课题' })).toBeVisible();
+  await page.getByRole('dialog', { name: '新建历史课题' }).getByRole('button', { name: '关闭' }).click();
+  await expect(stats.locator('div').filter({ hasText: '历史课题' }).locator('strong')).toHaveText('1');
   await expect(stats.locator('div').filter({ hasText: '在册文档' }).locator('strong')).toHaveText(docCount);
-  await expect(page.getByLabel('当前课题卷宗')).toHaveCount(1);
-  await expect(page.getByLabel('切换卷宗')).toHaveCount(0);
-  const workspaceSelect = page.getByLabel('当前课题卷宗');
+  await expect(page.getByLabel('当前课题')).toHaveCount(1);
+  await expect(page.getByLabel('切换历史课题')).toHaveCount(0);
+  const workspaceSelect = page.getByLabel('当前课题');
   const dossierId = await workspaceSelect.inputValue();
   await workspaceSelect.selectOption('');
-  await expect(page.getByRole('heading', { name: '选择或新建课题卷宗' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '新建课题卷宗' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '选择或新建历史课题' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建历史课题' })).toBeVisible();
   await workspaceSelect.selectOption(`doc:${documents[1].id}`);
   await navigate(page, '项目预审');
   await expect(page.locator('.dossier-workbench')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeEnabled();
   await workspaceSelect.selectOption(dossierId);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
-  await navigate(page, '课题卷宗');
-  await expect(page.getByLabel('当前课题卷宗')).toHaveValue(dossierId);
+  await navigate(page, '历史课题');
+  await expect(page.getByLabel('当前课题')).toHaveValue(dossierId);
   await expect(page.getByRole('button', { name: '开始预审' })).toHaveCount(0);
   const toggle = page.locator('button[aria-controls="dossier-details"]');
   const expandedHeight = await page.locator('.dossier-workbench').evaluate((element) => element.getBoundingClientRect().height);
@@ -108,8 +108,8 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await page.getByRole('tab', { name: '归入资料', exact: true }).click();
   await page.getByLabel('选择要归卷的资料').selectOption(documents[0].id);
   await page.getByLabel('材料角色').selectOption('proposal_text');
-  await page.getByRole('button', { name: '归入卷宗' }).click();
-  await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
+  await page.getByRole('button', { name: '归入历史课题' }).click();
+  await page.getByRole('tab', { name: '课题材料', exact: true }).click();
   const materialRows = page.locator('[data-adaptive-pager="材料"] .adaptive-pager-page .dossier-material-row');
   await expect(materialRows.filter({ hasText: documents[0].name })).toBeVisible();
   await expect(materialRows.filter({ hasText: documents[0].name }).locator('.evidence-doc-link')).toHaveAttribute('href', /^\/library\?doc=/);
@@ -118,8 +118,8 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await page.getByRole('tab', { name: '归入资料', exact: true }).click();
   await page.getByLabel('选择要归卷的资料').selectOption(documents[1].id);
   await page.getByLabel('材料角色').selectOption('signed_proposal');
-  await page.getByRole('button', { name: '归入卷宗' }).click();
-  await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
+  await page.getByRole('button', { name: '归入历史课题' }).click();
+  await page.getByRole('tab', { name: '课题材料', exact: true }).click();
   const scanRow = materialRows.filter({ hasText: documents[1].name });
   await revealInAdaptivePage(page, '材料', scanRow);
   await expect(scanRow).toContainText('盖章申请书');
@@ -135,7 +135,7 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   await revealInAdaptivePage(page, '体检项目', targetCheck);
   await expect(targetCheck).toContainText('不是 PDF');
 
-  await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
+  await page.getByRole('tab', { name: '课题材料', exact: true }).click();
   page.once('dialog', dialog => dialog.dismiss());
   await verifyButton.click();
   await expect(verifyButton).toHaveAttribute('aria-pressed', 'false');
@@ -186,25 +186,25 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
       `${width}px 卷宗工作台不得横向溢出`
     ).toBeTruthy();
-    for (const label of ['卷宗概况', '卷宗材料', '归入资料', '历史版本', '材料体检', '课题流程', '检查边界']) {
+    for (const label of ['课题概况', '课题材料', '归入资料', '历史版本', '材料体检', '课题流程', '检查边界']) {
       await page.getByRole('tab', { name: label, exact: true }).click();
       await expect(page.locator('.dossier-deck .work-deck-head h3')).toHaveText(label);
       await expectDossierFitsViewport(page);
     }
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole('tab', { name: '卷宗概况', exact: true }).click();
+  await page.getByRole('tab', { name: '课题概况', exact: true }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator('.toast')).toHaveCount(0, { timeout: 5_000 });
   await page.screenshot({ path: testInfo.outputPath('dossier-workbench-desktop.png'), fullPage: true });
 
-  await page.getByRole('button', { name: '编辑卷宗' }).click();
-  const editDialog = page.getByRole('dialog', { name: '编辑卷宗' });
+  await page.getByRole('button', { name: '编辑历史课题' }).click();
+  const editDialog = page.getByRole('dialog', { name: '编辑历史课题' });
   page.once('dialog', (dialog) => dialog.accept());
-  await editDialog.getByRole('button', { name: '删除卷宗' }).click();
+  await editDialog.getByRole('button', { name: '删除历史课题' }).click();
   await expect(editDialog).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: '建立第一份课题卷宗' })).toBeVisible();
-  await expect(stats.locator('div').filter({ hasText: '课题卷宗' }).locator('strong')).toHaveText('0');
+  await expect(page.getByRole('heading', { name: '建立第一份历史课题' })).toBeVisible();
+  await expect(stats.locator('div').filter({ hasText: '历史课题' }).locator('strong')).toHaveText('0');
   await expect(stats.locator('div').filter({ hasText: '在册文档' }).locator('strong')).toHaveText(docCount);
   const remaining = await (await context.request.get('/api/documents')).json();
   expect(remaining.documents.map((item: { id: string }) => item.id)).toEqual(
@@ -212,11 +212,11 @@ test('@smoke 卷宗建立、材料归卷与人工确认形成体检结果', asyn
   );
 });
 
-test('手机卷宗体检不横向溢出且表单可操作', async ({ app: page, documents }, testInfo) => {
+test('手机历史课题体检不横向溢出且表单可操作', async ({ app: page, documents }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await navigate(page, '课题卷宗');
-  await page.getByRole('button', { name: '新建课题卷宗' }).click();
-  const dialog = page.getByRole('dialog', { name: '新建卷宗' });
+  await navigate(page, '历史课题');
+  await page.getByRole('button', { name: '新建历史课题' }).click();
+  const dialog = page.getByRole('dialog', { name: '新建历史课题' });
   await expect(dialog.locator('..')).toHaveCSS('position', 'fixed');
   await expect(dialog.locator('..')).toHaveCSS('opacity', '1');
   await page.screenshot({ path: testInfo.outputPath('dossier-modal-open.png') });
@@ -235,13 +235,13 @@ test('手机卷宗体检不横向溢出且表单可操作', async ({ app: page, 
   expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBeTruthy();
   await page.setViewportSize({ width: 375, height: 812 });
   await dialog.getByLabel('申报 / 承担单位（可选）').fill('移动测试单位');
-  await dialog.getByRole('button', { name: '保存卷宗' }).click();
+  await dialog.getByRole('button', { name: '保存历史课题' }).click();
   await expect(dialog).toHaveCount(0);
 
   await page.getByRole('tab', { name: '归入资料', exact: true }).click();
   await page.getByLabel('选择要归卷的资料').selectOption(documents[0].id);
-  await page.getByRole('button', { name: '归入卷宗' }).click();
-  await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
+  await page.getByRole('button', { name: '归入历史课题' }).click();
+  await page.getByRole('tab', { name: '课题材料', exact: true }).click();
   await expect(page.locator('[data-adaptive-pager="材料"] .adaptive-pager-page .dossier-material-row').filter({ hasText: documents[0].name })).toBeVisible();
   await expect(page.locator('.dossier-workbench')).toBeVisible();
   await expect(page.locator('.skip-link')).not.toBeFocused();
@@ -253,12 +253,12 @@ test('手机卷宗体检不横向溢出且表单可操作', async ({ app: page, 
     ).toBeTruthy();
   }
   await page.setViewportSize({ width: 375, height: 812 });
-  for (const label of ['卷宗概况', '卷宗材料', '归入资料', '历史版本', '材料体检', '课题流程', '检查边界']) {
+  for (const label of ['课题概况', '课题材料', '归入资料', '历史版本', '材料体检', '课题流程', '检查边界']) {
     await page.getByRole('tab', { name: label, exact: true }).click();
     await expect(page.locator('.dossier-deck .work-deck-head h3')).toHaveText(label);
     await expectDossierFitsViewport(page);
   }
-  await page.getByRole('tab', { name: '卷宗材料', exact: true }).click();
+  await page.getByRole('tab', { name: '课题材料', exact: true }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator('.toast')).toHaveCount(0, { timeout: 5_000 });
   await page.screenshot({ path: testInfo.outputPath('dossier-workbench-mobile.png'), fullPage: true });

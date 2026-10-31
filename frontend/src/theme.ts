@@ -11,9 +11,9 @@ export const themes: ReadonlyArray<{ id: Theme; label: string }> = [
 function savedTheme(): Theme {
   try {
     const saved = localStorage.getItem("yanxin.theme");
-    if (saved === "mono" || saved === "blue" || saved === "aurora") return saved;
+    if (saved === "paper" || saved === "mono" || saved === "blue" || saved === "aurora") return saved;
   } catch { /* 本地存储不可用时使用默认主题 */ }
-  return "paper";
+  return "blue";
 }
 
 let current: Theme = savedTheme();

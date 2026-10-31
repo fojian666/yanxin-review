@@ -8,7 +8,7 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     expect(new Set(sidebarPaths).size).toBe(sidebarPaths.length);
     await expect(nav.getByRole('link', { name: '用户管理' })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(nav.getByRole('link', { name: '查重匹配' })).toHaveCount(role === 'viewer' ? 0 : 1);
-    await expect(nav.getByRole('link', { name: '课题卷宗' })).toHaveCount(1);
+    await expect(nav.getByRole('link', { name: '历史课题' })).toHaveCount(1);
     await expect(page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true })).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
     await navigate(page, '文档中心');
     await expect(page.getByRole('button', { name: '删除文档', exact: true }).first()).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
@@ -22,8 +22,8 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
       await page.goto('/dossiers');
       await expect(page).toHaveURL(/\/dossiers$/);
       await expect(page.locator('.dossier-workbench')).toBeVisible();
-      await expect(page.getByRole('button', { name: '新建课题卷宗' })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: '编辑卷宗' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: '新建历史课题' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: '编辑历史课题' })).toHaveCount(0);
     }
     await page.locator('.user-trigger').click();
     await page.getByRole('menuitem', { name: '退出登录' }).click();

@@ -118,13 +118,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   z-index: 20;
 }
 .sidebar::after {
-  content: "";
-  position: absolute;
-  left: 22px; right: 22px; bottom: 146px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
+  display: none;
 }
-.brand { display: flex; gap: 14px; align-items: center; padding: 0 8px 28px; }
+.brand { display: flex; gap: 8px; align-items: center; padding: 0 8px 28px; }
 .brand-mark {
   width: 46px; height: 46px;
   display: grid; place-items: center;
@@ -136,7 +132,16 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   border-radius: 50% 50% 50% 8px;
   box-shadow: inset 0 0 0 4px rgba(255,255,255,.03);
 }
-.brand-name { font-family: "Songti SC", "STSong", serif; font-size: 21px; letter-spacing: 2px; color: #fbf7ec; }
+.brand-name {
+  max-width: 174px;
+  color: #fbf7ec;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: .03em;
+  overflow-wrap: anywhere;
+}
 .brand-text { min-width: 0; }
 .brand-sub { font-size: 11.5px; letter-spacing: 1.6px; color: rgba(233,242,239,.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nav { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
@@ -152,6 +157,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   border-radius: 0 4px 4px 0;
   transition: .23s ease;
   font-size: 14.5px;
+  font-weight: 700;
 }
 .nav-item svg { width: 20px; height: 20px; opacity: .8; }
 .nav-item:hover { background: rgba(255,255,255,.05); color: #fff; }
@@ -1346,9 +1352,12 @@ a, img, svg, canvas,
   font-size: 11px; letter-spacing: .08em;
 }
 .login-brand h1 {
-  font-family: "Songti SC", "STSong", serif;
-  font-size: 40px;
-  letter-spacing: 6px;
+  max-width: 520px;
+  font-family: var(--font-ui);
+  font-size: clamp(25px, 2.7vw, 34px);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: .04em;
   margin: 0 0 6px;
   text-shadow: 0 2px 14px rgba(0, 0, 0, .18);
 }
@@ -1806,7 +1815,7 @@ a, img, svg, canvas,
 }
 
 /* ---------- 品牌区返回欢迎页 ---------- */
-.brand-home { display: flex; align-items: center; gap: 14px; min-width: 0; color: inherit; text-decoration: none; flex: 1 1 auto; }
+.brand-home { display: flex; align-items: center; gap: 0; min-width: 0; color: inherit; text-decoration: none; flex: 1 1 auto; }
 .brand-home:hover .brand-name { color: #fff; }
 .app-shell.sidebar-collapsed .brand-home { flex: 0 0 auto; }
 
@@ -6675,7 +6684,6 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     width: 44px;
     height: 44px;
   }
-  .brand-mark,
   .brand .sidebar-toggle {
     transform: translateY(3px);
   }

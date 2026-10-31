@@ -59,15 +59,15 @@ test('@smoke 紧凑窗口下全部按钮结果保持一屏且文字完整', asyn
 
   await page.goto('/dossiers');
   await expect(page.locator('.dossier-workbench')).toBeVisible();
-  await page.getByRole('button', { name: '编辑卷宗' }).click();
-  await expect(page.getByRole('dialog', { name: '编辑卷宗' })).toBeVisible();
-  await expectOnePage(page, '编辑卷宗弹窗');
-  await page.getByRole('dialog', { name: '编辑卷宗' }).getByRole('button', { name: '关闭' }).click();
+  await page.getByRole('button', { name: '编辑历史课题' }).click();
+  await expect(page.getByRole('dialog', { name: '编辑历史课题' })).toBeVisible();
+  await expectOnePage(page, '编辑历史课题弹窗');
+  await page.getByRole('dialog', { name: '编辑历史课题' }).getByRole('button', { name: '关闭' }).click();
   await page.getByRole('button', { name: '收起详情' }).click();
   await expect(page.locator('#dossier-details')).toBeHidden();
   await expectOnePage(page, '卷宗收起');
   await page.getByRole('button', { name: '展开详情' }).click();
-  for (const label of ['卷宗概况', '卷宗材料', '归入资料', '历史版本', '材料体检', '课题流程', '检查边界']) {
+  for (const label of ['课题概况', '课题材料', '归入资料', '历史版本', '材料体检', '课题流程', '检查边界']) {
     await page.getByRole('tab', { name: label, exact: true }).click();
     await expect(page.locator('.dossier-deck .work-deck-head h3')).toHaveText(label);
     await expectOnePage(page, `卷宗/${label}`);

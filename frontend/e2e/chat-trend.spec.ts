@@ -17,7 +17,7 @@ test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page, do
   await navigate(page, '文档中心'); await navigate(page, '智能问答');
   await expect(page.locator('.msg.assistant .msg-content')).toHaveText(answer, { useInnerText: true });
   await page.locator('.brand-home').click();
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
   await page.locator('.nav').getByRole('link', { name: '智能问答', exact: true }).click();
   await expect(page.locator('.scope-label')).toHaveText(documents[1].name);
   await expect(page.locator('.msg')).toHaveCount(0);

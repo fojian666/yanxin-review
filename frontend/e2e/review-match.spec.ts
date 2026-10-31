@@ -47,7 +47,7 @@ async function showExcludedExpert(page: Page, name: string) {
 
 test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: page, documents }, testInfo) => {
   await page.goto(`/review?doc=${documents[0].id}`);
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[0].id);
+  await expect(page.getByLabel('当前课题')).toHaveValue(documents[0].id);
   await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
   await expect(page.locator('.report-head')).toContainText('规则预审');
@@ -96,7 +96,7 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.locator('.review-print-only')).toContainText('建议核实的问题');
   await expect(page.locator('.work-deck')).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
   await expect(page.locator('.report-head')).toHaveCount(0);
   await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[1].name);
@@ -140,7 +140,7 @@ test('预审期间切换卷宗会丢弃旧响应', async ({ app: page, documents
   });
   await page.getByRole('button', { name: '开始预审' }).click();
   await intercepted;
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeEnabled();
   await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[1].name);
@@ -151,7 +151,7 @@ test('预审期间切换卷宗会丢弃旧响应', async ({ app: page, documents
 
 test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结果', async ({ app: page, documents }, testInfo) => {
   await navigate(page, '查重匹配');
-  await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await page.getByLabel('当前课题').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.match-deck .work-deck-head h3')).toHaveText('运行检查');
@@ -229,7 +229,7 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   expect(text).toContain(documents[0].name);
   expect(text).toContain('专家侧「沄州大学资源环境学院」');
   expect(text).toContain('相似度不等于抄袭');
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
   await expect(page.getByRole('button', { name: '导出结果' })).toBeDisabled();
   await expect(page.locator('.match-deck-excluded')).toHaveCount(0);
 });
@@ -237,7 +237,7 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
 test('匹配锁定文档，离页后旧请求不覆盖新本子结果', async ({ app: page, documents, context }) => {
   const oldResult = await (await context.request.post('/api/tool/check', { data: { doc_id: documents[0].id } })).json();
   await navigate(page, '查重匹配');
-  await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await page.getByLabel('当前课题').selectOption(documents[0].id);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   let intercepted!: () => void;
@@ -253,7 +253,7 @@ test('匹配锁定文档，离页后旧请求不覆盖新本子结果', async ({
   await expect(page.getByRole('button', { name: '检查中…' })).toBeDisabled();
   await navigate(page, '文档中心');
   await navigate(page, '查重匹配');
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-callout').last()).toContainText('独立测试研究院');
@@ -274,7 +274,7 @@ test('匹配请求失败后恢复，缺申报信息独立告警', async ({ app: 
   } });
   const doc = (await response.json()).document;
   await page.goto('/match');
-  await page.getByLabel('当前卷宗').selectOption(doc.id);
+  await page.getByLabel('当前课题').selectOption(doc.id);
   await page.route('**/api/tool/check', route => route.abort('failed'));
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await expect(page.locator('.error-panel')).toContainText('网络错误');
@@ -293,7 +293,7 @@ test('专家CSV导入、归一回避和模板下载', async ({ app: page, docume
   await expect(page.locator('.toast')).toContainText('已导入');
   await page.getByRole('tab', { name: '专家库', exact: true }).click();
   await expect(page.getByRole('row').filter({ hasText: 'E2E归一专家' })).toBeVisible();
-  await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await page.getByLabel('当前课题').selectOption(documents[0].id);
   await page.getByRole('tab', { name: '运行检查', exact: true }).click();
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await showExcludedExpert(page, 'E2E归一专家');
@@ -303,7 +303,7 @@ test('专家CSV导入、归一回避和模板下载', async ({ app: page, docume
 test('真实空专家库仍展示回避边界与可解释空态', async ({ app: page, documents, context }) => {
   expect((await context.request.delete('/api/experts/sample')).ok()).toBeTruthy();
   await page.goto('/match');
-  await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await page.getByLabel('当前课题').selectOption(documents[0].id);
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');

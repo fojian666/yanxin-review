@@ -5,6 +5,7 @@ import {
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { SYSTEM_NAME } from "../branding";
 import type { UserRole } from "../types";
 
 const DEMO_ACCOUNTS: {
@@ -51,7 +52,7 @@ export function LoginPage() {
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    document.title = "登录 · 研信智评";
+    document.title = `登录 · ${SYSTEM_NAME}`;
     // 小屏自动聚焦会把上方品牌区滚出视口，只在桌面端聚焦
     if (!window.matchMedia("(max-width: 680px)").matches) nameRef.current?.focus();
   }, []);
@@ -211,7 +212,7 @@ export function LoginPage() {
             <div className="login-domain">
               <MapPinned size={13} /> 自然资源 · 科研诚信 · 江苏
             </div>
-            <h1>研信智评</h1>
+            <h1>{SYSTEM_NAME}</h1>
             <p className="login-brand-sub">科研项目评审辅助工作台</p>
             <div className="login-features-head">
               <span>核心能力</span>

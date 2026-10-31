@@ -3,6 +3,7 @@ import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
+import { SYSTEM_NAME } from "../branding";
 import { visibleWorkspaceViews } from "../data/workspaceViews";
 import { SPRING } from "../motion";
 
@@ -117,11 +118,9 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
   return (
     <aside className="sidebar" id="site-nav" ref={asideRef} onDragStart={(event) => event.preventDefault()}>
       <div className="brand">
-        <Link className="brand-home" to="/welcome" title="返回欢迎页" aria-label="研信智评 · 返回工作台" onClick={() => onClose?.()}>
-          <div className="brand-mark" aria-hidden="true">研</div>
+        <Link className="brand-home" to="/welcome" title="返回工作台" aria-label={`${SYSTEM_NAME} · 返回工作台`} onClick={() => onClose?.()}>
           <div className="brand-text">
-            <div className="brand-name">研信智评</div>
-            <div className="brand-sub">科研诚信智能评审</div>
+            <div className="brand-name">{SYSTEM_NAME}</div>
           </div>
         </Link>
         <button
@@ -172,13 +171,7 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
         })}
       </nav>
 
-      <div className="sidebar-foot">
-        <div className="sidebar-note">
-          江苏省自然资源科研课题
-          <br />
-          首期原型 · 内网部署
-        </div>
-      </div>
+      <div className="sidebar-foot" aria-hidden="true" />
     </aside>
   );
 }

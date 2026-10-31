@@ -83,7 +83,7 @@ export function KeywordGraph() {
       <label><span>关键词数量</span><select className="select" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>{[10, 20, 50, 100, 200, 500].map((count) => <option key={count} value={count}>最多 {count} 个</option>)}</select></label>
     </div>
     </section>
-    {dossierId && <p className="keyword-scope-note">包含卷宗内所有版本的材料</p>}
+    {dossierId && <p className="keyword-scope-note">包含历史课题内所有版本的材料</p>}
     {error ? <div className="panel keyword-graph-message" role="alert">图谱读取失败：{error} <button type="button" className="link-btn" onClick={() => setRetry((n) => n + 1)}>重试</button></div> : loading || !data ? <div className="panel keyword-graph-message" role="status">正在整理文档关键词…</div> : !data.nodes.length ? <div className="panel keyword-graph-message">当前范围暂无可提取的关键词，请先添加可读取文本的文档。</div> : <>
     <div className="kg-compact-switch" role="group" aria-label="关键词图谱区域">
       <button type="button" aria-pressed={compactPane === "graph"} onClick={() => setCompactPane("graph")}>关键词星图</button>

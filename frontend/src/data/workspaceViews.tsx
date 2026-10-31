@@ -47,9 +47,16 @@ export interface WorkspaceView {
 
 export const WORKSPACE_VIEWS: WorkspaceView[] = [
   {
+    path: "/chat",
+    title: "智能问答",
+    description: "根据资料回答，可查看引用依据",
+    icon: MessageSquareText,
+    component: ChatPanel,
+  },
+  {
     path: "/dossiers",
-    title: "课题卷宗",
-    description: "归集申报材料并核对材料情况",
+    title: "历史课题",
+    description: "归档历史课题并核对材料情况",
     icon: FolderKanban,
     component: DossierPanel,
   },
@@ -68,13 +75,6 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     icon: Users,
     permission: "tool",
     component: MatchPanel,
-  },
-  {
-    path: "/chat",
-    title: "智能问答",
-    description: "根据资料回答，可查看引用依据",
-    icon: MessageSquareText,
-    component: ChatPanel,
   },
   {
     path: "/graph",

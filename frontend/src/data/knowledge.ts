@@ -45,7 +45,7 @@ const node = (
 ): KnowledgeNode => ({ id, name, category, desc, source, props });
 
 export const KNOWLEDGE_NODES: KnowledgeNode[] = [
-  node("root", "研信智评", "lifecycle", "以科研诚信为约束，把申报、评审、过程管理、成果转化和自然资源业务场景组织为可追溯的科研治理链。", "课题总论", {
+  node("root", "江苏省自然资源科研诚信智慧治理平台", "lifecycle", "以科研诚信为约束，把申报、评审、过程管理、成果转化和自然资源业务场景组织为可追溯的科研治理链。", "课题总论", {
     范式: "可信数据 + 规则约束 + 大模型辅助 + 人工复核",
     边界: "不打分、不排名、不替代专家结论",
   }),

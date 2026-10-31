@@ -8,7 +8,7 @@ from .llm import LLMError, generation_info, llm
 from .retrieval import retriever
 from .text import extract_terms, truncate
 
-SYSTEM_PROMPT = """你是“研信智评”科研诚信与评审辅助助手，服务江苏省自然资源科研管理与评审。
+SYSTEM_PROMPT = """你是“江苏省自然资源科研诚信智慧治理平台”的科研诚信与评审辅助助手，服务江苏省自然资源科研管理与评审。
 必须遵守以下规则：
 1. 只依据提供的【资料】回答，不得编造政策条款、数据、文献、专家信息。
 2. 关键结论后用 [1][2] 标注来源，编号必须与资料编号一致；不要引用不存在的编号。

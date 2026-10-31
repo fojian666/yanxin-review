@@ -51,7 +51,7 @@ test('@smoke 文档上传、索引、问答跳转、预审跳转与删除闭环'
   item = page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ });
   await item.click();
   await page.getByRole('button', { name: '发起预审', exact: true }).click();
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(/.+/);
+  await expect(page.getByLabel('当前课题')).toHaveValue(/.+/);
   await expect(page.locator('#workspace-document option:checked')).toHaveText('E2E上传闭环');
   await navigate(page, '文档中心');
   await page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ }).click();
@@ -174,24 +174,24 @@ test('清理演示数据保留自建文档、文献、专家与公开政策', as
 });
 
 test('工作台选择申报书并在预审、匹配、问答间保持上下文', async ({ app: page, documents }, testInfo) => {
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
   await page.screenshot({ path: testInfo.outputPath('workspace-desktop.png') });
   await page.locator('.nav').getByRole('link', { name: '项目预审', exact: true }).click();
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[1].id);
+  await expect(page.getByLabel('当前课题')).toHaveValue(documents[1].id);
   await navigate(page, '查重匹配');
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[1].id);
-  await page.getByLabel('当前卷宗').selectOption(documents[0].id);
+  await expect(page.getByLabel('当前课题')).toHaveValue(documents[1].id);
+  await page.getByLabel('当前课题').selectOption(documents[0].id);
   await navigate(page, '项目预审');
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[0].id);
+  await expect(page.getByLabel('当前课题')).toHaveValue(documents[0].id);
   await page.locator('.brand-home').click();
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[0].id);
+  await expect(page.getByLabel('当前课题')).toHaveValue(documents[0].id);
   await page.locator('.nav').getByRole('link', { name: '智能问答', exact: true }).click();
   await expect(page.locator('.scope-btn')).toContainText(documents[0].name);
   await navigate(page, '文档中心');
   await page.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: '政策' }) }).getByRole('button').first().click();
   await page.getByRole('button', { name: '文档问答', exact: true }).click();
   await page.locator('.brand-home').click();
-  await expect(page.getByLabel('当前卷宗')).toHaveValue(documents[0].id);
+  await expect(page.getByLabel('当前课题')).toHaveValue(documents[0].id);
 });
 
 test('文档中心名称筛选不改变实际数据', async ({ app: page, documents }) => {
@@ -209,20 +209,20 @@ test('访客从工作台进入问答时使用选定申报书', async ({ app: pag
   const login = await context.request.post('/api/auth/login', { data: { username: 'viewer', password: 'yanxin2026' } });
   expect(login.ok()).toBeTruthy();
   await page.reload();
-  await page.getByLabel('当前卷宗').selectOption(documents[1].id);
-  await page.getByRole('link', { name: /用此卷宗提问/ }).click();
+  await page.getByLabel('当前课题').selectOption(documents[1].id);
+  await page.getByRole('link', { name: /用当前课题提问/ }).click();
   await expect(page.locator('.scope-btn')).toContainText(documents[1].name);
   await navigate(page, '文档中心');
   await expect(page.getByRole('button', { name: '发起预审', exact: true })).toHaveCount(0);
 });
 
-test('清空当前卷宗后预审与查重不可运行', async ({ app: page, documents }) => {
-  await page.getByLabel('当前卷宗').selectOption(documents[0].id);
-  await page.getByLabel('当前卷宗').selectOption('');
+test('清空当前历史课题后预审与查重不可运行', async ({ app: page, documents }) => {
+  await page.getByLabel('当前课题').selectOption(documents[0].id);
+  await page.getByLabel('当前课题').selectOption('');
   await navigate(page, '项目预审');
-  await expect(page.getByLabel('当前卷宗')).toHaveValue('');
+  await expect(page.getByLabel('当前课题')).toHaveValue('');
   await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
   await navigate(page, '查重匹配');
-  await expect(page.getByLabel('当前卷宗')).toHaveValue('');
+  await expect(page.getByLabel('当前课题')).toHaveValue('');
   await expect(page.getByRole('button', { name: '运行一体化检查' })).toBeDisabled();
 });

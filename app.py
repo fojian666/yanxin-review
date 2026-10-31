@@ -110,7 +110,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="研信智评 API",
+    title="江苏省自然资源科研诚信智慧治理平台 API",
     version="0.3.0",
     description="科研诚信 RAG 智能评审助手：问答、预审、文献趋势",
     lifespan=lifespan,

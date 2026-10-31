@@ -19,6 +19,7 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import { locationText, streamChat } from "../api";
 import { useApp } from "../AppContext";
+import { SYSTEM_NAME } from "../branding";
 import { generationLabel } from "../generation";
 import { ChatModelControls } from "../components/ChatModelControls";
 import { CitationTrace, type CitationSelection } from "../components/CitationTrace";
@@ -472,7 +473,7 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (ind
       <div className="msg-avatar">{message.role === "user" ? "我" : "AI"}</div>
       <div className="msg-body">
         <div className="msg-meta">
-          <span>{message.role === "user" ? "你" : "研信智评"}</span>
+          <span>{message.role === "user" ? "你" : SYSTEM_NAME}</span>
           <span>{message.time ?? now()}</span>
           {message.role === "assistant" && (
             <span className="generation-source">{message.streaming ? (message.generation ? `${generationLabel(message.generation)} · 生成中…` : "生成中…") : generationLabel(message.generation)}</span>
