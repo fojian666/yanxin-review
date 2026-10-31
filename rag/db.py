@@ -368,12 +368,17 @@ def attach_dossier_document(
             "SELECT id FROM dossiers WHERE id = ?", (dossier_id,)
         ).fetchone()
         document = conn.execute(
-            "SELECT id FROM documents WHERE id = ?", (doc_id,)
+            "SELECT id, kind FROM documents WHERE id = ?", (doc_id,)
         ).fetchone()
         if not dossier:
             raise KeyError("dossier")
         if not document:
             raise KeyError("document")
+        # Lazy import avoids the db <-> dossiers module cycle while keeping the
+        # database write path safe even if a future caller bypasses the API.
+        from .dossiers import validate_attachment
+
+        validate_attachment(role, document["kind"])
         existing = conn.execute(
             """
             SELECT role FROM dossier_documents

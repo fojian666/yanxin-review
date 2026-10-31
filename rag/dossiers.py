@@ -101,6 +101,15 @@ MATERIAL_ROLES = {
     },
 }
 
+ROLE_ALLOWED_DOCUMENT_KINDS = {
+    "proposal_text": {"proposal", "other"},
+    "signed_proposal": {"proposal", "other"},
+    "paper": {"paper", "other"},
+    "achievement_report": {"paper", "other"},
+    "advisory_note": {"paper", "other"},
+    "other": {"proposal", "paper", "policy", "guide", "other"},
+}
+
 DISCLAIMER = (
     "卷宗体检只核对本地已收录材料、材料角色、版本、人工确认状态与可读取文本线索，"
     "不验证公章和签字真实性，不替代主管部门受理、评审、立项、验收或结题结论。"
@@ -139,6 +148,13 @@ def validate(values: dict[str, Any]) -> None:
     role = values.get("role")
     if role is not None and role not in MATERIAL_ROLES:
         raise ValueError("材料角色无效")
+
+
+def validate_attachment(role: str, document_kind: str) -> None:
+    validate({"role": role})
+    allowed = ROLE_ALLOWED_DOCUMENT_KINDS.get(role, {"other"})
+    if document_kind not in allowed:
+        raise ValueError("文档类型与材料角色不匹配")
 
 
 def dossier_summary(dossier: dict[str, Any]) -> dict[str, Any]:

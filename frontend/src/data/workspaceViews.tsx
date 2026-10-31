@@ -51,7 +51,6 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     title: "课题卷宗",
     description: "归集申报材料并核对材料情况",
     icon: FolderKanban,
-    permission: "review",
     component: DossierPanel,
   },
   {

@@ -485,6 +485,8 @@ def attach_dossier_document(
         material = db.attach_dossier_document(
             dossier_id, payload.doc_id, payload.role
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
         message = "卷宗不存在" if exc.args[0] == "dossier" else "文档不存在"
         raise HTTPException(status_code=404, detail=message) from exc

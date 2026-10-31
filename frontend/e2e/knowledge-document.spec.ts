@@ -151,12 +151,27 @@ test('文档二级分类按卷宗角色展示，跨卷宗同角色不重复', as
   const listed = await (await context.request.get('/api/documents')).json();
   const policy = listed.documents.find((doc: { kind: string }) => doc.kind === 'policy');
   expect(policy).toBeTruthy();
+  const pledgeResponse = await context.request.post('/api/documents', { multipart: {
+    file: { name: '科研诚信承诺书.txt', mimeType: 'text/plain', buffer: Buffer.from('科研诚信承诺书\n本单位承诺依法依规开展科研活动。') },
+    kind: 'auto',
+    title: '分类诚信承诺书',
+  } });
+  expect(pledgeResponse.ok()).toBeTruthy();
+  const pledge = (await pledgeResponse.json()).document;
+  const contractResponse = await context.request.post('/api/documents', { multipart: {
+    file: { name: '课题合同.txt', mimeType: 'text/plain', buffer: Buffer.from('课题合同\n合同双方约定研究任务与交付成果。') },
+    kind: 'auto',
+    title: '分类合同',
+  } });
+  expect(contractResponse.ok()).toBeTruthy();
+  const contractDoc = (await contractResponse.json()).document;
   for (const [name, role] of [['分类测试甲', 'integrity_pledge'], ['分类测试乙', 'integrity_pledge'], ['分类测试丙', 'contract']]) {
     const created = await context.request.post('/api/dossiers', { data: { name } });
     expect(created.ok()).toBeTruthy();
     const { dossier } = await created.json();
+    const attachment = role === 'contract' ? contractDoc : pledge;
     const attached = await context.request.post(`/api/dossiers/${dossier.id}/documents`, {
-      data: { doc_id: documents[0].id, role },
+      data: { doc_id: attachment.id, role },
     });
     expect(attached.ok()).toBeTruthy();
     if (name === '分类测试甲') {
@@ -168,9 +183,9 @@ test('文档二级分类按卷宗角色展示，跨卷宗同角色不重复', as
   const directory = page.locator('.document-directory');
   await expect(directory.getByRole('heading', { name: '课题材料', exact: true })).toBeVisible();
   await expect(directory.getByRole('heading', { name: '公共与参考资料', exact: true })).toBeVisible();
-  for (const role of ['诚信承诺书', '合同']) {
+  for (const [role, name] of [['诚信承诺书', pledge.name], ['合同', contractDoc.name]]) {
     const group = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: new RegExp(`^${role}\\s`) }) });
-    await expect(group.getByRole('button', { name: new RegExp(documents[0].name) })).toHaveCount(1);
+    await expect(group.getByRole('button', { name: new RegExp(name) })).toHaveCount(1);
   }
   const proposalGroup = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^申请书\s/ }) });
   await expect(proposalGroup.getByRole('button', { name: new RegExp(documents[1].name) })).toBeVisible();
@@ -181,12 +196,12 @@ test('文档二级分类按卷宗角色展示，跨卷宗同角色不重复', as
   await projectCategory.locator(':scope > summary').click();
   await expect(projectCategory.locator('.document-directory-group').first()).toBeHidden();
   await projectCategory.locator(':scope > summary').click();
-  const contract = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) });
-  await contract.locator('summary').click();
-  await expect(contract.getByRole('button', { name: new RegExp(documents[0].name) })).toBeHidden();
+  const contractGroup = directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) });
+  await contractGroup.locator('summary').click();
+  await expect(contractGroup.getByRole('button', { name: new RegExp(contractDoc.name) })).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath('document-categories.png') });
-  await directory.getByLabel('筛选文档').fill(documents[0].name);
-  await expect(directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) }).getByRole('button', { name: new RegExp(documents[0].name) })).toBeVisible();
+  await directory.getByLabel('筛选文档').fill(contractDoc.name);
+  await expect(directory.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: /^合同\s/ }) }).getByRole('button', { name: new RegExp(contractDoc.name) })).toBeVisible();
   await expect(directory.getByRole('button', { name: new RegExp(documents[1].name) })).toHaveCount(0);
 });
 

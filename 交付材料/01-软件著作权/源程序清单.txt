@@ -1,14 +1,14 @@
 源程序清单（首期原型 V2.0）
 
 后端（Python）
-    962 app.py
+    964 app.py
       1 rag/__init__.py
     207 rag/auth.py
     287 rag/config.py
     272 rag/corpus.py
-    739 rag/db.py
+    744 rag/db.py
     293 rag/demo_proposals.py
-    430 rag/dossiers.py
+    446 rag/dossiers.py
     362 rag/embeddings.py
     364 rag/experts.py
      33 rag/ingest.py
@@ -22,7 +22,7 @@
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   6665 total
+   6688 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     356 frontend/src/AppContext.tsx
@@ -49,7 +49,7 @@
      30 frontend/src/components/WorkspaceRouteLoader.tsx
     421 frontend/src/data/knowledge.ts
      59 frontend/src/data/proposalWorkflow.ts
-    113 frontend/src/data/workspaceViews.tsx
+    112 frontend/src/data/workspaceViews.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
      11 frontend/src/main.tsx
@@ -68,18 +68,18 @@
      44 frontend/src/theme.ts
     598 frontend/src/themes.css
     393 frontend/src/types.ts
-  16504 total
+  16503 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
      23 tests/test_docs.py
-    317 tests/test_dossiers.py
+    369 tests/test_dossiers.py
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
     445 tests/test_llm_provider.py
     401 tests/test_retrieval_embedding.py
    1114 tests/test_robustness.py
-   2780 total
+   2832 total
 工具（Python）
     205 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -87,13 +87,13 @@
     174 tools/soft_copyright.py
    1007 total
 浏览器回归（TypeScript/Python）
-    113 frontend/e2e/auth.spec.ts
+    116 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
     301 frontend/e2e/chat-trend.spec.ts
     265 frontend/e2e/dossier.spec.ts
     143 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    244 frontend/e2e/knowledge-document.spec.ts
+    259 frontend/e2e/knowledge-document.spec.ts
     202 frontend/e2e/library.spec.ts
     173 frontend/e2e/mobile.spec.ts
     362 frontend/e2e/review-match.spec.ts
@@ -104,9 +104,9 @@
     151 frontend/e2e/workspace-sizing.spec.ts
     101 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3135 total
+   3153 total
 合计
-  30091 total（95 个文件）
+  30183 total（95 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

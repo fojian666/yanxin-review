@@ -12,12 +12,18 @@ def _setup(tmp_path, monkeypatch):
     db.init_db()
 
 
-def _document(doc_id: str, name: str, text: str, suffix: str = ".docx") -> None:
+def _document(
+    doc_id: str,
+    name: str,
+    text: str,
+    suffix: str = ".docx",
+    kind: str = "proposal",
+) -> None:
     db.insert_document(
         {
             "id": doc_id,
             "name": name,
-            "kind": "proposal",
+            "kind": kind,
             "year": 2026,
             "source": "upload",
             "path": f"/private/local/{doc_id}{suffix}",
@@ -62,6 +68,26 @@ def test_attach_same_role_creates_new_current_version(tmp_path, monkeypatch):
     old = next(item for item in materials if item["doc_id"] == "v1")
     assert old["is_current"] is False
     assert {item["doc_id"] for item in materials} == {"v1", "v2"}
+
+
+def test_attach_rejects_unknown_role_and_mismatched_document_kind(
+    tmp_path, monkeypatch
+):
+    _setup(tmp_path, monkeypatch)
+    dossier = _dossier()
+    _document("proposal", "申请书", "研究内容", kind="proposal")
+    _document("pledge", "科研诚信承诺书", "承诺内容", kind="other")
+
+    with pytest.raises(ValueError, match="材料角色无效"):
+        db.attach_dossier_document(dossier["id"], "pledge", "typo_role")
+    with pytest.raises(ValueError, match="文档类型与材料角色不匹配"):
+        db.attach_dossier_document(
+            dossier["id"], "proposal", "integrity_pledge"
+        )
+    attached = db.attach_dossier_document(
+        dossier["id"], "pledge", "integrity_pledge"
+    )
+    assert attached["role"] == "integrity_pledge"
 
 
 def test_switching_current_version_keeps_history(tmp_path, monkeypatch):
@@ -273,6 +299,7 @@ def test_dossier_api_permissions_and_contract(tmp_path, monkeypatch):
             json={"username": "viewer1", "password": "secret1"},
         ).status_code == 200
         assert client.get("/api/dossiers/options").status_code == 200
+        assert client.get("/api/dossiers").status_code == 200
         assert client.post(
             "/api/dossiers",
             json={
@@ -303,6 +330,7 @@ def test_dossier_api_permissions_and_contract(tmp_path, monkeypatch):
         dossier_id = created.json()["dossier"]["id"]
         _document("graph-in", "卷内材料", "耕地监测 资源治理 生态评估")
         _document("graph-out", "卷外材料", "海岸侵蚀 潮汐观测 环境保护")
+        _document("pledge-api", "科研诚信承诺书", "承诺内容", kind="other")
         db.attach_dossier_document(dossier_id, "graph-in", "proposal_text")
         graph = client.get("/api/knowledge/keywords", params={"limit": 20, "dossier_id": dossier_id})
         assert graph.status_code == 200 and graph.json()["limit"] == 20
@@ -315,3 +343,27 @@ def test_dossier_api_permissions_and_contract(tmp_path, monkeypatch):
             f"/api/dossiers/{dossier_id}",
             json={"name": None},
         ).status_code == 400
+        assert client.post(
+            f"/api/dossiers/{dossier_id}/documents",
+            json={"doc_id": "pledge-api", "role": "typo_role"},
+        ).status_code == 400
+        assert client.post(
+            f"/api/dossiers/{dossier_id}/documents",
+            json={"doc_id": "graph-in", "role": "integrity_pledge"},
+        ).status_code == 400
+        assert client.post(
+            f"/api/dossiers/{dossier_id}/documents",
+            json={"doc_id": "pledge-api", "role": "integrity_pledge"},
+        ).status_code == 200
+        client.post("/api/auth/logout")
+        assert client.post(
+            "/api/auth/login",
+            json={"username": "viewer1", "password": "secret1"},
+        ).status_code == 200
+        assert client.get("/api/dossiers").status_code == 200
+        assert client.get(f"/api/dossiers/{dossier_id}").status_code == 200
+        assert client.get(f"/api/dossiers/{dossier_id}/checklist").status_code == 200
+        assert client.post(
+            f"/api/dossiers/{dossier_id}/documents",
+            json={"doc_id": "graph-out", "role": "other"},
+        ).status_code == 403
