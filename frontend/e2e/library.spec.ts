@@ -112,13 +112,39 @@ test('空文档中心提示可操作，预审及匹配禁用运行', async ({ ap
   await navigate(page, '文档中心');
   await expect(page.getByText('尚无文档', { exact: true })).toBeVisible();
   await navigate(page, '项目预审');
-  await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
+  const disabledReview = page.getByRole('button', { name: '开始预审' });
+  await expect(disabledReview).toBeDisabled();
+  await disabledReview.hover();
+  await expect(disabledReview).toHaveCSS('cursor', 'not-allowed');
+  await expect(disabledReview).toHaveCSS('transform', 'none');
+  await expect(disabledReview).toHaveCSS('box-shadow', 'none');
   await navigate(page, '查重匹配');
   await expect(page.getByRole('button', { name: '运行一体化检查' })).toBeDisabled();
   await navigate(page, '智能问答');
   await page.locator('textarea').fill('测试');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+test('失效深链与不支持预审的文档不会被悄悄换成其他文件', async ({ app: page, context }) => {
+  const missingId = 'missing-evidence-document';
+  await page.goto(`/library?doc=${missingId}`);
+  await expect(page).toHaveURL(new RegExp(`doc=${missingId}$`));
+  await expect(page.getByText('未找到该文档，可能已被删除或无权访问。', { exact: true })).toBeVisible();
+  await expect(page.locator('.document-reader-head')).toHaveCount(0);
+
+  const listed = await (await context.request.get('/api/documents')).json();
+  const policy = listed.documents.find((doc: { kind: string }) => doc.kind === 'policy');
+  expect(policy).toBeTruthy();
+  await page.goto(`/library?doc=${policy.id}`);
+  await expect(page.locator('.document-reader-head')).toContainText(policy.name);
+  await expect(page.getByRole('button', { name: '文档问答', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '发起预审', exact: true })).toHaveCount(0);
+
+  await page.goto(`/review?doc=${policy.id}`);
+  await expect(page.getByRole('alert')).toContainText('所选文档类型不支持项目预审');
+  await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
+  await expect(page.locator('.report-head')).toHaveCount(0);
 });
 
 test('清理演示数据保留自建文档、文献、专家与公开政策', async ({ app: page, documents, context }) => {

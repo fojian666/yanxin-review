@@ -79,7 +79,8 @@ export function LibraryPage() {
   const requestedPaper = papers.find((paper) => paper.id === requestedPaperId);
   const contextDoc = orderedDocs.find((doc) => doc.id === activeDocId);
   const uploadedDoc = orderedDocs.find((doc) => doc.id === uploadedDocId);
-  const selected = uploadedDoc ?? requestedDoc ?? contextDoc ?? orderedDocs[0] ?? null;
+  const requestedMissing = Boolean(requestedId) && !loading && !requestedDoc;
+  const selected = requestedMissing ? null : uploadedDoc ?? requestedDoc ?? contextDoc ?? orderedDocs[0] ?? null;
   const selectedIndex = selected ? orderedDocs.findIndex((doc) => doc.id === selected.id) : -1;
   const previous = selectedIndex > 0 ? orderedDocs[selectedIndex - 1] : null;
   const next = selectedIndex >= 0 && selectedIndex < orderedDocs.length - 1 ? orderedDocs[selectedIndex + 1] : null;
@@ -103,15 +104,6 @@ export function LibraryPage() {
     }
     targetPaperRow.current?.scrollIntoView({ block: "center" });
   }, [libraryView, loading, params, requestedPaper, requestedPaperId, setParams]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (requestedId && (!orderedDocs.length || !requestedDoc)) {
-      const nextParams = new URLSearchParams(params);
-      nextParams.delete("doc");
-      setParams(nextParams, { replace: true });
-    }
-  }, [loading, orderedDocs.length, params, requestedDoc, requestedId, setParams]);
 
   useEffect(() => {
     if (uploadedDoc) {
@@ -357,6 +349,7 @@ export function LibraryPage() {
           canReview={can("review")}
           canDelete={can("delete-doc")}
           deleting={deletingId === selected?.id}
+          missingMessage={requestedMissing ? "未找到该文档，可能已被删除或无权访问。" : undefined}
           readerRef={readerRef}
           onNavigate={chooseDocument}
           onAsk={openForChat}

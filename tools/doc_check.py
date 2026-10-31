@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -73,9 +75,61 @@ def _normalize(path: str) -> str:
 
 def routes() -> list[tuple[str, str]]:
     src = _read("app.py")
-    found = re.findall(r'@app\.(get|post|put|delete|patch)\("([^"]+)"', src)
+    found: list[tuple[str, str]] = []
+    for node in ast.walk(ast.parse(src)):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if (
+                isinstance(decorator, ast.Call)
+                and isinstance(decorator.func, ast.Attribute)
+                and isinstance(decorator.func.value, ast.Name)
+                and decorator.func.value.id == "app"
+                and decorator.func.attr in {"get", "post", "put", "delete", "patch"}
+                and decorator.args
+                and isinstance(decorator.args[0], ast.Constant)
+                and isinstance(decorator.args[0].value, str)
+            ):
+                found.append((decorator.func.attr.upper(), decorator.args[0].value))
     # 同一路径的 GET/POST 是两条路由，不能按路径去重
     return sorted({(method.upper(), path) for method, path in found if path.startswith("/api")})
+
+
+def pytest_parameter_count() -> int | None:
+    env = {**os.environ, "PYTEST_ADDOPTS": ""}
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "--collect-only", "-q"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    match = re.search(r"(\d+) tests collected", result.stdout + result.stderr)
+    return int(match.group(1)) if match else None
+
+
+def playwright_count() -> int | None:
+    executable = ROOT / "frontend" / "node_modules" / ".bin" / "playwright"
+    if not executable.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [str(executable), "test", "--list"],
+            cwd=ROOT / "frontend",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    match = re.search(r"Total:\s*(\d+) tests", result.stdout + result.stderr)
+    return int(match.group(1)) if match else None
 
 
 def modules() -> list[str]:
@@ -109,16 +163,42 @@ def check_verbose(enabled: bool) -> list[tuple[str, str]]:
             print(f"  [通过] {msg}")
 
     # 1) 测试数量
-    actual_tests = test_count()
-    mentioned: dict[str, list[int]] = {}
+    actual_functions = test_count()
+    actual_tests = pytest_parameter_count()
+    actual_e2e = playwright_count()
+    mentioned: list[tuple[str, str, int]] = []
     for rel, text in texts.items():
-        for match in re.finditer(r"(?:回归测试|pytest[^0-9]{0,12})\s*(\d+)\s*项", text):
-            mentioned.setdefault(rel, []).append(int(match.group(1)))
-    for rel, values in mentioned.items():
-        for value in values:
-            if value != actual_tests:
-                problems.append((rel, f"写的是 {value} 项测试，实际 {actual_tests} 项"))
-    ok(f"测试数量一致（{actual_tests} 项，{len(mentioned)} 处提及）")
+        for match in re.finditer(r"(\d+)\s*个测试函数", text):
+            mentioned.append((rel, "测试函数", int(match.group(1))))
+        for match in re.finditer(r"参数化展开\s*(\d+)\s*项", text):
+            mentioned.append((rel, "pytest 参数化展开", int(match.group(1))))
+        for match in re.finditer(r"(\d+)\s*项浏览器回归", text):
+            mentioned.append((rel, "浏览器回归", int(match.group(1))))
+        for match in re.finditer(r"(\d+)\s*个\s*Playwright\s*用例", text):
+            mentioned.append((rel, "浏览器回归", int(match.group(1))))
+    expected = {
+        "测试函数": actual_functions,
+        "pytest 参数化展开": actual_tests,
+        "浏览器回归": actual_e2e,
+    }
+    if actual_tests is None:
+        problems.append(("tests/", "无法通过 pytest --collect-only 获取实际用例数"))
+    if actual_e2e is None:
+        problems.append(("frontend/e2e/", "无法通过 Playwright --list 获取实际用例数"))
+    for kind, value in expected.items():
+        kind_mentions = [(rel, number) for rel, mention_kind, number in mentioned if mention_kind == kind]
+        if not kind_mentions:
+            problems.append(("项目文档", f"未检测到任何 {kind} 数量声明"))
+            continue
+        if value is None:
+            continue
+        for rel, number in kind_mentions:
+            if number != value:
+                problems.append((rel, f"写的是 {number} {kind}，实际 {value}"))
+    ok(
+        f"测试数量一致（{actual_functions} 个测试函数 / {actual_tests} 项参数化 / "
+        f"{actual_e2e} 项浏览器回归，{len(mentioned)} 处提及）"
+    )
 
     # 2) 接口清单：路径归一后逐个比，前缀相同不算覆盖
     api = routes()
@@ -171,6 +251,28 @@ def check_verbose(enabled: bool) -> list[tuple[str, str]]:
         problems.append(
             ("交付材料/01-软件著作权/源代码说明.md",
              f"合计写 {hit.group(1)} 个文件 / {hit.group(2)} 行，实际 {total_files} 个 / {total_lines:,} 行")
+        )
+    actual_lines = {
+        path: lines for _, items in soft_copyright.collect() for path, lines in items
+    }
+    for path, written in re.findall(r"\| `([^`]+)` \| ([\d,]+) \|", table):
+        if path in actual_lines and int(written.replace(",", "")) != actual_lines[path]:
+            problems.append(
+                (
+                    "交付材料/01-软件著作权/源代码说明.md",
+                    f"{path} 写 {written} 行，实际 {actual_lines[path]:,} 行",
+                )
+            )
+    application = _read("交付材料/01-软件著作权/申请信息表.md")
+    application_hit = re.search(r"\| 源程序量 \| ([\d,]+) 行", application)
+    if not application_hit:
+        problems.append(("交付材料/01-软件著作权/申请信息表.md", "找不到源程序量"))
+    elif int(application_hit.group(1).replace(",", "")) != total_lines:
+        problems.append(
+            (
+                "交付材料/01-软件著作权/申请信息表.md",
+                f"源程序量写 {application_hit.group(1)} 行，实际 {total_lines:,} 行",
+            )
         )
     ok(f"软著材料自洽（{total_files} 个文件 / {total_lines:,} 行，{soft_copyright.SOFTWARE_VERSION}）")
 

@@ -221,6 +221,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .btn-primary:hover { filter: brightness(1.07); transform: translateY(-1px); }
 .btn-primary:disabled { opacity: .55; transform: none; cursor: not-allowed; }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-ghost { color: var(--ink-2); border-color: var(--line); background: rgba(255,253,248,.55); }
 .btn-ghost:hover { border-color: var(--line-strong); background: #fffdf8; }
 /* 清除类操作（移除演示数据/文档）统一用危险色，与普通次级按钮区分 */
@@ -791,6 +792,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 /* ---------- unified motion layer ---------- */
 .page { min-height: 60vh; }
 :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.topbar :focus-visible { outline-color: #fff; }
+:root:is([data-theme="paper"], [data-theme="aurora"]) .sidebar :focus-visible { outline-color: #fff; }
+:root:is([data-theme="blue"], [data-theme="mono"]) .sidebar :focus-visible { outline-color: var(--teal); }
 :focus:not(:focus-visible) { outline: none; }
 main:focus { outline: none; }
 input::placeholder, textarea::placeholder { color: var(--muted-2); opacity: 1; }
@@ -1047,6 +1051,12 @@ a, img, svg, canvas,
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(14, 124, 107, .26); }
 .btn-ghost:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16, 36, 46, .08); }
+.btn:disabled, .btn:disabled:hover {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 .chip:hover:not(.active) { transform: translateY(-1px); background: #fffdf8; }
 .chip.active:hover { transform: translateY(-1px); }
 .table-btn { border-radius: 4px; transition: background .2s ease, color .2s ease, transform .2s ease; }

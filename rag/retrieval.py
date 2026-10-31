@@ -110,13 +110,25 @@ class Retriever:
     def _score_embedding(self, query: str) -> np.ndarray | None:
         """向量余弦；失败则熔断（本次索引不再尝试），交给 TF-IDF。"""
         try:
-            vector = embedder.embed([query[:1500]], cache=False)[0]
+            vector = np.asarray(
+                embedder.embed([query[:1500]], cache=False)[0], dtype=np.float32
+            )
+            matrix = self.embed_matrix
+            if (
+                matrix is None
+                or matrix.ndim != 2
+                or vector.ndim != 1
+                or matrix.shape[1] != vector.shape[0]
+            ):
+                raise ValueError(
+                    f"向量维度不一致：索引 {getattr(matrix, 'shape', None)}，查询 {vector.shape}"
+                )
+            return matrix @ vector
         except Exception as exc:
             log.warning("查询向量化失败，本索引改用 TF-IDF：%s", exc)
             self.embed_matrix = None
             self.embed_model = ""
             return None
-        return self.embed_matrix @ vector.astype(np.float32)
 
     def _score_tfidf(self, query: str) -> np.ndarray:
         q_vec = self.vectorizer.transform([query[:1500]])

@@ -41,6 +41,27 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
       });
       expect(sidebarLook.background, '蓝白主题侧栏应为白色').toBe('rgb(255, 255, 255)');
       expect(sidebarLook.inactiveColor, '蓝白主题导航不应继续使用浅色文字').not.toBe('rgb(233, 242, 239)');
+      const mutedContrast = await page.evaluate(() => {
+        const parse = (value: string) => {
+          let hex = value.trim().replace('#', '');
+          if (hex.length === 3) hex = [...hex].map(channel => channel.repeat(2)).join('');
+          return [0, 2, 4].map(offset => Number.parseInt(hex.slice(offset, offset + 2), 16));
+        };
+        const luminance = (rgb: number[]) => {
+          const values = rgb.map(channel => {
+            const value = channel / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+          });
+          return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+        };
+        const root = getComputedStyle(document.documentElement);
+        const foreground = luminance(parse(root.getPropertyValue('--muted-2')));
+        return ['--bg', '--panel', '--panel-2'].map(token => {
+          const background = luminance(parse(root.getPropertyValue(token)));
+          return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+        });
+      });
+      expect(Math.min(...mutedContrast), '蓝白主题 12px 辅助文字对比度不足').toBeGreaterThanOrEqual(4.5);
     }
     for (const route of routes) {
       await page.goto(route);
@@ -52,6 +73,11 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
         '/library': '.document-reader', '/admin': '.admin-deck',
       };
       if (selectors[route]) await expect(page.locator(selectors[route]).first()).toBeVisible();
+      if (route === '/welcome') {
+        const userTrigger = page.locator('.user-trigger');
+        await userTrigger.focus();
+        await expect(userTrigger).toHaveCSS('outline-color', 'rgb(255, 255, 255)');
+      }
       const headingSelectors: Record<string, string> = {
         '/welcome': '.welcome-greeting-row h2',
         '/dossiers': '.dossier-workbench-head h2',

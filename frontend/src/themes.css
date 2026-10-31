@@ -17,7 +17,7 @@
 }
 :root[data-theme="blue"] {
   --bg: #f2f8fd; --panel: #fff; --panel-2: #f4f9fd;
-  --ink: #123149; --ink-2: #234b67; --muted: #587284; --muted-2: #687f8f;
+  --ink: #123149; --ink-2: #234b67; --muted: #587284; --muted-2: #5b7384;
   --line: #d5e4ef; --line-strong: #acc9dc;
   --teal: #1d75a8; --teal-deep: #15577f; --teal-soft: #e3f2fb;
   --gold: #a47c3b; --gold-soft: #f4ecd9;

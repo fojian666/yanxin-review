@@ -352,6 +352,22 @@ def test_score_floor_differs_by_backend(seeded_db, monkeypatch):
     assert retriever.score_floor == 0.0
 
 
+def test_query_dimension_drift_trips_embedding_breaker(seeded_db, monkeypatch):
+    import rag.retrieval as retrieval
+
+    class ThreeDimEmbedder(FakeEmbedder):
+        def embed(self, texts, cache: bool = True):
+            return np.ones((len(texts), 3), dtype=np.float32)
+
+    monkeypatch.setattr(retrieval, "embedder", ThreeDimEmbedder())
+    retriever = Retriever()
+    retriever.rebuild()
+    assert retriever.embed_matrix.shape == (len(CHUNKS), 3)
+    retriever.embed_matrix = np.ones((len(CHUNKS), 2), dtype=np.float32)
+    assert retriever._score_embedding("任意问题") is None
+    assert retriever.uses_embedding is False
+
+
 def test_policy_threshold_follows_backend(monkeypatch):
     """两种分值的尺度不同，阈值必须跟着后端走。"""
     from types import SimpleNamespace

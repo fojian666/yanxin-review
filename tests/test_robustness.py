@@ -717,6 +717,7 @@ def test_login_rate_limited_after_repeated_failures(tmp_path, monkeypatch):
     _tmp_db(tmp_path, monkeypatch)
     from rag import auth
     monkeypatch.setattr(auth, "_login_failures", {})
+    monkeypatch.setattr(auth, "_login_ip_failures", {})
     auth.create_user("admin", "yanxin2026", "admin")
     request = _login_request("10.0.0.9")
     for _ in range(auth.LOGIN_MAX_FAILURES):
@@ -766,6 +767,88 @@ def test_login_throttle_key_is_fixed_length():
     assert long_key != auth._login_key("A" * 100_000, "10.0.0.2")
     assert auth._login_key("Admin", "10.0.0.1") == auth._login_key("admin", "10.0.0.1")
     assert auth._login_key("\ud800x", "10.0.0.1")  # 孤立代理项也不能抛异常
+
+
+def test_login_ip_bucket_prevents_random_username_eviction(monkeypatch):
+    from rag import auth
+
+    monkeypatch.setattr(auth, "_login_failures", {})
+    monkeypatch.setattr(auth, "_login_ip_failures", {})
+    client = "203.0.113.7"
+    for index in range(auth.LOGIN_IP_MAX_FAILURES):
+        auth.record_login_failure(f"random-{index}", client)
+    assert auth.login_allowed("victim", client) is False
+    assert auth.login_allowed("victim", "203.0.113.8") is True
+
+
+def test_login_large_body_rejected_without_echo(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+    from starlette.testclient import TestClient
+
+    with TestClient(app_module.app) as client:
+        response = client.post(
+            "/api/auth/login",
+            json={"username": "x" * 200_000, "password": "secret1"},
+        )
+    assert response.status_code == 413
+    assert "x" * 1000 not in response.text
+
+
+def test_login_body_limit_counts_actual_bytes_without_content_length(tmp_path, monkeypatch):
+    """省略 Content-Length 的分块请求也必须在接收过程中被截断。"""
+    import asyncio
+
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+
+    async def exercise():
+        chunks = [
+            {"type": "http.request", "body": b"x" * (8 * 1024), "more_body": True},
+            {"type": "http.request", "body": b"x" * (9 * 1024), "more_body": False},
+        ]
+        sent: list[dict] = []
+
+        async def receive():
+            return chunks.pop(0)
+
+        async def send(message):
+            sent.append(message)
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/api/auth/login",
+            "raw_path": b"/api/auth/login",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"content-type", b"application/json")],
+            "client": ("127.0.0.1", 50000),
+            "server": ("127.0.0.1", 8010),
+        }
+        await app_module.app(scope, receive, send)
+        return sent
+
+    sent = asyncio.run(exercise())
+    assert sent[0]["type"] == "http.response.start"
+    assert sent[0]["status"] == 413
+    assert all(b"x" * 100 not in message.get("body", b"") for message in sent)
+
+
+def test_ingest_rejects_large_unauthenticated_body_before_parsing(monkeypatch):
+    monkeypatch.setattr(config, "INGEST_TOKEN", "expected")
+    from starlette.testclient import TestClient
+
+    with TestClient(app_module.app) as client:
+        response = client.post(
+            "/api/ingest/papers",
+            content=b"x" * (3 * 1024 * 1024),
+            headers={"Content-Type": "application/json", "X-INGEST-Token": "wrong"},
+        )
+    assert response.status_code == 403
 
 
 def test_cookie_secure_flag_follows_config(tmp_path, monkeypatch):

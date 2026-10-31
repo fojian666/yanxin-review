@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +33,72 @@ from rag.text import chunk_document, extract_keywords, extract_year, guess_title
 
 DIST_DIR = config.BASE_DIR / "frontend" / "dist"
 logger = logging.getLogger("uvicorn.error")
+
+BODY_LIMITS = {
+    "/api/auth/login": 16 * 1024,
+    "/api/ingest/experts": 2 * 1024 * 1024,
+    "/api/ingest/papers": 2 * 1024 * 1024,
+    "/api/documents": config.MAX_UPLOAD_BYTES + 1024 * 1024,
+}
+DEFAULT_JSON_BODY_LIMIT = 2 * 1024 * 1024
+
+
+class RequestBodyTooLarge(BaseException):
+    """请求体在接收过程中超过该路径的硬上限。
+
+    FastAPI 会把请求读取阶段的普通 Exception 改写成 400；这里使用
+    BaseException 让专用的 ASGI 中间件把它转换为明确的 413。
+    """
+
+
+class RequestBodyLimitMiddleware:
+    """同时校验声明长度和实际接收字节，避免省略 Content-Length 绕过。"""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] not in {"POST", "PUT", "PATCH"}:
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
+        limit = BODY_LIMITS.get(path, DEFAULT_JSON_BODY_LIMIT)
+        headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        raw_length = headers.get(b"content-length")
+        if raw_length:
+            try:
+                declared = int(raw_length)
+            except ValueError:
+                await JSONResponse(status_code=400, content={"detail": "Content-Length 无效"})(
+                    scope, receive, send
+                )
+                return
+            if declared > limit:
+                await JSONResponse(
+                    status_code=413,
+                    content={"detail": f"请求体超过限制（{limit // 1024} KB）"},
+                )(scope, receive, send)
+                return
+
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    raise RequestBodyTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except RequestBodyTooLarge:
+            await JSONResponse(
+                status_code=413,
+                content={"detail": f"请求体超过限制（{limit // 1024} KB）"},
+            )(scope, receive, send)
 
 
 @asynccontextmanager
@@ -56,6 +123,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestBodyLimitMiddleware)
 
 # 无需登录即可访问的接口
 PUBLIC_API_PATHS = {
@@ -70,6 +138,27 @@ PUBLIC_API_PATHS = {
     "/api/ingest/papers",
 }
 
+def _session_user(request: Request) -> dict | None:
+    token = request.cookies.get(auth.SESSION_COOKIE, "")
+    return auth.resolve_session(token) if token else None
+
+
+def _ingest_auth_error(request: Request) -> JSONResponse | None:
+    expected = (config.INGEST_TOKEN or "").strip()
+    supplied = request.headers.get("X-INGEST-Token", "")
+    if expected and supplied and _hmac.compare_digest(supplied, expected):
+        return None
+    user = _session_user(request)
+    if user and user.get("role") in {"manager", "admin"}:
+        request.state.user = user
+        return None
+    detail = (
+        "需要有效的接入令牌或科研管理/管理员会话"
+        if expected
+        else "未配置 INGEST_TOKEN，请以科研管理/管理员账号登录后推送，或在 .env 配置令牌"
+    )
+    return JSONResponse(status_code=403, content={"detail": detail})
+
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
@@ -77,13 +166,41 @@ async def auth_middleware(request: Request, call_next):
     # CORS 预检请求不带 Cookie，必须放行，否则跨域开发环境全部失败
     if request.method == "OPTIONS":
         return await call_next(request)
+    if request.method in {"POST", "PUT", "PATCH"}:
+        if path in {"/api/ingest/experts", "/api/ingest/papers"}:
+            denied = _ingest_auth_error(request)
+            if denied:
+                return denied
+        raw_length = request.headers.get("content-length")
+        if raw_length:
+            try:
+                length = int(raw_length)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Content-Length 无效"})
+            limit = BODY_LIMITS.get(path, DEFAULT_JSON_BODY_LIMIT)
+            if length > limit:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": f"请求体超过限制（{limit // 1024} KB）"},
+                )
     if path.startswith("/api/") and path not in PUBLIC_API_PATHS:
-        token = request.cookies.get(auth.SESSION_COOKIE, "")
-        user = auth.resolve_session(token) if token else None
+        user = _session_user(request)
         if not user:
             return JSONResponse(status_code=401, content={"error": "未登录或会话已过期"})
         request.state.user = user
+        if path == "/api/documents" and request.method == "POST" and user.get("role") not in {"manager", "admin"}:
+            return JSONResponse(status_code=403, content={"detail": "需要科研管理或管理员权限"})
     return await call_next(request)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(_request: Request, exc: RequestValidationError):
+    # 不把原始输入/上下文回显给客户端，避免超长用户名、口令等进入响应和访问日志。
+    detail = [
+        {key: value for key, value in item.items() if key not in {"input", "ctx"}}
+        for item in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": detail})
 
 
 def require_role(*roles: str):

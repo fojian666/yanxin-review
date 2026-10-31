@@ -52,6 +52,7 @@ export function ReviewPage() {
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState("");
+  const [selectionError, setSelectionError] = useState("");
   const [reportReady, setReportReady] = useState(false);
   const [section, setSection] = useState<ReviewSection>("run");
   // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
@@ -86,20 +87,30 @@ export function ReviewPage() {
       return;
     }
     const fromQuery = params.get("doc");
-    if (!fromQuery) return;
-    if (fromQuery && sortedDocs.some((d) => d.id === fromQuery && (d.kind === "proposal" || d.kind === "other"))) {
+    if (!fromQuery) {
+      setSelectionError("");
+      return;
+    }
+    const requested = sortedDocs.find((doc) => doc.id === fromQuery);
+    if (requested && ["proposal", "other"].includes(requested.kind)) {
       setDocId(fromQuery);
       setActiveDossierId("");
       setActiveDocId(fromQuery);
+      setSelectionError("");
       // 消费后移除参数，避免用户改选文档时又被 URL 拉回
       const next = new URLSearchParams(params);
       next.delete("doc");
       setParams(next, { replace: true });
       return;
     }
-    const next = new URLSearchParams(params);
-    next.delete("doc");
-    setParams(next, { replace: true });
+    requestSequence.current += 1;
+    setDocId("");
+    setActiveDossierId("");
+    setActiveDocId("");
+    setReport(null);
+    setBusy(false);
+    setSection("run");
+    setSelectionError("所选文档类型不支持项目预审，请从上方选择申报书或实际材料。");
   }, [sortedDocs, params, setActiveDocId, setActiveDossierId, setParams]);
 
   useEffect(() => {
@@ -283,6 +294,7 @@ export function ReviewPage() {
               <div className="panel review-control">
                 <h2>项目预审</h2>
                 <p className="review-run-doc">{docId ? `准备检查：${sortedDocs.find((doc) => doc.id === docId)?.name ?? "已选文档"}` : "请先从上方选择申报书。"}</p>
+                {selectionError && <div className="panel error-panel" role="alert">{selectionError}</div>}
                 <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
                   {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
                 </button>
@@ -327,7 +339,7 @@ export function ReviewPage() {
                   tall
                   icon={<FileSearch size={42} />}
                   title={error ? "预审失败" : "预审报告将在这里显示"}
-                  description={error || (!sortedDocs.length ? "请先上传申报书。" : docId ? "已选择文档，请回到“运行预审”执行检查。" : "请先选择待审文档。")}
+                  description={selectionError || error || (!sortedDocs.length ? "请先上传申报书。" : docId ? "已选择文档，请回到“运行预审”执行检查。" : "请先选择待审文档。")}
                 />
               )}
             </div>
@@ -565,7 +577,7 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
           </div>
         </div>
       </div>
-      <button className="btn btn-ghost btn-sm report-head-export" onClick={onExport}>
+      <button className="btn btn-ghost btn-sm report-head-export" aria-label="导出完整报告" onClick={onExport}>
         <Download size={14} />
       </button>
     </div>

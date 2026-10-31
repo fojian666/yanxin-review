@@ -23,6 +23,7 @@ interface DocumentReaderProps {
   canReview: boolean;
   canDelete: boolean;
   deleting: boolean;
+  missingMessage?: string;
   readerRef: React.RefObject<HTMLElement | null>;
   onNavigate: (doc: DocItem) => void;
   onAsk: (doc: DocItem) => void;
@@ -53,6 +54,7 @@ export function DocumentReader({
   canReview,
   canDelete,
   deleting,
+  missingMessage,
   readerRef,
   onNavigate,
   onAsk,
@@ -66,7 +68,7 @@ export function DocumentReader({
   if (!selected) {
     return (
       <section className="document-reader document-reader-empty" aria-label="文档正文">
-        <p>选择左侧文档，在这里阅读正文与核对依据。</p>
+        <p>{missingMessage || "选择左侧文档，在这里阅读正文与核对依据。"}</p>
       </section>
     );
   }
@@ -105,7 +107,7 @@ export function DocumentReader({
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAsk(selected)}>
           <MessageSquareText size={14} />文档问答
         </button>
-        {canReview && (
+        {canReview && ["proposal", "other"].includes(selected.kind) && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onReview(selected)}>
             <ShieldCheck size={14} />发起预审
           </button>

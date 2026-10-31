@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 78 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（151 个测试函数，参数化展开 164 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 79 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（157 个测试函数，参数化展开 170 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -28,7 +28,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：32 条 API 路由（含认证 6 条、卷宗 11 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：38 条 API 路由（含认证 6 条、卷宗 10 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/dossiers/dossier_documents/meta；导入去重 insert_*_if_new

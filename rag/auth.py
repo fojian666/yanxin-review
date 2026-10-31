@@ -33,7 +33,9 @@ _DUMMY_SALT = "0" * 32
 LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "300"))
 LOGIN_MAX_FAILURES = int(os.getenv("LOGIN_MAX_FAILURES", "5"))
 _login_failures: dict[str, deque[float]] = {}
+_login_ip_failures: dict[str, deque[float]] = {}
 _login_lock = threading.Lock()
+LOGIN_IP_MAX_FAILURES = int(os.getenv("LOGIN_IP_MAX_FAILURES", "20"))
 
 
 def _login_key(username: str, client: str) -> str:
@@ -45,24 +47,35 @@ def _login_key(username: str, client: str) -> str:
 def login_allowed(username: str, client: str) -> bool:
     now = time.time()
     with _login_lock:
-        bucket = _login_failures.get(_login_key(username, client))
-        if not bucket:
-            return True
-        while bucket and now - bucket[0] > LOGIN_WINDOW_SECONDS:
-            bucket.popleft()
-        return len(bucket) < LOGIN_MAX_FAILURES
+        for bucket, maximum in (
+            (_login_failures.get(_login_key(username, client)), LOGIN_MAX_FAILURES),
+            (_login_ip_failures.get(client), LOGIN_IP_MAX_FAILURES),
+        ):
+            if not bucket:
+                continue
+            while bucket and now - bucket[0] > LOGIN_WINDOW_SECONDS:
+                bucket.popleft()
+            if len(bucket) >= maximum:
+                return False
+        return True
 
 
 def record_login_failure(username: str, client: str) -> None:
     now = time.time()
     with _login_lock:
         bucket = _login_failures.setdefault(_login_key(username, client), deque())
+        ip_bucket = _login_ip_failures.setdefault(client, deque())
         bucket.append(now)
-        while bucket and now - bucket[0] > LOGIN_WINDOW_SECONDS:
-            bucket.popleft()
+        ip_bucket.append(now)
+        for values in (bucket, ip_bucket):
+            while values and now - values[0] > LOGIN_WINDOW_SECONDS:
+                values.popleft()
         if len(_login_failures) > 5000:
             for stale in list(_login_failures)[:1000]:
                 _login_failures.pop(stale, None)
+        if len(_login_ip_failures) > 1000:
+            for stale in list(_login_ip_failures)[:200]:
+                _login_ip_failures.pop(stale, None)
 
 
 def clear_login_failures(username: str, client: str) -> None:

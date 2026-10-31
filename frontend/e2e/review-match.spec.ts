@@ -52,6 +52,7 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
   await expect(page.locator('.report-head')).toContainText('规则预审');
   await expect(page.locator('.report-seal')).toHaveText('待人工复核');
+  await expect(page.locator('.report-head-export')).toHaveAttribute('aria-label', '导出完整报告');
   await expect(page.locator('.review-summary-page .disclaimer')).toContainText('须经专家和管理人员复核');
   await expect(page.locator('.review-summary-page .report-summary-limits')).toContainText('能力边界');
   await page.screenshot({ path: testInfo.outputPath('review-summary-desktop.png') });
