@@ -53,7 +53,7 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   expect(Math.abs(shell.brandHeight - shell.topbarHeight)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.toggleCenter - shell.brandCenter)).toBeLessThanOrEqual(3);
   expect(shell.brandWidth).toBe(380);
-  expect(shell.sidebarWidth).toBe(264);
+  expect(shell.sidebarWidth).toBe(240);
   expect(shell.navWidth).toBe(shell.sidebarWidth);
   expect(shell.navLeft).toBe(shell.sidebarLeft);
   expect(Math.abs(shell.navTop - shell.brandBottom)).toBeLessThanOrEqual(1);

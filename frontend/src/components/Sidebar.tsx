@@ -89,20 +89,24 @@ export function Sidebar({ navOpen = false, onClose }: { navOpen?: boolean; onClo
     if (!sb) return;
     const DUR = 220;
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-    sb.style.width = "264px"; // class 已切换，动画期间以 264 宽滑动
+    const rootStyles = getComputedStyle(document.documentElement);
+    const expandedWidth = Number.parseFloat(rootStyles.getPropertyValue("--sidebar-width")) || 240;
+    const collapsedWidth = Number.parseFloat(rootStyles.getPropertyValue("--sidebar-collapsed-width")) || 84;
+    const shiftDistance = expandedWidth - collapsedWidth;
+    sb.style.width = `${expandedWidth}px`; // class 已切换，动画期间保持展开宽度
     if (!toCollapsed) {
-      sb.style.transform = "translateX(-180px)"; // 展开方向：从滑出位置起步
+      sb.style.transform = `translateX(-${shiftDistance}px)`; // 展开方向：从滑出位置起步
       void sb.offsetWidth; // 强制回流，确保起点生效
     }
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / DUR);
       const e = easeOutCubic(p);
-      const shift = toCollapsed ? -180 * e : -180 * (1 - e);
+      const shift = toCollapsed ? -shiftDistance * e : -shiftDistance * (1 - e);
       sb.style.transform = `translateX(${shift.toFixed(1)}px)`;
       if (p < 1) animationRef.current = requestAnimationFrame(tick);
       else {
-        // 落位：清除内联，交给样式表（折叠 84 / 展开 264，均无位移）
+        // 落位：清除内联，交给样式表（折叠 84 / 展开态宽度，均无位移）
         sb.style.width = "";
         sb.style.transform = "";
       }

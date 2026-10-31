@@ -42,7 +42,7 @@
     103 frontend/src/components/KeywordGraph.tsx
     104 frontend/src/components/KpiCard.tsx
      84 frontend/src/components/Markdown.tsx
-    177 frontend/src/components/Sidebar.tsx
+    181 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
     126 frontend/src/components/Topbar.tsx
     299 frontend/src/components/UploadModal.tsx
@@ -69,7 +69,7 @@
      44 frontend/src/theme.ts
     637 frontend/src/themes.css
     393 frontend/src/types.ts
-  16480 total
+  16484 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -107,7 +107,7 @@
      27 frontend/playwright.config.ts
    2841 total
 合计
-  30191 total（96 个文件）
+  30195 total（96 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
