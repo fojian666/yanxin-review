@@ -12,6 +12,7 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   await expect(page.locator('.topbar-actions').getByRole('button', { name: /简约模式/ })).toHaveCount(0);
   await expect(page.locator('.theme-menu, .theme-trigger, .simple-mode-trigger')).toHaveCount(0);
   await expect(page).toHaveTitle(`工作台 · ${SYSTEM_NAME}`);
+  await expect(page.locator('.topbar-title, .topbar-title-icon')).toHaveCount(0);
 
   const nav = page.locator('.nav .nav-item');
   await expect(nav.first()).toContainText('智能问答');
@@ -58,7 +59,7 @@ test('主题与简约模式仍可由持久化状态生效但不再显示入口',
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'blue');
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
   await expect(page.locator('.nav-item .lucide').first()).toHaveCSS('display', 'none');
-  await expect(page.locator('.topbar-title h1')).toHaveCSS('animation-name', 'none');
+  await expect(page.locator('.topbar-title')).toHaveCount(0);
 
   await page.evaluate(() => localStorage.setItem('yanxin.simple-mode', '0'));
   await page.goto('/chat');

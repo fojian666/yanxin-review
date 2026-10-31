@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { LayoutDashboard, LogOut, Menu, Upload, UserRound } from "lucide-react";
+import { LogOut, Menu, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
@@ -7,7 +7,6 @@ import { SYSTEM_NAME } from "../branding";
 import { WORKSPACE_VIEWS } from "../data/workspaceViews";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
-import { useSimpleMode } from "../simpleMode";
 
 const WELCOME_META = { title: "工作台", description: "围绕当前课题连续办理" };
 
@@ -17,7 +16,6 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   const { auth, openUpload, can, logout } = useApp();
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
-  const simpleMode = useSimpleMode();
 
   // 点击菜单外关闭 + ESC
   useEffect(() => {
@@ -36,7 +34,6 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
     };
   }, [userOpen]);
   const workspaceView = WORKSPACE_VIEWS.find((item) => item.path === pathname);
-  const TitleIcon = workspaceView?.icon ?? LayoutDashboard;
   const meta = pathname === "/welcome"
     ? WELCOME_META
     : workspaceView
@@ -53,16 +50,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
 
   return (
     <header className={`topbar ${pathname === "/welcome" ? "" : "is-task"}`} onDragStart={(event) => event.preventDefault()}>
-      <div className="topbar-title" key={`title:${pathname}`}>
-        <div className="topbar-title-row">
-          {!simpleMode && (
-            <span className="topbar-title-icon" aria-hidden="true">
-              <TitleIcon size={19} strokeWidth={1.8} />
-            </span>
-          )}
-          <h1>{meta.title}</h1>
-        </div>
-      </div>
+      <h1 className="sr-only">{meta.title}</h1>
       <div className="topbar-actions">
         <button
           type="button"

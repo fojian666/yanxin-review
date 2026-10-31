@@ -21,12 +21,12 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
       }), `${scale}x ${path} 章节内容溢出`).toBeTruthy();
       await expect.poll(() => page.locator('.topbar').evaluate(header => {
         const headerBox = header.getBoundingClientRect();
-        return [...header.querySelectorAll<HTMLElement>(':scope > .topbar-title, :scope > .topbar-actions')]
+        return [...header.querySelectorAll<HTMLElement>(':scope > .topbar-actions')]
           .every(item => {
             const box = item.getBoundingClientRect();
             return box.top >= headerBox.top - 1 && box.bottom <= headerBox.bottom + 1;
           });
-      }), `${scale}x ${path} 顶栏文字溢出`).toBeTruthy();
+      }), `${scale}x ${path} 顶栏操作溢出`).toBeTruthy();
       if (path === '/dossiers' && scale === 1) {
         const centered = await page.locator('.work-deck-rail nav button').evaluateAll(buttons => buttons.every(button => {
           const number = button.querySelector<HTMLElement>('.work-deck-number');

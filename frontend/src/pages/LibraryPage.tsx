@@ -27,7 +27,6 @@ const KIND_RANK: Record<string, number> = {
 
 export function LibraryPage() {
   const {
-    health,
     docs,
     dossiers,
     dossierOptions,
@@ -66,7 +65,6 @@ export function LibraryPage() {
   const [contentError, setContentError] = useState("");
   const [direction, setDirection] = useState<"next" | "prev" | "same">("same");
   const [uploadedDocId, setUploadedDocId] = useState("");
-  const limitMb = health?.upload_limit_mb ?? 30;
 
   const orderedDocs = useMemo(
     () => [...docs].sort((a, b) => (KIND_RANK[a.kind] ?? 9) - (KIND_RANK[b.kind] ?? 9)),
@@ -290,7 +288,6 @@ export function LibraryPage() {
           <span className="document-center-mark" aria-hidden="true"><UploadCloud size={20} /></span>
           <div>
             <strong>资料在册 · 目录可循</strong>
-            <span>{docs.length} 份资料 · 文件上限 {limitMb}MB · 拖入页面即可上传</span>
           </div>
         </div>
         <div className="library-view-switch" role="group" aria-label="文档中心视图">
