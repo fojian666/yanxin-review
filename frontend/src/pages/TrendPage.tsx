@@ -37,6 +37,20 @@ function yearOptions(from: number, to: number) {
   return Array.from({ length: to - from + 1 }, (_, i) => from + i);
 }
 
+function useExtremeViewport() {
+  const [extreme, setExtreme] = useState(() =>
+    window.matchMedia("(min-width: 3000px), (min-height: 1800px)").matches
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 3000px), (min-height: 1800px)");
+    const update = () => setExtreme(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return extreme;
+}
+
 export function TrendPage() {
   const { papers, refreshPapers, toast, can } = useApp();
   const [query, setQuery] = useState("科研诚信");
@@ -53,6 +67,7 @@ export function TrendPage() {
   const [section, setSection] = useState<TrendSection>("controls");
   const initialized = useRef(false);
   const loadingRef = useRef(false);
+  const extremeViewport = useExtremeViewport();
 
   const run = async (q: string, s: number, e: number, revealCharts: boolean) => {
     const topic = q.trim();
@@ -105,7 +120,9 @@ export function TrendPage() {
   // 区间联动：起始年只能选 ≤ 结束年，结束年只能选 ≥ 起始年，杜绝倒置区间
   const startOptions = yearOptions(Math.min(2005, start), end);
   const endOptions = yearOptions(start, Math.max(2035, end));
-  const effectiveView = webgl ? view : "2d";
+  // 浏览器缩放到很远或使用超大画布时，3D 两张 WebGL 图会占用大量显存并阻塞点击。
+  // 正常窗口仍保持 3D；极端画布自动改为可交互的 2D，不改变用户保存的视图偏好。
+  const effectiveView = webgl && !extremeViewport ? view : "2d";
   const stats = data?.stats;
 
   const clearSamples = async () => {
@@ -168,7 +185,7 @@ export function TrendPage() {
                 <div><span className={`live-dot ${showLoading ? "loading" : ""}`} />趋势视图</div>
                 <div className="trend-view-actions">
                   {effectiveView === "3d" && <button className="btn btn-ghost btn-sm rotation-toggle" onClick={() => setRotationEnabled((enabled) => !enabled)} disabled={reduce} aria-pressed={rotationEnabled && !reduce} aria-label="自动旋转" title={reduce ? "已遵循系统减少动态效果设置" : "同时控制两张 3D 图表；离屏与后台自动暂停"}>{rotationEnabled && !reduce ? <Pause size={14} /> : <Play size={14} />}{reduce ? "旋转已关闭" : rotationEnabled ? "暂停旋转" : "继续旋转"}</button>}
-                  <div className="view-toggle"><motion.span className="view-pill" animate={{ x: effectiveView === "3d" ? "0%" : "100%" }} transition={SPRING} /><button className={effectiveView === "3d" ? "active" : ""} onClick={() => webgl && setView("3d")} disabled={!webgl} title={webgl ? "3D 视图" : "当前浏览器不支持 WebGL"} aria-pressed={effectiveView === "3d"}><Box size={14} /><span>3D</span></button><button className={effectiveView === "2d" ? "active" : ""} onClick={() => setView("2d")} aria-pressed={effectiveView === "2d"}><LineChart size={14} /><span>2D</span></button></div>
+                  <div className="view-toggle"><motion.span className="view-pill" animate={{ x: effectiveView === "3d" ? "0%" : "100%" }} transition={SPRING} /><button className={effectiveView === "3d" ? "active" : ""} onClick={() => webgl && setView("3d")} disabled={!webgl || extremeViewport} title={!webgl ? "当前浏览器不支持 WebGL" : extremeViewport ? "超大画布已自动使用 2D 以保持交互流畅" : "3D 视图"} aria-pressed={effectiveView === "3d"}><Box size={14} /><span>3D</span></button><button className={effectiveView === "2d" ? "active" : ""} onClick={() => setView("2d")} aria-pressed={effectiveView === "2d"}><LineChart size={14} /><span>2D</span></button></div>
                 </div>
               </div>
               {data ? (

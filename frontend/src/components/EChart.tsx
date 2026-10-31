@@ -32,9 +32,18 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
     const chart = echarts.init(containerRef.current, undefined, { renderer: "canvas" });
     chartRef.current = chart;
     chart.on("click", (params) => clickRef.current?.(params));
+    let resizeFrame = 0;
+    let width = 0;
+    let height = 0;
     const observer = new ResizeObserver(() => {
-      // resize 已由布局驱动；不再每帧叠加 350ms 补间，避免窄屏反复重排。
-      chart.resize({ animation: { duration: 0 } } as never);
+      const nextWidth = containerRef.current?.clientWidth ?? 0;
+      const nextHeight = containerRef.current?.clientHeight ?? 0;
+      if (nextWidth === width && nextHeight === height) return;
+      width = nextWidth;
+      height = nextHeight;
+      // 合并同一布局帧内的多次观察，极端缩放时避免图表反复同步重绘。
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => chart.resize({ animation: { duration: 0 } } as never));
     });
     observer.observe(containerRef.current);
     const visibility = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
@@ -42,6 +51,7 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
     const onVisibility = () => setPageVisible(!document.hidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      cancelAnimationFrame(resizeFrame);
       observer.disconnect();
       visibility.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);

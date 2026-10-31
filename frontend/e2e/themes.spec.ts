@@ -24,14 +24,20 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   const navWeights = await nav.evaluateAll(items => items.map(item => Number.parseInt(getComputedStyle(item).fontWeight, 10)));
   expect(navWeights.every(weight => weight >= 700)).toBeTruthy();
 
-  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('.nav')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(242, 248, 253)');
   const shell = await page.evaluate(() => {
     const brand = document.querySelector<HTMLElement>('.brand')!.getBoundingClientRect();
     const topbar = document.querySelector<HTMLElement>('.topbar')!.getBoundingClientRect();
+    const sidebar = document.querySelector<HTMLElement>('.sidebar')!.getBoundingClientRect();
+    const nav = document.querySelector<HTMLElement>('.nav')!.getBoundingClientRect();
     const toggle = document.querySelector<HTMLElement>('.sidebar-toggle')!.getBoundingClientRect();
     return {
       brandTop: brand.top,
       brandHeight: brand.height,
+      brandWidth: brand.width,
+      sidebarWidth: sidebar.width,
+      navWidth: nav.width,
       topbarHeight: topbar.height,
       toggleCenter: toggle.top + toggle.height / 2,
       brandCenter: brand.top + brand.height / 2,
@@ -40,6 +46,9 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   expect(Math.abs(shell.brandTop)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.brandHeight - shell.topbarHeight)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.toggleCenter - shell.brandCenter)).toBeLessThanOrEqual(3);
+  expect(shell.brandWidth).toBe(380);
+  expect(shell.sidebarWidth).toBe(264);
+  expect(shell.navWidth).toBeLessThan(shell.brandWidth);
   const brandNameLayout = await page.locator('.brand-name').evaluate(element => ({
     scrollWidth: element.scrollWidth,
     clientWidth: element.clientWidth,

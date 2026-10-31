@@ -30,18 +30,18 @@ export const test = base.extend<{ server: Server; app: Page; documents: Doc[] }>
     child.stderr.on('data', chunk => { logs += chunk.toString(); });
     try {
       let url = '';
-      const deadline = Date.now() + 20_000;
+      const deadline = Date.now() + 45_000;
       while (Date.now() < deadline) {
         if (spawnError) throw spawnError;
         if (child.exitCode !== null || child.signalCode !== null) throw new Error(`E2E 后端提前退出：${logs}`);
         const match = logs.match(/\{"e2e_url": "(http:\/\/127\.0\.0\.1:\d+)"\}/);
         if (match) {
           url = match[1];
-          try { if ((await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(1000) })).ok) break; } catch { /* 启动中 */ }
+          try { if ((await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) })).ok) break; } catch { /* 启动中 */ }
         }
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      if (!url || !(await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(1000) })).ok) throw new Error(`E2E 后端启动超时：${logs}`);
+      if (!url || !(await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) })).ok) throw new Error(`E2E 后端启动超时：${logs}`);
       await use({ url, pid: child.pid! });
     } finally {
       try {

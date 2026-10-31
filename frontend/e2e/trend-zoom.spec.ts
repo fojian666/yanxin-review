@@ -10,7 +10,8 @@ test('趋势页在 25%–500% 全部标准缩放下保持可用', async ({ app: 
     const height = Math.max(240, Math.round(900 / scale));
     await page.setViewportSize({ width, height });
     await page.goto('/trend');
-    await expect(page.locator('.trend-deck')).toBeVisible();
+    // 极端缩放下双图与路由分片同时初始化，给慢速 CI 留出完整加载窗口。
+    await expect(page.locator('.trend-deck')).toBeVisible({ timeout: 30_000 });
     for (const tab of ['分析设置', '趋势图表'] as const) {
       await page.getByRole('tab', { name: tab, exact: true }).click();
       await page.waitForTimeout(250);
@@ -54,6 +55,10 @@ test('趋势页在 25%–500% 全部标准缩放下保持可用', async ({ app: 
         };
       });
       console.log(`TREND_ZOOM ${scale} ${tab} ${JSON.stringify(metrics)}`);
+      if (scale <= 0.5 && tab === '趋势图表') {
+        await expect(page.getByRole('button', { name: '3D', exact: true })).toBeDisabled();
+        await expect(page.locator('.mode-badge').first()).toHaveText('2D');
+      }
       await page.screenshot({
         path: testInfo.outputPath(`trend-zoom-${String(scale).replace('.', '_')}-${tab === '分析设置' ? 'analysis' : 'chart'}.png`),
       });

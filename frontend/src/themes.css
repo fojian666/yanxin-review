@@ -331,7 +331,17 @@
 }
 :root[data-theme="blue"] .sidebar {
   color: var(--ink-2);
+  background: var(--bg);
+}
+:root[data-theme="blue"] .nav {
+  min-height: 0;
+  margin: 12px 8px 0;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(22, 77, 112, .07);
 }
 :root[data-theme="blue"] .nav-item {
   color: #567183;
@@ -380,6 +390,15 @@
     margin: 0 -10px;
     padding: 0;
     background: var(--topbar-start);
+  }
+  :root[data-theme="blue"] .nav {
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 }
 @media (max-width: 680px) {
@@ -463,6 +482,15 @@
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item {
     color: #567183;
+  }
+  :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav {
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .nav-item svg {
     color: #6f8999;

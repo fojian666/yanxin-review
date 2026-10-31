@@ -39,11 +39,15 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
         expect(centered, '步骤号码与文字必须垂直居中').toBeTruthy();
       }
       if (path === '/graph' && scale >= 1.5) {
-        const canvasBox = await page.locator('.kg-canvas-panel').boundingBox();
+        const canvas = page.locator('.kg-canvas-panel');
+        await expect(canvas).toBeVisible({ timeout: 30_000 });
+        const canvasBox = await canvas.boundingBox();
         expect(canvasBox && canvasBox.width >= 300 && canvasBox.height >= 100, `${scale}x 图谱画布拖动区域`).toBeTruthy();
       }
       if (path === '/trend') {
-        const controlsFit = await page.locator('.trend-controls-page').evaluate(element =>
+        const controls = page.locator('.trend-controls-page');
+        await expect(controls).toBeVisible({ timeout: 30_000 });
+        const controlsFit = await controls.evaluate(element =>
           element.scrollHeight <= element.clientHeight + 1
         );
         expect(controlsFit, `${scale}x 趋势分析设置内容裁切`).toBeTruthy();
