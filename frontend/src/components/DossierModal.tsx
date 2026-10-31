@@ -173,7 +173,6 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
             <div className="modal-head">
               <div>
                 <h2>{dossier ? "编辑历史课题" : "建立历史课题"}</h2>
-                <p>先登记课题与材料阶段，再归入申报书及附件。</p>
               </div>
               <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭" disabled={busy}>
                 <X size={18} />

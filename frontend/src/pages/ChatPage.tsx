@@ -32,25 +32,21 @@ const QUICK_CARDS = [
   {
     icon: ScrollText,
     title: "梳理核心内容",
-    desc: "研究内容、技术路线、考核指标，一次理清",
     question: "这份本子的研究内容和技术路线是什么？",
   },
   {
     icon: ShieldCheck,
     title: "检查诚信与规范",
-    desc: "诚信、数据安全、伦理与知识产权，逐项对照",
     question: "这份本子在科研诚信和数据安全方面有哪些需要补充的内容？",
   },
   {
     icon: Sparkles,
     title: "辨创新与重复",
-    desc: "提炼创新点，提示与已有研究的重叠",
     question: "请总结这份本子的创新点，并指出与已有研究可能重复的地方。",
   },
   {
     icon: FileText,
     title: "拟评审追问",
-    desc: "把材料缺口，转成专家会问的问题",
     question: "如果我是评审专家，应该向申报人重点追问哪些问题？",
   },
 ];
@@ -382,16 +378,13 @@ export function ChatPage() {
                   <ShieldCheck size={27} />
                 </motion.div>
                 <h2>根据资料提问</h2>
-                <p>
-                  选择资料后提问，可查看引用原文及章节或页码。
-                </p>
                 <motion.div
                   className="quick-grid"
                   variants={staggerContainer}
                   initial="initial"
                   animate="animate"
                 >
-                  {QUICK_CARDS.map(({ icon: Icon, title, desc, question }) => (
+                  {QUICK_CARDS.map(({ icon: Icon, title, question }) => (
                     <motion.button
                       className="quick-card"
                       key={title}
@@ -401,7 +394,6 @@ export function ChatPage() {
                     >
                       <Icon size={17} />
                       <span>{title}</span>
-                      <small>{desc}</small>
                     </motion.button>
                   ))}
                 </motion.div>
@@ -535,7 +527,6 @@ function SourcesPanel({
       <div className="panel-head">
         <div>
           <h2>证据与引用</h2>
-          <p>点击引用编号，查看对应原文及位置信息</p>
         </div>
         <span className="count-badge">{citations.length}</span>
       </div>

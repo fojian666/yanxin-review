@@ -237,7 +237,6 @@ export function MatchPage() {
               <div className="panel match-hero">
                 <div className="match-hero-copy">
                   <h2>查重与专家匹配</h2>
-                  <p>比对文本相似段落，并根据专业领域、回避条件和负载匹配专家。</p>
                 </div>
                 <div className="match-controls">
                   <div className="match-actions">
@@ -245,7 +244,7 @@ export function MatchPage() {
                       {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />运行一体化检查</>}
                     </button>
                   </div>
-                  <div className="match-summary-line">{match ? match.summary : "选定一份本子，查重与匹配随即展开。"}</div>
+                  {match && <div className="match-summary-line">{match.summary}</div>}
                 </div>
               </div>
               <AnimatePresence initial={false}>
@@ -309,7 +308,7 @@ export function MatchPage() {
           ),
           experts: (
             <div className="panel match-panel match-deck-page match-experts-page">
-              <div className="panel-head"><div><h2>专家匹配</h2><p>方向语义、关键词与学科三路加权，约束前置，排序可解释</p></div><span className="count-badge">{candidates.length}</span></div>
+              <div className="panel-head"><div><h2>专家匹配</h2></div><span className="count-badge">{candidates.length}</span></div>
               {result && match ? (
                 <>
                   <div className="match-callout"><strong>申报单位：</strong>{match.applicant.institutions.join("、") || "未识别"}<br /><strong>负责人：</strong>{match.applicant.people.join("、") || "未识别"}</div>
@@ -332,7 +331,7 @@ export function MatchPage() {
           ),
           boundaries: (
             <div className="panel match-panel match-deck-page match-boundaries-page">
-              <div className="panel-head"><div><h2>回避与边界</h2><p>排除原因保留双方原名与比较依据</p></div><UserCheck size={18} /></div>
+              <div className="panel-head"><div><h2>回避与边界</h2></div><UserCheck size={18} /></div>
               {result && match ? (
                 <>
                   <div className="match-callout"><strong>匹配口径：</strong>{match.institution_match_note}</div>

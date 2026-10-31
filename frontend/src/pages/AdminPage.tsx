@@ -101,7 +101,7 @@ export function AdminPage() {
           ),
           create: (
             <div className="panel admin-create admin-deck-page">
-              <div className="panel-head"><div><h2>新建用户</h2><p>密码至少 6 位，创建后可立即登录。</p></div></div>
+              <div className="panel-head"><div><h2>新建用户</h2></div></div>
               <div className="form-grid admin-create-form">
                 <label className="field"><span>用户名</span><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="如 zhangsan" disabled={busy} /></label>
                 <label className="field"><span>密码（≥6 位）</span><input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="设置初始密码" autoComplete="new-password" disabled={busy} /></label>
@@ -113,7 +113,7 @@ export function AdminPage() {
           ),
           roles: (
             <div className="panel admin-deck-page admin-role-page">
-              <div className="panel-head"><div><h2>角色能力</h2><p>界面权限与后端角色校验使用同一矩阵。</p></div></div>
+              <div className="panel-head"><div><h2>角色能力</h2></div></div>
               <motion.div className="role-matrix" variants={staggerContainer} initial="initial" animate="animate">
                 {[
                   { role: "admin", text: "全部功能，含用户管理" },

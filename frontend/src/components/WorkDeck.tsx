@@ -155,7 +155,6 @@ export function WorkDeck<T extends string>({
                 <span className="work-deck-number">{String(index + 1).padStart(2, "0")}</span>
                 <span className="work-deck-copy">
                   <strong>{step.label}</strong>
-                  <small>{step.hint}</small>
                 </span>
               </button>
             );
@@ -168,7 +167,6 @@ export function WorkDeck<T extends string>({
           <span>第 {activeIndex + 1} 步</span>
           <div>
             <h3>{current.label}</h3>
-            <p>{current.hint}</p>
           </div>
           {status}
         </header>

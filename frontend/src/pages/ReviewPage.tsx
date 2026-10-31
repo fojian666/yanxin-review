@@ -443,7 +443,6 @@ export function ReviewPage() {
                   <section className="section-block review-boundary-copy" aria-labelledby="review-boundary-title">
                     <div className="section-head"><h3 id="review-boundary-title">能力边界</h3></div>
                     <div className="review-boundary-body">
-                      <p className="review-boundary-intro">以下内容说明本次预审能覆盖什么、不能替代谁作出判断。</p>
                       <AdaptivePager
                         className="review-limits-list report-limits"
                         label="检查边界"
@@ -466,7 +465,6 @@ export function ReviewPage() {
                   <aside className="section-block review-export-panel" aria-labelledby="review-export-title">
                     <div className="section-head"><h3 id="review-export-title">报告输出</h3></div>
                     <div className="review-export-body">
-                      <p>导出文件会保留本次预审的来源、检查项、能力边界和免责声明。</p>
                       <div className="review-export-meta">
                         <span>{generationLabel(report.generation, "规则预审")}</span>
                         <span>{report.doc.name}</span>

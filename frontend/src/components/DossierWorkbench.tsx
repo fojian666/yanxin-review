@@ -207,13 +207,7 @@ export function DossierWorkbench() {
     <section className={`panel dossier-workbench ${expanded ? "is-expanded" : "is-collapsed"}`} aria-label="历史课题与材料体检">
       <header className="dossier-workbench-head">
         <div>
-          <span className="dossier-kicker"><FolderOpen size={15} />历史课题编目</span>
           <h2 title={dossier?.name}>{dossier?.name ?? (dossiers.length ? "选择或新建历史课题" : "建立第一份历史课题")}</h2>
-          <p>
-            {dossier
-              ? `${dossier.year ?? "年度未填"} · ${dossier.plan_type_label} · ${dossier.phase_label}`
-              : dossiers.length ? "从工作区顶部选择已有历史课题，或新建一份历史课题。" : "将申请书、盖章件和后续材料归入同一历史课题，逐项核对缺项。"}
-          </p>
         </div>
         <div className="dossier-workbench-actions">
           {dossier && <button type="button" className="btn btn-ghost btn-sm" aria-label={expanded ? "收起详情" : "展开详情"} aria-expanded={expanded} aria-controls="dossier-details" onClick={() => setExpanded((value) => !value)}>
@@ -233,7 +227,6 @@ export function DossierWorkbench() {
           <FilePlus2 size={28} aria-hidden="true" />
           <div>
             <strong>{dossiers.length ? "选择历史课题后查看材料体检" : "先建立历史课题，再做材料体检"}</strong>
-            <p>登记课题后，可把现有文档归入申请书、盖章件、承诺书、合同和验收材料。</p>
           </div>
           {can("upload") && <button type="button" className="btn btn-primary" onClick={() => { setEditing(false); setModalOpen(true); }}>新建历史课题</button>}
         </div>
@@ -342,7 +335,6 @@ export function DossierWorkbench() {
               <div className="dossier-attach">
                 <div>
                   <span>归入现有资料</span>
-                  <p>新版本归入同一材料角色后会自动成为当前版本。</p>
                 </div>
                 {availableDocs.length ? (
                   <div className="dossier-attach-controls">

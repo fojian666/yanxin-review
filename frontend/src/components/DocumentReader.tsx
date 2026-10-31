@@ -73,12 +73,6 @@ export function DocumentReader({
     );
   }
 
-  const sourceLabel = selected.source === "public"
-    ? "公开政策"
-    : selected.source === "demo"
-      ? "演示数据"
-      : "本机资料";
-
   return (
     <section
       ref={readerRef}
@@ -92,12 +86,6 @@ export function DocumentReader({
         <div>
           <span className="document-kind">{KIND_LABELS[selected.kind] ?? "资料"}</span>
           <h2>{selected.name}</h2>
-          <div className="document-meta-line">
-            <span>{sourceLabel}</span>
-            {selected.year && <span>{selected.year}</span>}
-            <span>{selected.chunk_count} 个文本块</span>
-            <span>{selected.status === "ready" ? "已索引" : "待处理"}</span>
-          </div>
           {selected.warning && <p className="document-reader-warning">{selected.warning}</p>}
         </div>
         <span className="document-folio">PAGE {String(position).padStart(2, "0")} / {String(total).padStart(2, "0")}</span>

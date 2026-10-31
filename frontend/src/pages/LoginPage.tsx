@@ -1,5 +1,5 @@
 import {
-  Eye, EyeOff, FileSearch, Loader2, LogIn, MapPinned,
+  Eye, EyeOff, FileSearch, Loader2, LogIn,
   ScanSearch, ShieldCheck, TrendingUp, Users,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
@@ -205,20 +205,12 @@ export function LoginPage() {
             </svg>
             <span className="login-scan" aria-hidden="true" />
 
-            <div className="login-seal-wrap">
-              <span className="login-seal-ring" aria-hidden="true" />
-              <div className="login-seal">研</div>
-            </div>
-            <div className="login-domain">
-              <MapPinned size={13} /> 自然资源 · 科研诚信 · 江苏
-            </div>
             <h1>{SYSTEM_NAME}</h1>
-            <p className="login-brand-sub">科研项目评审辅助工作台</p>
             <div className="login-features-head">
               <span>核心能力</span>
             </div>
             <div className="login-features">
-              {FEATURES.map(({ icon: Icon, label, desc }, index) => (
+              {FEATURES.map(({ icon: Icon, label }, index) => (
                 <div
                   className="login-feature"
                   key={label}
@@ -227,14 +219,12 @@ export function LoginPage() {
                   <span className="login-feature-icon"><Icon size={15} /></span>
                   <div>
                     <strong>{label}</strong>
-                    <small>{desc}</small>
                   </div>
                 </div>
               ))}
             </div>
             <div className="login-foot">
               <span className="login-lan-badge">默认本机访问</span>
-              <span>江苏省自然资源科研课题 · 首期原型</span>
             </div>
           </div>
 
@@ -298,7 +288,6 @@ export function LoginPage() {
                   >
                     <span className="login-demo-icon"><Icon size={13} /></span>
                     <strong>{label}</strong>
-                    <small>{username} · {desc}</small>
                   </button>
                 ))}
               </div>

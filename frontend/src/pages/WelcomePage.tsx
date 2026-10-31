@@ -210,7 +210,6 @@ export function WelcomePage() {
             <div>
               <span>当前课题已载入</span>
               <strong>{selectedDossier?.name ?? selectedDoc?.name ?? "尚未选择资料"}</strong>
-              <p>{selectedDossier ? `${selectedDossier.plan_type_label} · ${selectedDossier.phase_label} · 已归卷 ${selectedDossier.current_material_count} 份材料` : "从上方选择历史课题或单独申报书，再从左侧导航进入具体工作面。"}</p>
             </div>
           </section>
         ) : (

@@ -39,6 +39,15 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   expect(Math.abs(shell.brandHeight - shell.topbarHeight)).toBeLessThanOrEqual(1);
   expect(Math.abs(shell.toggleCenter - shell.brandCenter)).toBeLessThanOrEqual(3);
   await page.screenshot({ path: testInfo.outputPath('unified-blue-welcome.png') });
+
+  for (const route of ['/dossiers', '/review', '/match', '/trend'] as const) {
+    await page.goto(route);
+    await expect(page.locator('.work-deck-copy small, .work-deck-head p')).toHaveCount(0);
+  }
+  await page.goto('/chat');
+  await expect(page.locator('.welcome > p, .quick-card small, .sources-panel .panel-head p')).toHaveCount(0);
+  await page.goto('/library');
+  await expect(page.locator('.document-center-title > div > span')).toHaveCount(0);
 });
 
 test('主题与简约模式仍可由持久化状态生效但不再显示入口', async ({ app: page }) => {

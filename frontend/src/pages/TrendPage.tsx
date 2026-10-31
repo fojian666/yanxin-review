@@ -133,7 +133,7 @@ export function TrendPage() {
           controls: (
             <div className="trend-controls-page">
               <div className="panel trend-hero">
-                <div className="trend-hero-copy"><h2>历史沿革 · 多年文献趋势</h2><p>输入主题，查看文献数量和关键词变化。</p></div>
+                <div className="trend-hero-copy"><h2>历史沿革 · 多年文献趋势</h2></div>
                 <div className="trend-controls">
                   <div className="search-box">
                     <Search size={18} />
@@ -165,7 +165,7 @@ export function TrendPage() {
           charts: (
             <div className="trend-chart-page">
               <div className="trend-toolbar">
-                <div><span className={`live-dot ${showLoading ? "loading" : ""}`} />趋势视图<span className="muted"> · 拖拽查看，滚轮缩放</span></div>
+                <div><span className={`live-dot ${showLoading ? "loading" : ""}`} />趋势视图</div>
                 <div className="trend-view-actions">
                   {effectiveView === "3d" && <button className="btn btn-ghost btn-sm rotation-toggle" onClick={() => setRotationEnabled((enabled) => !enabled)} disabled={reduce} aria-pressed={rotationEnabled && !reduce} aria-label="自动旋转" title={reduce ? "已遵循系统减少动态效果设置" : "同时控制两张 3D 图表；离屏与后台自动暂停"}>{rotationEnabled && !reduce ? <Pause size={14} /> : <Play size={14} />}{reduce ? "旋转已关闭" : rotationEnabled ? "暂停旋转" : "继续旋转"}</button>}
                   <div className="view-toggle"><motion.span className="view-pill" animate={{ x: effectiveView === "3d" ? "0%" : "100%" }} transition={SPRING} /><button className={effectiveView === "3d" ? "active" : ""} onClick={() => webgl && setView("3d")} disabled={!webgl} title={webgl ? "3D 视图" : "当前浏览器不支持 WebGL"} aria-pressed={effectiveView === "3d"}><Box size={14} /><span>3D</span></button><button className={effectiveView === "2d" ? "active" : ""} onClick={() => setView("2d")} aria-pressed={effectiveView === "2d"}><LineChart size={14} /><span>2D</span></button></div>
@@ -173,8 +173,8 @@ export function TrendPage() {
               </div>
               {data ? (
                 <div className="trend-grid three-d">
-                  <div className="panel chart-panel chart-dark"><div className="panel-head"><div><h2>年度发文量</h2><p>{effectiveView === "3d" ? `3D 立体柱 · ${rotationEnabled && !reduce ? "自动旋转" : "已暂停，可拖拽"}` : "相关文献按年排布，起伏即脉络"}</p></div><span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>{effectiveView === "3d" ? "LIVE 3D" : "2D"}</span></div><AnimatePresence mode="wait" initial={false}><motion.div key={effectiveView} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.23, ease: EASE }}>{effectiveView === "3d" ? <AnnualChart3D data={data} autoRotate={rotationEnabled} /> : <TrendBar2D data={data} />}</motion.div></AnimatePresence>{showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}</div>
-                  <div className="panel chart-panel chart-dark"><div className="panel-head"><div><h2>主题热度矩阵</h2><p>{effectiveView === "3d" ? "主题 × 年份 × 文献数 · 可旋转" : "主题 × 年份 × 篇数，一张矩阵看冷暖"}</p></div><span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>{effectiveView === "3d" ? "3D MATRIX" : "2D"}</span></div><AnimatePresence mode="wait" initial={false}><motion.div key={effectiveView} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.23, ease: EASE }}>{effectiveView === "3d" ? <TopicMatrix3D data={data} autoRotate={rotationEnabled} /> : <TrendLine2D data={data} />}</motion.div></AnimatePresence>{showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}</div>
+                  <div className="panel chart-panel chart-dark"><div className="panel-head"><div><h2>年度发文量</h2></div><span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>{effectiveView === "3d" ? "LIVE 3D" : "2D"}</span></div><AnimatePresence mode="wait" initial={false}><motion.div key={effectiveView} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.23, ease: EASE }}>{effectiveView === "3d" ? <AnnualChart3D data={data} autoRotate={rotationEnabled} /> : <TrendBar2D data={data} />}</motion.div></AnimatePresence>{showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}</div>
+                  <div className="panel chart-panel chart-dark"><div className="panel-head"><div><h2>主题热度矩阵</h2></div><span className={`mode-badge ${effectiveView === "3d" ? "online" : ""}`}>{effectiveView === "3d" ? "3D MATRIX" : "2D"}</span></div><AnimatePresence mode="wait" initial={false}><motion.div key={effectiveView} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.23, ease: EASE }}>{effectiveView === "3d" ? <TopicMatrix3D data={data} autoRotate={rotationEnabled} /> : <TrendLine2D data={data} />}</motion.div></AnimatePresence>{showLoading && <div className="chart-loading"><span className="spinner" />更新中…</div>}</div>
                 </div>
               ) : <div className="panel skeleton-panel"><div className="skeleton skeleton-title" /><div className="skeleton-grid"><div className="skeleton" /><div className="skeleton" /></div></div>}
               {!webgl && <div className="webgl-note"><Info size={15} />当前浏览器未启用 WebGL，已自动使用 2D 图表；3D 视图在支持 WebGL 的浏览器中可用。</div>}
@@ -192,7 +192,7 @@ export function TrendPage() {
           ),
           papers: (
             <div className="panel trend-papers-page">
-              <div className="panel-head"><div><h2>代表性文献</h2><p>{data?.papers.length ? `展示前 ${data.papers.length} 篇` : "暂无匹配"}</p></div></div>
+              <div className="panel-head"><div><h2>代表性文献</h2></div></div>
               {data ? (
                 <motion.div className="paper-list" key={`papers-${data.query}-${data.stats.total}`} variants={staggerContainer} initial="initial" animate="animate">
                   {data.papers.length === 0 ? <div className="empty-state" style={{ gridColumn: "1 / -1" }}><p>暂无匹配文献。换一枚主题词，或<Link className="link-btn" to="/library?view=literature">前往文档库</Link>导入真实文献 CSV 再试。</p></div> : data.papers.map((paper, index) => (
