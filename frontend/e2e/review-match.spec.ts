@@ -154,6 +154,11 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await page.getByRole('button', { name: '运行一体化检查' }).click();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.match-deck .work-deck-head h3')).toHaveText('运行检查');
+  await page.setViewportSize({ width: 640, height: 400 });
+  await expect(page.locator('.match-deck .work-deck-head')).toHaveCSS('display', 'none');
+  await expect(page.locator('.match-deck .work-deck-compact-status').getByRole('button', { name: '导出结果' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('match-compact-export.png') });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await uploadRefreshDocument(page, '匹配刷新回归');
   await expect(page.getByRole('button', { name: '导出结果' })).toBeEnabled();
   await expect(page.getByRole('tab', { name: '运行检查', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -180,11 +185,44 @@ test('@smoke 真实匹配先回避、显示依据并导出，换本子清空结�
   await page.screenshot({ path: testInfo.outputPath('match-duplicate-link.png') });
   await page.getByRole('tab', { name: '专家候选', exact: true }).click();
   await expect(page.locator('.match-method-note')).toContainText('不推断简称');
+  const expertAlignment = await page.evaluate(() => {
+    const contentLeft = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector)!;
+      const style = getComputedStyle(element);
+      return element.getBoundingClientRect().left + Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.borderLeftWidth || "0");
+    };
+    return {
+      heading: contentLeft('.match-experts-page > .panel-head h2'),
+      applicant: contentLeft('.match-experts-page > .match-callout'),
+      method: contentLeft('.match-experts-page > .match-method-note'),
+      keywords: contentLeft('.match-experts-page > .keyword-chips'),
+    };
+  });
+  for (const [label, left] of Object.entries(expertAlignment)) {
+    expect(Math.abs(left - expertAlignment.heading), `专家候选 ${label} 正文未与标题左对齐`).toBeLessThanOrEqual(1);
+  }
   await page.screenshot({ path: testInfo.outputPath('match-desktop.png') });
   await page.getByRole('tab', { name: '回避边界', exact: true }).click();
   await expect(page.locator('.match-deck-excluded')).toContainText('示例专家A');
   await expect(page.locator('.match-deck-excluded')).toContainText('与申报单位存在同单位回避');
   await expect(page.locator('.match-deck-excluded .adaptive-pager-page .exclusion-evidence').first()).toContainText('原名一致');
+  const boundaryAlignment = await page.evaluate(() => {
+    const contentLeft = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector)!;
+      const style = getComputedStyle(element);
+      return element.getBoundingClientRect().left + Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.borderLeftWidth || "0");
+    };
+    return {
+      heading: contentLeft('.match-boundaries-page > .panel-head h2'),
+      callout: contentLeft('.match-boundaries-page > .match-callout'),
+      item: contentLeft('.match-boundaries-page .adaptive-pager-page .match-excluded-item'),
+      disclaimer: contentLeft('.match-boundaries-page > .disclaimer'),
+    };
+  });
+  for (const [label, left] of Object.entries(boundaryAlignment)) {
+    expect(Math.abs(left - boundaryAlignment.heading), `回避边界 ${label} 正文未与标题左对齐`).toBeLessThanOrEqual(1);
+  }
+  await page.screenshot({ path: testInfo.outputPath('match-boundaries.png') });
   await expect(page.locator('.expert-card').filter({ hasText: '示例专家A' })).toHaveCount(0);
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出结果' }).click(), testInfo);
   expect(text).toContain(documents[0].name);

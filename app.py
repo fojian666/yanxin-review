@@ -213,8 +213,11 @@ def _infer_kind(filename: str, text: str = "") -> str:
     name = (filename or "").lower()
     if any(k in name for k in ("用户手册", "操作手册", "申报流程", "实施流程", "管理流程")):
         return "guide"
-    if any(k in name for k in ("模板", "承诺书", "自评表", "评价表", "合同")):
+    if "模板" in name:
         return "template"
+    # 承诺书、合同、自评/评价表是实际卷宗材料，不是空白模板；具体归卷角色由用户选择。
+    if any(k in name for k in ("承诺书", "自评表", "评价表", "合同", "评价意见")):
+        return "other"
     if any(k in name for k in ("政策", "办法", "规定", "条例", "指南", "规范", "细则")):
         return "policy"
     if any(k in name for k in ("本子", "申请书", "申报书", "课题", "项目申报")):

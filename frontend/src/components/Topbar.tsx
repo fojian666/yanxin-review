@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, Feather, LogOut, Menu, Palette, Upload, UserRound } from "lucide-react";
+import { Check, Feather, LayoutDashboard, LogOut, Menu, Palette, Upload, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
@@ -55,6 +55,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
     };
   }, [userOpen]);
   const workspaceView = WORKSPACE_VIEWS.find((item) => item.path === pathname);
+  const TitleIcon = workspaceView?.icon ?? LayoutDashboard;
   const meta = pathname === "/welcome"
     ? WELCOME_META
     : workspaceView
@@ -72,8 +73,14 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
   return (
     <header className={`topbar ${pathname === "/welcome" ? "" : "is-task"}`} onDragStart={(event) => event.preventDefault()}>
       <div className="topbar-title" key={`title:${pathname}`}>
-        <h1>{meta.title}</h1>
-
+        <div className="topbar-title-row">
+          {!simpleMode && (
+            <span className="topbar-title-icon" aria-hidden="true">
+              <TitleIcon size={19} strokeWidth={1.8} />
+            </span>
+          )}
+          <h1>{meta.title}</h1>
+        </div>
       </div>
       <div className="topbar-actions">
         <button

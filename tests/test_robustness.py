@@ -263,7 +263,11 @@ def test_infer_kind_falls_back_to_content_sniffing():
     assert app_module._infer_kind("某文件.docx", "这是一段普通文本。") == "other"
     assert app_module._infer_kind("管理办法.pdf", "") == "policy"
     assert app_module._infer_kind("申报用户手册.docx", "") == "guide"
-    assert app_module._infer_kind("科研诚信承诺书.doc", "") == "template"
+    assert app_module._infer_kind("科研诚信承诺书.doc", "") == "other"
+    assert app_module._infer_kind("课题合同.pdf", "") == "other"
+    assert app_module._infer_kind("绩效自评表.docx", "") == "other"
+    assert app_module._infer_kind("专家评价表.docx", "") == "other"
+    assert app_module._infer_kind("申报书模板.docx", "") == "template"
 
 
 def test_ingest_experts_and_papers_idempotent(tmp_path, monkeypatch):

@@ -49,6 +49,7 @@ interface WorkDeckProps<T extends string> {
   panels: Record<T, ReactNode>;
   ariaLabel: string;
   status?: ReactNode;
+  compactStatus?: boolean;
   className?: string;
 }
 
@@ -77,6 +78,7 @@ export function WorkDeck<T extends string>({
   panels,
   ariaLabel,
   status,
+  compactStatus = false,
   className = "",
 }: WorkDeckProps<T>) {
   const reduce = useMotionPreference();
@@ -120,7 +122,7 @@ export function WorkDeck<T extends string>({
   };
 
   return (
-    <section id={id} className={`work-deck ${className}`.trim()} aria-label={ariaLabel} hidden={hidden}>
+    <section id={id} className={`work-deck ${compactStatus && status ? "has-compact-status" : ""} ${className}`.trim()} aria-label={ariaLabel} hidden={hidden}>
       <aside className="work-deck-rail">
         <div className="work-deck-rail-head">
           <span>{ariaLabel}</span>
@@ -204,6 +206,7 @@ export function WorkDeck<T extends string>({
           <button type="button" className="btn btn-primary btn-sm" disabled={activeIndex >= steps.length - 1} onClick={() => changeRelative(1)}>
             下一步<ChevronRight size={15} />
           </button>
+          {compactStatus && <div className="work-deck-compact-status">{status}</div>}
         </footer>
       </div>
     </section>

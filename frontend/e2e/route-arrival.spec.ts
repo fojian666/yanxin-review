@@ -132,6 +132,8 @@ for (const [label, width, height] of [['桌面', 1440, 900], ['手机', 375, 812
     await navigate(page, '文档中心');
     const pageTitle = page.getByRole('heading', { level: 1 });
     await expect(pageTitle).toHaveText('文档中心');
+    await expect(page.locator('.topbar-title-icon')).toBeVisible();
+    await expect(page.locator('.topbar-title-icon svg')).toBeVisible();
     await expect(pageTitle).toHaveCSS('font-family', /PingFang SC/);
     const titleSize = Number.parseFloat(await pageTitle.evaluate(element => getComputedStyle(element).fontSize));
     expect(titleSize).toBeGreaterThanOrEqual(width === 375 ? 20 : 24);

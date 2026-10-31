@@ -2007,6 +2007,23 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 
 /* 栏目卷标：单次滑入并保留，不添加背景纸片；不参与布局或点击。 */
 .topbar { position: relative; }
+.topbar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.topbar-title-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--topbar-control-line);
+  border-radius: 9px;
+  color: var(--topbar-ink);
+  background: var(--topbar-control-bg);
+}
 .main:has(.workspace-home) > .topbar .topbar-title h1 {
   animation: title-arrive .52s cubic-bezier(.22, 1, .36, 1) both;
 }
@@ -2028,6 +2045,9 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   to { transform: translate(0, 0) rotate(0); opacity: 1; }
 }
 @media (max-width: 680px) {
+  .topbar-title-row { gap: 7px; }
+  .topbar-title-icon { width: 28px; height: 28px; border-radius: 8px; }
+  .topbar-title-icon svg { width: 17px; height: 17px; }
   .topbar-title .route-arrival { width: min(260px, 90%); height: 21px; margin-top: 4px; --route-tab-x: -18px; --route-tab-y: -3px; }
   .route-arrival-tab { min-width: 92px; height: 20px; font-size: 11px; }
 }
@@ -4306,6 +4326,28 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   padding: 7px 0;
   border-bottom: 1px solid var(--line);
 }
+.match-boundaries-page .match-callout {
+  padding-left: 21px;
+  padding-right: 21px;
+}
+.match-boundaries-page .match-excluded-item {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+.match-boundaries-page > .disclaimer {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+.match-experts-page .match-callout {
+  padding-left: 21px;
+  padding-right: 21px;
+}
+.match-experts-page .match-constraint-warning,
+.match-experts-page .match-method-note,
+.match-experts-page .keyword-chips {
+  margin-left: 24px;
+  margin-right: 24px;
+}
 .match-deck-page > .disclaimer {
   flex: 0 0 auto;
 }
@@ -4813,6 +4855,7 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .work-deck-footer .btn {
   min-height: 36px;
 }
+.work-deck-compact-status { display: none; }
 .inline-pager {
   display: flex;
   align-items: center;
@@ -5804,6 +5847,24 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   }
   .work-deck-panel {
     inset: 4px 6px;
+  }
+  .work-deck-footer {
+    display: none;
+  }
+  .work-deck.has-compact-status .work-deck-main {
+    grid-template-rows: minmax(0, 1fr) 36px;
+  }
+  .work-deck.has-compact-status .work-deck-footer {
+    display: flex;
+    min-height: 36px;
+    padding: 2px 6px;
+  }
+  .work-deck-footer > button,
+  .work-deck-footer > span { display: none; }
+  .work-deck-compact-status {
+    display: flex;
+    justify-content: flex-end;
+    margin-left: auto;
   }
   .trend-controls-page .kpi-grid {
     flex: 0 0 58px;

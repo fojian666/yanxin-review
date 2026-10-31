@@ -171,6 +171,7 @@ test('四套主题在各工作面切换、保留并支持键盘操作', async ({
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
   await expect(page.getByRole('button', { name: '关闭简约模式' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.topbar-title h1')).toHaveCSS('animation-name', 'none');
+  await expect(page.locator('.topbar-title-icon')).toHaveCount(0);
   await expect(page.locator('.workspace-overview-mark')).toHaveCSS('display', 'none');
   await expect(page.locator('.sidebar-toggle .lucide')).toHaveCSS('display', 'block');
   expect(await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === 'running').length)).toBe(0);

@@ -229,6 +229,7 @@ export function MatchPage() {
         active={section}
         onChange={setSection}
         ariaLabel="查重匹配工作台"
+        compactStatus
         status={<button type="button" className="btn btn-ghost btn-sm" onClick={exportReport} disabled={!result}><Download size={14} />导出结果</button>}
         panels={{
           run: (
@@ -307,7 +308,7 @@ export function MatchPage() {
             </div>
           ),
           experts: (
-            <div className="panel match-panel match-deck-page">
+            <div className="panel match-panel match-deck-page match-experts-page">
               <div className="panel-head"><div><h2>专家匹配</h2><p>方向语义、关键词与学科三路加权，约束前置，排序可解释</p></div><span className="count-badge">{candidates.length}</span></div>
               {result && match ? (
                 <>
@@ -330,7 +331,7 @@ export function MatchPage() {
             </div>
           ),
           boundaries: (
-            <div className="panel match-panel match-deck-page">
+            <div className="panel match-panel match-deck-page match-boundaries-page">
               <div className="panel-head"><div><h2>回避与边界</h2><p>排除原因保留双方原名与比较依据</p></div><UserCheck size={18} /></div>
               {result && match ? (
                 <>
