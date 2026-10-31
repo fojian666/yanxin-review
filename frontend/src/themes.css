@@ -335,13 +335,13 @@
 }
 :root[data-theme="blue"] .nav {
   min-height: 0;
-  margin: 12px 8px 0;
+  margin: 0;
   padding: 8px;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
   background: #fff;
-  box-shadow: 0 8px 22px rgba(22, 77, 112, .07);
+  box-shadow: none;
 }
 :root[data-theme="blue"] .nav-item {
   color: #567183;
@@ -461,6 +461,17 @@
 
 /* 蓝白主题展开为白色侧栏；收起后恢复深蓝功能轨道，与其它主题保持同一导航形态。 */
 @media (min-width: 981px) {
+  :root[data-theme="blue"] .app-shell:not(.sidebar-collapsed) .sidebar {
+    padding: 0;
+  }
+  :root[data-theme="blue"] .app-shell:not(.sidebar-collapsed) .brand {
+    margin-inline: 0;
+  }
+  :root[data-theme="blue"] .app-shell:not(.sidebar-collapsed) .nav {
+    flex: 1 1 auto;
+    height: auto;
+    border-radius: 0;
+  }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .sidebar {
     color: var(--ink-2);
     padding-top: 0;

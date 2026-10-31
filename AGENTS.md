@@ -68,7 +68,7 @@ frontend/src/
   components/          WorkDeck(固定章节舞台与方向切换)、DocumentDirectory(目录)、DocumentReader(书页正文)、EChart(关系图)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
   simpleMode.ts / theme.ts / themes.css  本地持久化四套主题与简约模式；当前顶栏不显示切换入口，风险语义色保留
-  styles.css           全局尺度（正文 15px/控件 40px/导航侧栏 264px、品牌标题箱 380px）、登录页地形/网格/纸纹关键帧、状态动效类；
+  styles.css           全局尺度（正文 15px/控件 40px/导航侧栏 264px 且白盒纵向铺满、品牌标题箱 380px）、登录页地形/网格/纸纹关键帧、状态动效类；
                        动效只用 transform 入场，prefers-reduced-motion 全关；≤680px 抽屉导航与 skip link
 ```
 
