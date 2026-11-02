@@ -7172,6 +7172,8 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
     --workspace-gutter: 13px;
   }
   .main:has(.workspace-home) > .topbar {
+    height: 68px;
+    min-height: 68px;
     padding-top: 8px;
     padding-bottom: 8px;
   }

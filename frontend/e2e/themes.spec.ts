@@ -212,10 +212,19 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
     const drawer = await page.evaluate(() => {
       const sidebar = document.querySelector<HTMLElement>('.sidebar')!.getBoundingClientRect();
       const nav = document.querySelector<HTMLElement>('.sidebar .nav')!.getBoundingClientRect();
-      return { sidebarBottom: sidebar.bottom, navBottom: nav.bottom, navHeight: nav.height };
+      const brand = document.querySelector<HTMLElement>('.brand')!.getBoundingClientRect();
+      const topbar = document.querySelector<HTMLElement>('.topbar')!.getBoundingClientRect();
+      return {
+        sidebarBottom: sidebar.bottom,
+        navBottom: nav.bottom,
+        navHeight: nav.height,
+        brandHeight: brand.height,
+        topbarHeight: topbar.height,
+      };
     });
     expect(drawer.navHeight).toBeGreaterThan(0);
     expect(Math.abs(drawer.sidebarBottom - drawer.navBottom)).toBeLessThanOrEqual(1);
+    expect(Math.abs(drawer.brandHeight - drawer.topbarHeight)).toBeLessThanOrEqual(1);
     await page.keyboard.press('Escape');
   }
   await page.goto('/welcome');
