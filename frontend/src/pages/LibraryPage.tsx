@@ -572,7 +572,6 @@ export function LibraryPage() {
                   <div className="document-case-artifact-meta">
                     <span>{selectedArtifact.created_by}</span>
                     <span>{selectedArtifact.created_at.replace("T", " ")}</span>
-                    <span title={selectedArtifact.sha256}>SHA {selectedArtifact.sha256.slice(0, 12)}</span>
                   </div>
                 </header>
                 <div className="document-case-artifact-body scroll-area">

@@ -44,7 +44,7 @@ const DECISION_OPTIONS: { value: ReviewDecision; label: string }[] = [
 
 const REVIEW_PROGRESS_STEPS = {
   pre: ["读取申报书结构", "核对诚信与规范", "执行查重与政策检索", "生成专家候选", "写入预审归档"],
-  final: ["汇总专家意见", "校验回避与完成状态", "写入终审决定", "生成归档哈希"],
+  final: ["汇总专家意见", "校验回避与完成状态", "写入终审决定", "完成归档保存"],
 } as const;
 
 function ReviewProgress({ mode, current }: { mode: "pre" | "final"; current: number }) {
@@ -382,8 +382,6 @@ export function ReviewCasePage() {
   }
 
   const tasks = current.tasks ?? [];
-  const latestDecisionArtifact = current.artifacts?.find((artifact) => artifact.artifact_type === "final_decision");
-
   return (
     <div className="review-case-workspace">
       <section className="review-case-bar">
@@ -547,7 +545,6 @@ export function ReviewCasePage() {
                       <h3>终审决定</h3>
                       <strong className="review-final-decision">{current.final_decision_label}</strong>
                       <p>{current.final_comment}</p>
-                      {latestDecisionArtifact && <small>归档哈希：{latestDecisionArtifact.sha256.slice(0, 16)}…</small>}
                     </>
                   ) : current.stage === "final_review" ? (
                     <>

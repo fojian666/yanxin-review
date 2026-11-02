@@ -60,19 +60,19 @@
     584 frontend/src/pages/ChatPage.tsx
     224 frontend/src/pages/ExpertReviewPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
-    592 frontend/src/pages/LibraryPage.tsx
+    591 frontend/src/pages/LibraryPage.tsx
     302 frontend/src/pages/LoginPage.tsx
     422 frontend/src/pages/MatchPage.tsx
-    579 frontend/src/pages/ReviewCasePage.tsx
+    576 frontend/src/pages/ReviewCasePage.tsx
     622 frontend/src/pages/ReviewPage.tsx
     232 frontend/src/pages/TrendPage.tsx
     237 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   7973 frontend/src/styles.css
+   7986 frontend/src/styles.css
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
     494 frontend/src/types.ts
-  18481 total
+  18490 total
 测试（Python）
      31 tests/conftest.py
     292 tests/test_corpus.py
@@ -101,7 +101,7 @@
     259 frontend/e2e/knowledge-document.spec.ts
     231 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
-     81 frontend/e2e/review-case.spec.ts
+     83 frontend/e2e/review-case.spec.ts
     363 frontend/e2e/review-match.spec.ts
     165 frontend/e2e/route-arrival.spec.ts
      50 frontend/e2e/server.py
@@ -110,9 +110,9 @@
     151 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3109 total
+   3111 total
 合计
-  34392 total（101 个文件）
+  34403 total（101 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

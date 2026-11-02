@@ -537,7 +537,20 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .section-block { margin-top: 22px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 15px 18px; background: #fbf8f1; border-bottom: 1px solid var(--line); }
 .section-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
-.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+.status-pill {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.status-pill > svg { flex: 0 0 auto; }
 .status-idle { background: var(--idle); color: var(--idle-ink); }
 .status-pass { background: var(--success-soft); color: var(--success-deep); }
 .status-warn { background: var(--warning-soft); color: var(--warning); }

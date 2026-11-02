@@ -63,6 +63,7 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.screenshot({ path: testInfo.outputPath('review-case-final-progress.png') });
   await expect(page.getByText('终审决定', { exact: true })).toBeVisible();
   await expect(page.getByText('通过', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText(/归档哈希|^SHA /)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('review-case-finalized.png') });
 
   await navigate(page, '文档中心');
@@ -73,6 +74,7 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.locator('.document-case-artifact-list button').filter({ hasText: '终审决定' }).click();
   await expect(page.locator('.document-case-artifact-reader')).toContainText('终审意见');
   await expect(page.locator('.document-case-artifact-reader')).toContainText('同意通过');
+  await expect(page.getByText(/归档哈希|^SHA /)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('library-case-artifacts.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
