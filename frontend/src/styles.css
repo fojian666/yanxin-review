@@ -6921,6 +6921,134 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 }
 .review-stage-questions p:last-child { border-bottom: 0; }
 
+.review-process-progress {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(170px, .42fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(18px, 4vw, 54px);
+  padding: clamp(18px, 3vw, 38px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 18% 35%, color-mix(in srgb, var(--teal-soft) 85%, transparent), transparent 42%),
+    var(--panel-2);
+}
+.review-process-orbit {
+  position: relative;
+  width: min(180px, 22vw);
+  aspect-ratio: 1;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}
+.review-process-orbit::before,
+.review-process-orbit::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--teal) 35%, var(--line));
+}
+.review-process-orbit::before { inset: 13%; animation: reviewOrbit 8s linear infinite; }
+.review-process-orbit::after { inset: 28%; border-style: solid; opacity: .5; }
+.review-process-orbit > span {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--teal);
+  border-right-color: color-mix(in srgb, var(--teal) 35%, transparent);
+  animation: reviewOrbit 1.8s linear infinite;
+}
+.review-process-orbit > span:nth-child(2) {
+  inset: 19%;
+  border-width: 2px;
+  border-top-color: var(--gold);
+  animation-direction: reverse;
+  animation-duration: 2.6s;
+}
+.review-process-orbit strong {
+  color: var(--teal-deep);
+  font: 700 clamp(34px, 5vw, 62px)/1 var(--font-ui);
+}
+.review-process-copy { min-width: 0; }
+.review-process-copy > small {
+  color: var(--teal-deep);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+.review-process-copy h3 {
+  margin: 4px 0 14px;
+  color: var(--ink);
+  font: 700 clamp(20px, 2vw, 28px)/1.3 var(--font-ui);
+}
+.review-process-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+.review-process-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), color-mix(in srgb, var(--teal) 45%, white));
+  transition: width .52s cubic-bezier(.22, 1, .36, 1);
+}
+.review-process-copy ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 7px 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.review-process-copy li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.review-process-copy li span {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  font-size: 8.5px;
+}
+.review-process-copy li.is-active {
+  color: var(--teal-deep);
+  font-weight: 700;
+}
+.review-process-copy li.is-active span {
+  color: var(--panel);
+  border-color: var(--teal);
+  background: var(--teal);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--teal-soft) 70%, transparent);
+  animation: reviewStepPulse 1.3s ease-in-out infinite;
+}
+.review-process-copy li.is-done { color: var(--ink-2); }
+.review-process-copy li.is-done span {
+  color: var(--teal-deep);
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+@keyframes reviewOrbit { to { transform: rotate(360deg); } }
+@keyframes reviewStepPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
 .review-candidate-pool,
 .review-final-grid > .review-stage-card {
   display: flex;
@@ -7212,11 +7340,57 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   background: var(--teal-deep);
 }
 .document-case-artifact-list { overflow-y: auto; }
+.document-case-group {
+  margin-bottom: 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.document-case-group > summary {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+.document-case-group > summary::-webkit-details-marker { display: none; }
+.document-case-group > summary svg {
+  color: var(--teal);
+  transition: transform .2s ease;
+}
+.document-case-group[open] > summary svg { transform: rotate(90deg); }
+.document-case-group > summary span {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.document-case-group > summary strong {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--teal-deep);
+  font-size: 9px;
+  text-align: center;
+}
+.document-case-group-items {
+  display: grid;
+  gap: 2px;
+  padding: 0 5px 5px;
+  border-top: 1px solid var(--line);
+}
 .document-case-artifact-list button {
   width: 100%;
   display: grid;
   gap: 2px;
-  padding: 9px;
+  padding: 8px;
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0 4px 4px 0;
@@ -7279,6 +7453,9 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .review-stage-heading .btn { min-width: 44px; padding: 0 10px; font-size: 11px; }
   .review-case-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .review-candidate-list { grid-template-columns: 1fr; }
+  .review-process-progress { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+  .review-process-orbit { width: 112px; }
+  .review-process-copy ol { grid-template-columns: 1fr 1fr; margin-top: 12px; }
   .expert-task-strip { grid-template-columns: 1fr; gap: 6px; }
   .expert-task-tabs button { min-width: 155px; }
   .library-view-switch { gap: 4px; }
@@ -7290,6 +7467,13 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .document-case-artifact-reader header h2 { font-size: 16px; }
   .document-case-artifact-meta { display: none; }
   .document-case-artifact-body { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-process-orbit::before,
+  .review-process-orbit > span,
+  .review-process-copy li.is-active span { animation: none; }
+  .review-process-track > span { transition: none; }
 }
 
 @media (max-width: 900px), (max-height: 720px) {

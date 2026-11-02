@@ -11,8 +11,15 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.getByRole('button', { name: '建立并开始' }).click();
   await expect(page.getByRole('tab', { name: '预审' })).toHaveAttribute('aria-selected', 'true');
 
+  await page.route('**/api/review-cases/*/run', async route => {
+    await new Promise(resolve => setTimeout(resolve, 450));
+    await route.continue();
+  });
   await page.getByRole('button', { name: '一键预审并匹配专家' }).click();
+  await expect(page.locator('.review-process-progress')).toContainText('预审进行中');
+  await page.screenshot({ path: testInfo.outputPath('review-case-pre-progress.png') });
   await expect(page.getByRole('tab', { name: '专家审核' })).toHaveAttribute('aria-selected', 'true');
+  await page.unroute('**/api/review-cases/*/run');
   await page.getByRole('tab', { name: '专家审核' }).click();
   const firstCandidate = page.locator('.review-candidate-list label').first();
   await expect(firstCandidate).toBeVisible();
@@ -47,13 +54,21 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.getByRole('button', { name: '进入终审' }).click();
   await expect(page.getByRole('tab', { name: '终审' })).toHaveAttribute('aria-selected', 'true');
   await page.getByPlaceholder('填写终审理由、修改要求或通过条件（至少 10 字）').fill('专家意见已核对，同意通过并按要求补充年度监测计划。');
+  await page.route('**/api/review-cases/*/final', async route => {
+    await new Promise(resolve => setTimeout(resolve, 450));
+    await route.continue();
+  });
   await page.getByRole('button', { name: '签署并归档' }).click();
+  await expect(page.locator('.review-process-progress')).toContainText('终审签署中');
+  await page.screenshot({ path: testInfo.outputPath('review-case-final-progress.png') });
   await expect(page.getByText('终审决定', { exact: true })).toBeVisible();
   await expect(page.getByText('通过', { exact: true }).last()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('review-case-finalized.png') });
 
   await navigate(page, '文档中心');
   await page.getByRole('button', { name: /案卷数据/ }).click();
+  await expect(page.locator('.document-case-group')).toHaveCount(1);
+  await expect(page.locator('.document-case-group > summary')).toContainText('E2E 全过程评审');
   await expect(page.locator('.document-case-artifact-list button')).toHaveCount(5);
   await page.locator('.document-case-artifact-list button').filter({ hasText: '终审决定' }).click();
   await expect(page.locator('.document-case-artifact-reader')).toContainText('终审意见');

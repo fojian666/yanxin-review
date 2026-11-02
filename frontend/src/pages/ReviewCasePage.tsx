@@ -42,6 +42,38 @@ const DECISION_OPTIONS: { value: ReviewDecision; label: string }[] = [
   { value: "rejected", label: "不通过" },
 ];
 
+const REVIEW_PROGRESS_STEPS = {
+  pre: ["读取申报书结构", "核对诚信与规范", "执行查重与政策检索", "生成专家候选", "写入预审归档"],
+  final: ["汇总专家意见", "校验回避与完成状态", "写入终审决定", "生成归档哈希"],
+} as const;
+
+function ReviewProgress({ mode, current }: { mode: "pre" | "final"; current: number }) {
+  const steps = REVIEW_PROGRESS_STEPS[mode];
+  const active = Math.min(current, steps.length - 1);
+  const percent = Math.min(92, Math.round(((active + 1) / steps.length) * 100));
+  return (
+    <div className="review-process-progress" role="status" aria-live="polite">
+      <div className="review-process-orbit" aria-hidden="true">
+        <span />
+        <span />
+        <strong>{active + 1}</strong>
+      </div>
+      <div className="review-process-copy">
+        <small>{mode === "pre" ? "预审进行中" : "终审签署中"}</small>
+        <h3>{steps[active]}</h3>
+        <div className="review-process-track" aria-hidden="true"><span style={{ width: `${percent}%` }} /></div>
+        <ol>
+          {steps.map((step, index) => (
+            <li key={step} className={index < active ? "is-done" : index === active ? "is-active" : ""}>
+              <span>{String(index + 1).padStart(2, "0")}</span>{step}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 function stageForCase(value: ReviewCase) {
   if (value.stage === "completed") return "final_review";
   if (value.stage === "pre_review" || value.stage === "expert_review" || value.stage === "final_review") return value.stage;
@@ -72,6 +104,7 @@ export function ReviewCasePage() {
   const [assignee, setAssignee] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("approved");
   const [finalComment, setFinalComment] = useState("");
+  const [processStep, setProcessStep] = useState(0);
 
   const availableDocs = useMemo(
     () => docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other"),
@@ -91,6 +124,19 @@ export function ReviewCasePage() {
   );
   const candidates = toolResult?.match?.candidates ?? [];
   const excludedCount = toolResult?.match?.excluded?.length ?? 0;
+
+  useEffect(() => {
+    if (busy !== "pre" && busy !== "final") {
+      setProcessStep(0);
+      return;
+    }
+    setProcessStep(0);
+    const steps = REVIEW_PROGRESS_STEPS[busy];
+    const timer = window.setInterval(() => {
+      setProcessStep((current) => Math.min(current + 1, steps.length - 1));
+    }, 720);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   useEffect(() => {
     let active = true;
@@ -378,7 +424,9 @@ export function ReviewCasePage() {
                   {current.stage === "pre_review" ? "一键预审并匹配专家" : "重新运行需新建轮次"}
                 </button>
               </div>
-              {preReview ? (
+              {busy === "pre" ? (
+                <ReviewProgress mode="pre" current={processStep} />
+              ) : preReview ? (
                 <>
                   <div className="kpi-grid review-case-kpis">
                     <KpiCard label="风险等级" value={preReview.overall.risk_level} sub={`${preReview.overall.checked_items} 项检查`} tone={preReview.overall.risk_level === "高" ? "gold" : "teal"} />
@@ -478,7 +526,9 @@ export function ReviewCasePage() {
                 <div><span>第 3 阶段</span><h2>意见汇总与终审</h2></div>
                 {current.stage === "completed" && <span className="status-pill status-pass"><CheckCircle2 size={14} />{current.final_decision_label}</span>}
               </div>
-              <div className="review-final-grid">
+              {busy === "final" ? (
+                <ReviewProgress mode="final" current={processStep} />
+              ) : <div className="review-final-grid">
                 <article className="review-stage-card">
                   <h3>专家意见汇总</h3>
                   <div className="review-opinion-list scroll-area">
@@ -519,7 +569,7 @@ export function ReviewCasePage() {
                     <EmptyState icon={<ShieldCheck size={34} />} description="专家审核完成后，由终审人员汇总意见并签署决定。" />
                   )}
                 </article>
-              </div>
+              </div>}
             </div>
           ),
         }}

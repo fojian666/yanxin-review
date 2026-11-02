@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Download,
   BookMarked,
+  ChevronRight,
   FileSpreadsheet,
   FileText,
   Loader2,
@@ -108,6 +109,19 @@ export function LibraryPage() {
     );
   }, [artifactQuery, caseArtifacts]);
   const selectedArtifact = caseArtifacts.find((artifact) => artifact.id === selectedArtifactId) || null;
+  const artifactGroups = useMemo(() => {
+    const groups = new Map<string, { id: string; title: string; items: ReviewArtifact[] }>();
+    for (const artifact of visibleArtifacts) {
+      const group = groups.get(artifact.case_id) || {
+        id: artifact.case_id,
+        title: artifact.case_title || "未命名评审案卷",
+        items: [],
+      };
+      group.items.push(artifact);
+      groups.set(artifact.case_id, group);
+    }
+    return [...groups.values()];
+  }, [visibleArtifacts]);
 
   useEffect(() => {
     setLibraryView(
@@ -515,18 +529,33 @@ export function LibraryPage() {
               />
             </label>
             <div className="document-case-artifact-list scroll-area">
-              {visibleArtifacts.map((artifact) => (
-                <button
-                  type="button"
-                  key={artifact.id}
-                  className={artifact.id === selectedArtifactId ? "is-active" : ""}
-                  aria-pressed={artifact.id === selectedArtifactId}
-                  onClick={() => chooseArtifact(artifact)}
+              {artifactGroups.map((group) => (
+                <details
+                  key={`${group.id}-${artifactQuery}-${selectedArtifact?.case_id === group.id}`}
+                  className="document-case-group"
+                  open={Boolean(artifactQuery) || selectedArtifact?.case_id === group.id}
                 >
-                  <span>{artifact.stage_label}</span>
-                  <strong>{artifact.title}</strong>
-                  <small>{artifact.case_title} · {artifact.created_at.replace("T", " ")}</small>
-                </button>
+                  <summary>
+                    <ChevronRight size={14} aria-hidden="true" />
+                    <span>{group.title}</span>
+                    <strong>{group.items.length}</strong>
+                  </summary>
+                  <div className="document-case-group-items">
+                    {group.items.map((artifact) => (
+                      <button
+                        type="button"
+                        key={artifact.id}
+                        className={artifact.id === selectedArtifactId ? "is-active" : ""}
+                        aria-pressed={artifact.id === selectedArtifactId}
+                        onClick={() => chooseArtifact(artifact)}
+                      >
+                        <span>{artifact.stage_label}</span>
+                        <strong>{artifact.title}</strong>
+                        <small>{artifact.created_at.replace("T", " ")}</small>
+                      </button>
+                    ))}
+                  </div>
+                </details>
               ))}
               {!visibleArtifacts.length && !artifactError && <p className="document-case-empty">暂无评审归档数据。</p>}
               {artifactError && <p className="document-case-empty status-fail">{artifactError}</p>}
