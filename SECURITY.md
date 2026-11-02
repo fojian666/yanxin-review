@@ -79,8 +79,8 @@
 
 | 风险 | 防护 | 位置 |
 |---|---|---|
-| 任意文件上传 | 扩展名白名单 `.pdf .docx .txt .md .csv`；单文件 ≤30MB（`MAX_UPLOAD_BYTES`，由 `/api/health` 下发前端同步展示） | `rag/config.py:92` |
-| zip 炸弹 | DOCX 解压总量 ≤120MB（`MAX_DOCX_UNCOMPRESSED_BYTES`），逐条目累加校验 | `rag/parsers.py:21` |
+| 任意文件上传 | 扩展名白名单 `.pdf .docx .doc .ofd .odt .rtf .pptx .xlsx .html .htm .txt .md .csv`；单文件 ≤128MB（`MAX_UPLOAD_BYTES`，由 `/api/health` 下发前端同步展示） | `rag/config.py` |
+| zip 炸弹 | DOCX/ODT/OFD/PPTX/XLSX 解压总量 ≤256MB（`MAX_DOCX_UNCOMPRESSED_BYTES`），逐条目累加校验 | `rag/parsers.py` |
 | XML 实体攻击 | 正文/脚注/尾注 XML **全文**扫描 `<!\s*(doctype\|entity)`（大小写不敏感），命中即拒绝解析；扫描范围由上一行体积上限约束，不受偏移限制 | `rag/parsers.py:32,40` |
 | 超大 PDF | `pdftotext -l MAX_PDF_PAGES`（默认 2000，0 为不限） | `rag/parsers.py` |
 | 超长内容撑爆索引 | 解析后统一截断 `MAX_CONTENT_CHARS`（默认 6 万字）并返回 warning | `rag/text.py` |
@@ -131,7 +131,7 @@
 
 - 本仓库为课题原型，**无外部赏金计划**；发现安全问题请通过课题负责人内网渠道报告，勿在公开 issue 中披露可利用细节。
 - 报告请附：影响端点/文件、复现步骤、危害评估；修复后在 `CHANGELOG`（待建）与本文同步记录。
-- 回归基线：`python3 -m pytest tests/ -q`（160 个测试函数，参数化展开 178 项；含认证矩阵、卷宗权限/版本/材料体检、路径穿越、脱敏、实际请求体上限、登录 IP 限速、向量维度熔断、文档正文接口、实体防护（含偏移绕过）、登录入参上限、接入鉴权等 ASGI 级用例）。
+- 回归基线：`python3 -m pytest tests/ -q`（164 个测试函数，参数化展开 182 项；含认证矩阵、卷宗权限/版本/材料体检、路径穿越、脱敏、实际请求体上限、登录 IP 限速、向量维度熔断、文档正文接口、实体防护（含偏移绕过）、登录入参上限、接入鉴权等 ASGI 级用例）。
 
 ## 12. 浏览器测试隔离
 

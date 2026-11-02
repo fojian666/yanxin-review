@@ -6,6 +6,21 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EASE, prefersReducedMotion } from "../motion";
 
+const FALLBACK_UPLOAD_TYPES = [
+  { suffix: ".docx", label: "DOCX" },
+  { suffix: ".doc", label: "DOC" },
+  { suffix: ".pdf", label: "PDF" },
+  { suffix: ".ofd", label: "OFD" },
+  { suffix: ".odt", label: "ODT" },
+  { suffix: ".rtf", label: "RTF" },
+  { suffix: ".pptx", label: "PPTX" },
+  { suffix: ".xlsx", label: "XLSX" },
+  { suffix: ".html", label: "HTML" },
+  { suffix: ".htm", label: "HTML" },
+  { suffix: ".txt", label: "TXT" },
+  { suffix: ".md", label: "MD" },
+] as const;
+
 export function UploadModal() {
   const { health, uploadOpen, setUploadOpen, uploadSeedFile, clearUploadSeed, refreshDocs, refreshPapers, toast } = useApp();
   const location = useLocation();
@@ -22,7 +37,10 @@ export function UploadModal() {
   const cardRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const limitMb = health?.upload_limit_mb ?? 30;
+  const limitMb = health?.upload_limit_mb ?? 128;
+  const uploadTypes = health?.upload_types ?? FALLBACK_UPLOAD_TYPES;
+  const acceptedSuffixes = uploadTypes.map(({ suffix }) => suffix);
+  const acceptedLabels = [...new Set(uploadTypes.map(({ label }) => label))].join(" / ");
 
   useEffect(() => {
     if (!uploadOpen) return;
@@ -91,8 +109,8 @@ export function UploadModal() {
   const pickFile = (picked: File | null | undefined) => {
     if (!picked) return;
     const suffix = (picked.name.split(".").pop() || "").toLowerCase();
-    if (!["docx", "pdf", "txt", "md"].includes(suffix)) {
-      toast("仅支持 DOCX / PDF / TXT / MD", "error");
+    if (!acceptedSuffixes.includes(`.${suffix}`)) {
+      toast(`仅支持 ${acceptedLabels}`, "error");
       return;
     }
     if (picked.size > limitMb * 1024 * 1024) {
@@ -223,14 +241,14 @@ export function UploadModal() {
                     transition={{ duration: 0.18, ease: EASE }}
                   >
                     <div className="drop-icon small"><UploadCloud size={22} /></div>
-                    <p>点击选择或拖拽 DOCX / PDF / TXT / MD（≤ {limitMb}MB）</p>
+                    <p>点击选择或拖拽 {acceptedLabels}（≤ {limitMb}MB）</p>
                   </motion.div>
                 )}
               </AnimatePresence>
               <input
                 ref={inputRef}
                 type="file"
-                accept=".docx,.pdf,.txt,.md"
+                accept={acceptedSuffixes.join(",")}
                 hidden
                 onChange={(event) => pickFile(event.target.files?.[0])}
               />

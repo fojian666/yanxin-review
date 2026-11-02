@@ -138,6 +138,96 @@ def test_docx_footnotes_are_parsed(tmp_path):
     assert "某参考文献" in text
 
 
+def test_text_based_formats_are_parsed(tmp_path):
+    rtf = tmp_path / "sample.rtf"
+    rtf.write_text(r"{\rtf1\ansi \u31185?\u30740?\par done}", encoding="ascii")
+    assert "科研" in parsers.parse_rtf(rtf)["pages"][0]["text"]
+
+    html = tmp_path / "sample.html"
+    html.write_text("<html><style>.x{}</style><body><h1>课题申报</h1><p>科研诚信审查</p></body></html>", encoding="utf-8")
+    parsed_html = parsers.parse_html(html)
+    assert "课题申报" in parsed_html["pages"][0]["text"]
+    assert "科研诚信审查" in parsed_html["pages"][0]["text"]
+    assert ".x{}" not in parsed_html["pages"][0]["text"]
+
+
+def test_odt_ofd_and_pptx_are_parsed(tmp_path):
+    odt = tmp_path / "sample.odt"
+    with zipfile.ZipFile(odt, "w") as z:
+        z.writestr(
+            "content.xml",
+            '<office:document-content xmlns:office="urn:o" xmlns:text="urn:t">'
+            "<text:h>研究内容</text:h><text:p>多源遥感监测</text:p>"
+            "</office:document-content>",
+        )
+    assert "多源遥感监测" in parsers.parse_odt(odt)["pages"][0]["text"]
+
+    ofd = tmp_path / "sample.ofd"
+    with zipfile.ZipFile(ofd, "w") as z:
+        z.writestr(
+            "Doc_0/Pages/Page_1/Content.xml",
+            '<ofd:Page xmlns:ofd="urn:ofd"><ofd:TextCode>申报书正文</ofd:TextCode></ofd:Page>',
+        )
+    parsed_ofd = parsers.parse_ofd(ofd)
+    assert parsed_ofd["page_count"] == 1
+    assert "申报书正文" in parsed_ofd["pages"][0]["text"]
+
+    pptx = tmp_path / "sample.pptx"
+    with zipfile.ZipFile(pptx, "w") as z:
+        z.writestr(
+            "ppt/slides/slide1.xml",
+            '<p:sld xmlns:p="urn:p" xmlns:a="urn:a"><a:t>汇报材料</a:t></p:sld>',
+        )
+    parsed_pptx = parsers.parse_pptx(pptx)
+    assert parsed_pptx["page_count"] == 1
+    assert "汇报材料" in parsed_pptx["pages"][0]["text"]
+
+
+def test_xlsx_uses_sheet_names_and_shared_strings(tmp_path):
+    xlsx = tmp_path / "sample.xlsx"
+    with zipfile.ZipFile(xlsx, "w") as z:
+        z.writestr(
+            "xl/workbook.xml",
+            '<workbook xmlns="urn:x" xmlns:r="urn:r"><sheets>'
+            '<sheet name="预算表" sheetId="1" r:id="rId1"/>'
+            "</sheets></workbook>",
+        )
+        z.writestr(
+            "xl/_rels/workbook.xml.rels",
+            '<Relationships xmlns="urn:rels">'
+            '<Relationship Id="rId1" Target="worksheets/sheet1.xml"/>'
+            "</Relationships>",
+        )
+        z.writestr(
+            "xl/sharedStrings.xml",
+            '<sst xmlns="urn:x"><si><t>设备费</t></si><si><t>10万元</t></si></sst>',
+        )
+        z.writestr(
+            "xl/worksheets/sheet1.xml",
+            '<worksheet xmlns="urn:x"><sheetData><row r="1">'
+            '<c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c>'
+            "</row></sheetData></worksheet>",
+        )
+    parsed = parsers.parse_xlsx(xlsx)
+    assert parsed["page_count"] == 1
+    assert "预算表" in parsed["pages"][0]["text"]
+    assert "设备费" in parsed["pages"][0]["text"]
+    assert "10万元" in parsed["pages"][0]["text"]
+
+
+def test_document_upload_extension_whitelist_covers_office_formats():
+    assert {
+        ".doc",
+        ".ofd",
+        ".odt",
+        ".rtf",
+        ".pptx",
+        ".xlsx",
+        ".html",
+        ".htm",
+    }.issubset(config.ALLOWED_EXTENSIONS)
+
+
 def test_paper_and_expert_import_dedup(tmp_path, monkeypatch):
     """Re-importing the same CSV rows must be idempotent."""
     _tmp_db(tmp_path, monkeypatch)
@@ -267,6 +357,7 @@ def test_infer_kind_falls_back_to_content_sniffing():
     assert app_module._infer_kind("课题合同.pdf", "") == "other"
     assert app_module._infer_kind("绩效自评表.docx", "") == "other"
     assert app_module._infer_kind("专家评价表.docx", "") == "other"
+    assert app_module._infer_kind("江苏省测绘地理信息科技进步奖申报表.docx", "") == "other"
     assert app_module._infer_kind("申报书模板.docx", "") == "template"
 
 

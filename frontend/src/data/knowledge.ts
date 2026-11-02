@@ -120,7 +120,7 @@ export const KNOWLEDGE_NODES: KnowledgeNode[] = [
   }),
 
   node("proposal", "申报书", "knowledge", "科研项目申报材料的结构化文本与附件，是问答、预审和查重的主要输入。", "文档库", {
-    解析: "DOCX / PDF / TXT / MD",
+    解析: "DOCX / DOC / PDF / OFD / ODT / RTF / PPTX / XLSX / HTML / TXT / MD",
   }),
   node("policyLibrary", "政策库", "knowledge", "公开政策快照与章条标签构成合规引用和问答检索的依据。", "政策库", {
     来源: "随仓库交付的公开公文",

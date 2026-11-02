@@ -70,11 +70,14 @@ test('上传校验、键盘焦点与服务端失败后重试', async ({ app: pag
   const trigger = page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true });
   await trigger.click();
   const dialog = page.getByRole('dialog');
+  const fileInput = dialog.locator('input[type=file]');
+  await expect(fileInput).toHaveAttribute('accept', /\.doc,.*\.ofd,.*\.odt,.*\.rtf,.*\.pptx,.*\.xlsx,.*\.html,/);
+  await expect(dialog).toContainText('≤ 128MB');
   await dialog.getByRole('button', { name: '开始上传' }).click();
   await expect(page.locator('.toast').last()).toContainText('请先选择文件');
-  await dialog.locator('input[type=file]').setInputFiles({ name: '不支持.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('invalid') });
+  await fileInput.setInputFiles({ name: '不支持.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('invalid') });
   await expect(page.locator('.toast').last()).toContainText('仅支持');
-  await dialog.locator('input[type=file]').setInputFiles({ name: '测试.txt', mimeType: 'text/plain', buffer: Buffer.from(proposalText('测试单位')) });
+  await fileInput.setInputFiles({ name: '测试.txt', mimeType: 'text/plain', buffer: Buffer.from(proposalText('测试单位')) });
   await dialog.getByPlaceholder('如 2024').fill('1980');
   await dialog.getByRole('button', { name: '开始上传' }).click();
   await expect(page.locator('.toast').last()).toContainText('年份需在');

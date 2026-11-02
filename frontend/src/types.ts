@@ -34,6 +34,7 @@ export interface Health {
   };
   retriever_ready: boolean;
   upload_limit_mb?: number;
+  upload_types?: { suffix: string; label: string }[];
   retrieval?: {
     mode: "tfidf" | "embedding";
     model: string;

@@ -35,10 +35,10 @@ DB_PATH = Path(os.getenv("DB_PATH", str(DATA_DIR / "app.db")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(30 * 1024 * 1024)))
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(128 * 1024 * 1024)))
 MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "60000"))
 MAX_DOCX_UNCOMPRESSED_BYTES = int(
-    os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(120 * 1024 * 1024))
+    os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(256 * 1024 * 1024))
 )
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
@@ -122,7 +122,21 @@ EMBED_MIN_SCORE = float(os.getenv("EMBED_MIN_SCORE", "0.45"))
 # 嵌入同样属于「数据出内网」面：公网端点需显式授权，否则降级为纯 TF-IDF
 ALLOW_EXTERNAL_EMBED = _env_flag("ALLOW_EXTERNAL_EMBED", False)
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv"}
+DOCUMENT_UPLOAD_TYPES = (
+    (".docx", "DOCX"),
+    (".doc", "DOC"),
+    (".pdf", "PDF"),
+    (".ofd", "OFD"),
+    (".odt", "ODT"),
+    (".rtf", "RTF"),
+    (".pptx", "PPTX"),
+    (".xlsx", "XLSX"),
+    (".html", "HTML"),
+    (".htm", "HTML"),
+    (".txt", "TXT"),
+    (".md", "MD"),
+)
+ALLOWED_EXTENSIONS = {suffix for suffix, _label in DOCUMENT_UPLOAD_TYPES} | {".csv"}
 DOC_KINDS = {"auto", "proposal", "policy", "guide", "template", "paper", "other"}
 
 

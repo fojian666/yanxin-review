@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 79 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（160 个测试函数，参数化展开 178 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（164 个测试函数，参数化展开 182 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -30,10 +30,10 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ```
 app.py                 FastAPI：38 条 API 路由（含认证 6 条、卷宗 10 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
 rag/
-  config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、30MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
+  config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、128MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   db.py                SQLite（WAL）：documents/chunks/papers/experts/dossiers/dossier_documents/meta；导入去重 insert_*_if_new
   dossiers.py          历史课题材料角色、计划类型/阶段体检、版本与人工确认规则
-  parsers.py           DOCX（含脚注/尾注）/PDF（pdftotext，页码）/TXT/CSV 解析；60k 字截断保护
+  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；60k 字截断保护
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
   keyword_graph.py     本地提取分块关键词，按分块频次取最多500个；共现余弦连线、自动聚类和来源摘录，按内容缓存提词，不出网
   retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
@@ -109,7 +109,7 @@ frontend/src/
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
-- 上传大小限制由 `/api/health` 的 `upload_limit_mb` 下发，前端同步展示；上传走 XHR 以显示真实进度。
+- 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示；上传走 XHR 以显示真实进度。旧版 DOC 需要本机 LibreOffice/antiword；macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
 
 ## 改动与提交约定
 

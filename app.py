@@ -332,6 +332,8 @@ def _infer_kind(filename: str, text: str = "") -> str:
         return "guide"
     if "模板" in name:
         return "template"
+    if any(k in name for k in ("科技进步奖", "成果奖", "奖励申报")):
+        return "other"
     # 承诺书、合同、自评/评价表是实际卷宗材料，不是空白模板；具体归卷角色由用户选择。
     if any(k in name for k in ("承诺书", "自评表", "评价表", "合同", "评价意见")):
         return "other"
@@ -409,6 +411,10 @@ def health():
             "chunks": len(retriever.chunks),
         },
         "upload_limit_mb": config.MAX_UPLOAD_BYTES // 1024 // 1024,
+        "upload_types": [
+            {"suffix": suffix, "label": label}
+            for suffix, label in config.DOCUMENT_UPLOAD_TYPES
+        ],
     }
 
 

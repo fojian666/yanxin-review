@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import csv
 import io
+import posixpath
 import re
+import shutil
 import subprocess
+import tempfile
 import zipfile
+from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -226,12 +230,422 @@ def parse_text(path: Path) -> dict:
     }
 
 
+class _HTMLTextParser(HTMLParser):
+    """提取本地 HTML/Quick Look 预览中的可见文本，忽略脚本与样式。"""
+
+    _BLOCK_TAGS = {"p", "div", "br", "li", "tr", "td", "th", "h1", "h2", "h3", "h4", "section", "article"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._ignored = 0
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in {"script", "style", "noscript"}:
+            self._ignored += 1
+        elif not self._ignored and tag in self._BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript"}:
+            self._ignored = max(0, self._ignored - 1)
+        elif not self._ignored and tag in self._BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self._ignored:
+            self.parts.append(data)
+
+
+def _html_text(raw: bytes | str) -> str:
+    parser = _HTMLTextParser()
+    parser.feed(raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else raw)
+    lines = [" ".join(line.split()) for line in "".join(parser.parts).splitlines()]
+    return normalize_text("\n".join(line for line in lines if line))
+
+
+def parse_html(path: Path) -> dict:
+    text = _html_text(path.read_bytes())
+    return {
+        "pages": [{"page": None, "text": text}],
+        "page_count": 0,
+        "warning": "" if text else "未从 HTML 中提取到可读正文。",
+        "text_len": len(text),
+    }
+
+
+def _decode_rtf_bytes(values: list[int]) -> str:
+    raw = bytes(values)
+    for encoding in ("gb18030", "utf-8", "cp1252"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("gb18030", errors="ignore")
+
+
+def parse_rtf(path: Path) -> dict:
+    """解析 RTF 的可见文字；忽略字体表、颜色表、图片与文档属性。"""
+    source = path.read_bytes().decode("latin1", errors="ignore")
+    ignored_destinations = {
+        "fonttbl", "colortbl", "stylesheet", "info", "pict", "object", "header", "footer",
+        "listtable", "listoverridetable", "generator", "xmlnstbl", "themedata", "colorschememapping",
+    }
+    out: list[str] = []
+    byte_buffer: list[int] = []
+    depth = 0
+    skip_depth: int | None = None
+    i = 0
+
+    def flush_bytes() -> None:
+        if byte_buffer:
+            out.append(_decode_rtf_bytes(byte_buffer))
+            byte_buffer.clear()
+
+    while i < len(source):
+        char = source[i]
+        if char == "{":
+            depth += 1
+            i += 1
+            continue
+        if char == "}":
+            flush_bytes()
+            if skip_depth == depth:
+                skip_depth = None
+            depth = max(0, depth - 1)
+            i += 1
+            continue
+        if char != "\\":
+            if skip_depth is None:
+                flush_bytes()
+                out.append(char)
+            i += 1
+            continue
+
+        if i + 1 >= len(source):
+            break
+        marker = source[i + 1]
+        if marker in "\\{}":
+            if skip_depth is None:
+                flush_bytes()
+                out.append(marker)
+            i += 2
+            continue
+        if marker == "'" and i + 3 < len(source):
+            try:
+                byte_buffer.append(int(source[i + 2 : i + 4], 16))
+            except ValueError:
+                pass
+            i += 4
+            continue
+        if marker == "*":
+            skip_depth = depth
+            i += 2
+            continue
+
+        match = re.match(r"\\([a-zA-Z]+)(-?\d+)? ?", source[i:])
+        if not match:
+            i += 1
+            continue
+        word, number = match.group(1), match.group(2)
+        consumed = len(match.group(0))
+        if word == "*":
+            skip_depth = depth
+        elif word in ignored_destinations:
+            skip_depth = depth
+        elif skip_depth is None:
+            if word in {"par", "line"}:
+                flush_bytes()
+                out.append("\n")
+            elif word == "tab":
+                flush_bytes()
+                out.append("\t")
+            elif word == "u" and number:
+                flush_bytes()
+                value = int(number)
+                out.append(chr(value if value >= 0 else value + 65536))
+                if i + consumed < len(source) and source[i + consumed] == "?":
+                    consumed += 1
+        i += consumed
+    flush_bytes()
+    text = normalize_text("".join(out))
+    return {
+        "pages": [{"page": None, "text": text}],
+        "page_count": 0,
+        "warning": "" if text else "未从 RTF 中提取到可读正文。",
+        "text_len": len(text),
+    }
+
+
+def _zip_xml(z: zipfile.ZipFile, member: str) -> ET.Element:
+    _check_zip_size(z)
+    try:
+        xml = z.read(member)
+    except KeyError as exc:
+        raise ParseError(f"压缩文档缺少 {member}") from exc
+    _reject_unsafe_xml(xml)
+    try:
+        return ET.fromstring(xml)
+    except ET.ParseError as exc:
+        raise ParseError(f"XML 解析失败：{exc}") from exc
+
+
+def _natural_key(value: str) -> list[object]:
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", value)]
+
+
+def parse_odt(path: Path) -> dict:
+    try:
+        with zipfile.ZipFile(path) as z:
+            root = _zip_xml(z, "content.xml")
+    except ParseError:
+        raise
+    except Exception as exc:
+        raise ParseError(f"无法读取 ODT：{exc}") from exc
+    lines: list[str] = []
+    for node in root.iter():
+        if node.tag.split("}")[-1] in {"p", "h"}:
+            text = "".join(node.itertext()).strip()
+            if text:
+                lines.append(text)
+    text = normalize_text("\n".join(lines))
+    return {
+        "pages": [{"page": None, "text": text}],
+        "page_count": 0,
+        "warning": "" if text else "未从 ODT 中提取到可读正文。",
+        "text_len": len(text),
+    }
+
+
+def parse_ofd(path: Path) -> dict:
+    """从 OFD 容器各页的 TextCode 节点提取可复制文本。"""
+    try:
+        with zipfile.ZipFile(path) as z:
+            page_members = sorted(
+                (
+                    name for name in z.namelist()
+                    if re.search(r"(?:^|/)Pages/.+\.xml$", name, re.IGNORECASE)
+                ),
+                key=_natural_key,
+            )
+            if not page_members:
+                raise ParseError("OFD 中未找到页面内容")
+            pages: list[dict] = []
+            for index, member in enumerate(page_members, 1):
+                root = _zip_xml(z, member)
+                parts = [
+                    (node.text or "").strip()
+                    for node in root.iter()
+                    if node.tag.split("}")[-1] in {"TextCode", "Text"} and (node.text or "").strip()
+                ]
+                text = normalize_text("\n".join(parts))
+                if text:
+                    pages.append({"page": index, "text": text})
+    except ParseError:
+        raise
+    except Exception as exc:
+        raise ParseError(f"无法读取 OFD：{exc}") from exc
+    text_len = sum(len(page["text"]) for page in pages)
+    return {
+        "pages": pages,
+        "page_count": len(page_members),
+        "warning": "" if text_len else "OFD 可能是扫描页或缺少可复制文本，当前版本未启用 OCR。",
+        "text_len": text_len,
+    }
+
+
+def parse_pptx(path: Path) -> dict:
+    try:
+        with zipfile.ZipFile(path) as z:
+            slide_members = sorted(
+                (
+                    name for name in z.namelist()
+                    if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)
+                ),
+                key=_natural_key,
+            )
+            if not slide_members:
+                raise ParseError("PPTX 中未找到幻灯片")
+            pages: list[dict] = []
+            for index, member in enumerate(slide_members, 1):
+                root = _zip_xml(z, member)
+                parts = [
+                    (node.text or "").strip()
+                    for node in root.iter()
+                    if node.tag.split("}")[-1] == "t" and (node.text or "").strip()
+                ]
+                text = normalize_text("\n".join(parts))
+                if text:
+                    pages.append({"page": index, "text": text})
+    except ParseError:
+        raise
+    except Exception as exc:
+        raise ParseError(f"无法读取 PPTX：{exc}") from exc
+    text_len = sum(len(page["text"]) for page in pages)
+    return {
+        "pages": pages,
+        "page_count": len(slide_members),
+        "warning": "" if text_len else "PPTX 中未提取到可复制文本，图片中的文字需要人工核对。",
+        "text_len": text_len,
+    }
+
+
+def parse_xlsx(path: Path) -> dict:
+    """按工作表提取 XLSX 单元格文本，避免把表格内容误当普通段落。"""
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = set(z.namelist())
+            shared: list[str] = []
+            if "xl/sharedStrings.xml" in names:
+                root = _zip_xml(z, "xl/sharedStrings.xml")
+                for item in root.iter():
+                    if item.tag.split("}")[-1] == "si":
+                        shared.append("".join(node.text or "" for node in item.iter() if node.tag.split("}")[-1] == "t"))
+            rels: dict[str, str] = {}
+            if "xl/_rels/workbook.xml.rels" in names:
+                root = _zip_xml(z, "xl/_rels/workbook.xml.rels")
+                for rel in root:
+                    if rel.tag.split("}")[-1] == "Relationship":
+                        rels[str(rel.attrib.get("Id", ""))] = str(rel.attrib.get("Target", ""))
+            sheets: list[tuple[str, str]] = []
+            if "xl/workbook.xml" in names:
+                root = _zip_xml(z, "xl/workbook.xml")
+                for node in root.iter():
+                    if node.tag.split("}")[-1] != "sheet":
+                        continue
+                    rel_id = next((value for key, value in node.attrib.items() if key.split("}")[-1] == "id"), "")
+                    target = rels.get(rel_id, "")
+                    if target:
+                        target = target.lstrip("/")
+                        member = posixpath.normpath(target if target.startswith("xl/") else f"xl/{target}")
+                        sheets.append((str(node.attrib.get("name", "")).strip(), member))
+            if not sheets:
+                sheets = [(Path(name).stem, name) for name in sorted(names, key=_natural_key) if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", name)]
+            pages: list[dict] = []
+            for index, (sheet_name, member) in enumerate(sheets, 1):
+                if member not in names:
+                    continue
+                root = _zip_xml(z, member)
+                rows: list[str] = []
+                for row in (node for node in root.iter() if node.tag.split("}")[-1] == "row"):
+                    cells: list[tuple[int, str]] = []
+                    for cell in (node for node in row if node.tag.split("}")[-1] == "c"):
+                        kind = cell.attrib.get("t", "")
+                        if kind == "inlineStr":
+                            value = "".join(n.text or "" for n in cell.iter() if n.tag.split("}")[-1] == "t")
+                        else:
+                            value = next((n.text or "" for n in cell if n.tag.split("}")[-1] == "v"), "")
+                            if kind == "s" and value.isdigit() and int(value) < len(shared):
+                                value = shared[int(value)]
+                        ref_match = re.match(r"([A-Z]+)", cell.attrib.get("r", ""))
+                        col = 0
+                        for letter in (ref_match.group(1) if ref_match else ""):
+                            col = col * 26 + ord(letter) - 64
+                        if value.strip():
+                            cells.append((col, value.strip()))
+                    if cells:
+                        rows.append(" | ".join(value for _col, value in sorted(cells)))
+                text = normalize_text("\n".join([sheet_name, *rows]))
+                if text:
+                    pages.append({"page": index, "text": text})
+    except ParseError:
+        raise
+    except Exception as exc:
+        raise ParseError(f"无法读取 XLSX：{exc}") from exc
+    text_len = sum(len(page["text"]) for page in pages)
+    return {
+        "pages": pages,
+        "page_count": len(pages),
+        "warning": "" if text_len else "XLSX 中未提取到可用单元格文本。",
+        "text_len": text_len,
+    }
+
+
+def parse_doc(path: Path) -> dict:
+    """旧版 DOC 通过本机转换器解析；原件不修改。"""
+    with tempfile.TemporaryDirectory(prefix="yanxin-doc-") as raw_tmp:
+        tmp = Path(raw_tmp)
+        output = tmp / "converted.docx"
+        textutil = shutil.which("textutil")
+        if textutil:
+            proc = subprocess.run(
+                [textutil, "-convert", "docx", "-output", str(output), str(path)],
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+            if proc.returncode == 0 and output.exists():
+                parsed = parse_docx(output)
+                parsed["warning"] = "旧版 DOC 经本地转换解析；复杂公式、批注和嵌入对象可能未纳入文本。"
+                return parsed
+
+        qlmanage = shutil.which("qlmanage")
+        if qlmanage:
+            preview_dir = tmp / "quicklook"
+            preview_dir.mkdir()
+            subprocess.run(
+                [qlmanage, "-p", "-o", str(preview_dir), str(path)],
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+            previews = sorted(preview_dir.glob("*.qlpreview/Preview.html"))
+            if previews:
+                parsed = parse_html(previews[0])
+                parsed["warning"] = "旧版 DOC 经本机 Quick Look 只读预览解析；复杂版式和图片文字需人工核对。"
+                return parsed
+
+        for converter in ("libreoffice", "soffice"):
+            command = shutil.which(converter)
+            if not command:
+                continue
+            proc = subprocess.run(
+                [command, "--headless", "--convert-to", "docx", "--outdir", str(tmp), str(path)],
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+            converted = tmp / f"{path.stem}.docx"
+            if proc.returncode == 0 and converted.exists():
+                parsed = parse_docx(converted)
+                parsed["warning"] = "旧版 DOC 经 LibreOffice 本地转换解析；复杂公式和嵌入对象可能未纳入文本。"
+                return parsed
+
+        antiword = shutil.which("antiword")
+        if antiword:
+            proc = subprocess.run([antiword, str(path)], capture_output=True, timeout=120, check=False)
+            if proc.returncode == 0:
+                text = proc.stdout.decode("gb18030", errors="ignore")
+                text = normalize_text(text)
+                return {
+                    "pages": [{"page": None, "text": text}],
+                    "page_count": 0,
+                    "warning": "旧版 DOC 经 antiword 解析；复杂表格、公式和嵌入对象可能缺失。",
+                    "text_len": len(text),
+                }
+    raise ParseError("旧版 DOC 需要本机 LibreOffice/antiword，macOS 也可由 textutil 或 Quick Look 转换")
+
+
 def parse_upload(path: Path) -> dict:
     suffix = path.suffix.lower()
     if suffix == ".docx":
         result = parse_docx(path)
+    elif suffix == ".doc":
+        result = parse_doc(path)
     elif suffix == ".pdf":
         result = parse_pdf(path)
+    elif suffix == ".ofd":
+        result = parse_ofd(path)
+    elif suffix == ".odt":
+        result = parse_odt(path)
+    elif suffix == ".rtf":
+        result = parse_rtf(path)
+    elif suffix == ".pptx":
+        result = parse_pptx(path)
+    elif suffix == ".xlsx":
+        result = parse_xlsx(path)
+    elif suffix in {".html", ".htm"}:
+        result = parse_html(path)
     elif suffix in {".txt", ".md"}:
         result = parse_text(path)
     elif suffix == ".csv":
