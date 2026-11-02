@@ -1,10 +1,12 @@
 import {
   FolderKanban,
   FolderOpen,
+  GitPullRequest,
   MessageSquareText,
   Network,
   ShieldCheck,
   TrendingUp,
+  UserRoundCheck,
   UserCog,
   Users,
   type LucideIcon,
@@ -35,6 +37,8 @@ const DossierPanel = workspaceComponent(() => import("../components/DossierWorkb
 const LibraryPanel = workspaceComponent(() => import("../pages/LibraryPage").then((module) => ({ default: module.LibraryPage })));
 const AdminPanel = workspaceComponent(() => import("../pages/AdminPage").then((module) => ({ default: module.AdminPage })));
 const KnowledgeGraphPanel = workspaceComponent(() => import("../pages/KnowledgeGraphPage").then((module) => ({ default: module.KnowledgeGraphPage })));
+const ReviewCasePanel = workspaceComponent(() => import("../pages/ReviewCasePage").then((module) => ({ default: module.ReviewCasePage })));
+const ExpertReviewPanel = workspaceComponent(() => import("../pages/ExpertReviewPage").then((module) => ({ default: module.ExpertReviewPage })));
 
 export interface WorkspaceView {
   path: string;
@@ -52,6 +56,22 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     description: "根据资料回答，可查看引用依据",
     icon: MessageSquareText,
     component: ChatPanel,
+  },
+  {
+    path: "/review-cases",
+    title: "项目评审",
+    description: "预审、专家审核与终审一条龙",
+    icon: GitPullRequest,
+    permission: "review-case",
+    component: ReviewCasePanel,
+  },
+  {
+    path: "/expert-review",
+    title: "专家审核",
+    description: "查看本人任务并提交独立审核意见",
+    icon: UserRoundCheck,
+    permission: "expert-review",
+    component: ExpertReviewPanel,
   },
   {
     path: "/dossiers",

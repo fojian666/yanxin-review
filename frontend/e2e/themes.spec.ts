@@ -18,9 +18,11 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
 
   const nav = page.locator('.nav .nav-item');
   await expect(nav.first()).toContainText('智能问答');
-  await expect(nav.nth(1)).toContainText('申报流程');
+  await expect(nav.nth(1)).toContainText('项目评审');
+  await expect(nav.nth(2)).toContainText('申报流程');
   await expect(nav.first()).toHaveAttribute('href', '/chat');
-  await expect(nav.nth(1)).toHaveAttribute('href', '/dossiers');
+  await expect(nav.nth(1)).toHaveAttribute('href', '/review-cases');
+  await expect(nav.nth(2)).toHaveAttribute('href', '/dossiers');
   const navWeights = await nav.evaluateAll(items => items.map(item => Number.parseInt(getComputedStyle(item).fontWeight, 10)));
   expect(navWeights.every(weight => weight >= 700)).toBeTruthy();
 
@@ -201,7 +203,8 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   expect(mobileLayout.scrollWidth).toBeLessThanOrEqual(mobileLayout.clientWidth + 1);
   expect(mobileLayout.scrollHeight).toBeLessThanOrEqual(mobileLayout.clientHeight + 1);
   await expect(page.locator('.nav .nav-item').first()).toContainText('智能问答');
-  await expect(page.locator('.nav .nav-item').nth(1)).toContainText('申报流程');
+  await expect(page.locator('.nav .nav-item').nth(1)).toContainText('项目评审');
+  await expect(page.locator('.nav .nav-item').nth(2)).toContainText('申报流程');
   await expect(page.locator('.brand-mark')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('unified-blue-mobile-nav.png') });
   await page.keyboard.press('Escape');

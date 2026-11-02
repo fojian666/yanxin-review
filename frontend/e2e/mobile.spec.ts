@@ -3,12 +3,13 @@ import { test, expect, navigate, downloadText, loginUI } from './fixtures';
 test('@smoke 手机导航遍历、焦点与页面宽度', async ({ app: page }, testInfo) => {
   await page.goto('/welcome');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBeTruthy();
-  for (const label of ['智能问答', '申报流程', '项目预审', '查重匹配', '知识图谱', '文献趋势', '文档中心']) {
+  for (const label of ['智能问答', '项目评审', '申报流程', '项目预审', '查重匹配', '知识图谱', '文献趋势', '文档中心']) {
     await navigate(page, label);
     await expect(page.locator('.app-shell')).not.toHaveClass(/nav-open/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), `${label} 页面纵向溢出`).toBeTruthy();
     await expect(page.locator('.page-skeleton')).toHaveCount(0);
+    await expect(page.locator('.workspace-route-loader')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`mobile-${label}.png`) });
   }
   const open = page.getByRole('button', { name: '打开导航' });

@@ -82,7 +82,13 @@ export function WelcomePage() {
   const reduce = useMotionPreference();
   const unfold = useSessionEntrance("yanxin.dossier-entrance");
   const entries = visibleWorkspaceViews(can);
-  const defaultPath = can("review") ? "/review" : "/chat";
+  const defaultPath = can("review-case")
+    ? "/review-cases"
+    : can("expert-review")
+      ? "/expert-review"
+      : can("review")
+        ? "/review"
+        : "/chat";
   const requested = entries.find((item) => item.path === location.pathname);
   if (location.pathname !== "/welcome" && !requested) {
     return <Navigate to={can("review") ? "/chat" : defaultPath} replace />;
@@ -98,7 +104,7 @@ export function WelcomePage() {
   const named = Boolean(display) && display !== role;
   const name = named ? display : role;
   const showBadge = named && Boolean(role);
-  const primaryPath = can("review") ? "/review" : "/chat";
+  const primaryPath = defaultPath;
   const isOverview = location.pathname === "/welcome";
   const selectWorkspaceDocument = (nextDocId: string) => {
     setSelectedDocs(nextDocId ? [nextDocId] : []);
@@ -179,7 +185,13 @@ export function WelcomePage() {
               if (primaryPath === "/chat") selectWorkspaceDocument(activeDocId);
             }}
           >
-            {can("review") ? <><ShieldCheck size={16} />预审当前课题</> : <><MessageSquareText size={16} />用当前课题提问</>}
+            {can("review-case")
+              ? <><ShieldCheck size={16} />进入项目评审</>
+              : can("expert-review")
+                ? <><ShieldCheck size={16} />审核我的任务</>
+                : can("review")
+                  ? <><ShieldCheck size={16} />预审当前课题</>
+                  : <><MessageSquareText size={16} />用当前课题提问</>}
           </Link>
         </div>}
         </div>

@@ -1,7 +1,7 @@
 import { test, expect, password } from './fixtures';
 
 test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: page }) => {
-  const taskRoutes = ['/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library'];
+  const taskRoutes = ['/review-cases', '/dossiers', '/review', '/match', '/chat', '/graph', '/trend', '/library'];
   const allRoutes = ['/welcome', ...taskRoutes];
 
   for (const [width, height] of [[1440, 900], [1366, 768], [1280, 720]] as const) {
@@ -106,7 +106,7 @@ test('宽屏分析设置横向利用卡片空间，缩放后保持不溢出', as
 test('宽屏工作面、预审控制、匹配控制和新建用户表单铺满可用宽度', async ({ app: page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
 
-  for (const path of ['/welcome', '/review', '/match', '/chat', '/graph', '/trend', '/library']) {
+  for (const path of ['/welcome', '/review-cases', '/review', '/match', '/chat', '/graph', '/trend', '/library']) {
     await page.goto(path);
     await expect(page.locator('.workspace-home')).toBeVisible();
     const widths = await page.evaluate(() => {

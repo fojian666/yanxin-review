@@ -96,6 +96,72 @@ CREATE TABLE IF NOT EXISTS dossier_documents (
     FOREIGN KEY(doc_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS review_cases (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    dossier_id TEXT,
+    doc_id TEXT NOT NULL,
+    stage TEXT NOT NULL DEFAULT 'pre_review',
+    status TEXT NOT NULL DEFAULT 'draft',
+    round INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    final_decision TEXT,
+    final_comment TEXT,
+    FOREIGN KEY(dossier_id) REFERENCES dossiers(id) ON DELETE SET NULL,
+    FOREIGN KEY(doc_id) REFERENCES documents(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS review_tasks (
+    id TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    assignee_username TEXT NOT NULL,
+    expert_id INTEGER,
+    expert_name TEXT NOT NULL,
+    expert_institution TEXT NOT NULL DEFAULT '',
+    expert_title TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'assigned',
+    conflict_declared INTEGER NOT NULL DEFAULT 0,
+    conflict_reason TEXT NOT NULL DEFAULT '',
+    recommendation TEXT,
+    opinion TEXT,
+    submitted_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(case_id) REFERENCES review_cases(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS review_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id TEXT NOT NULL,
+    task_id TEXT,
+    actor TEXT NOT NULL,
+    action TEXT NOT NULL,
+    detail_json TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(case_id) REFERENCES review_cases(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS review_artifacts (
+    id TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    artifact_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    round INTEGER NOT NULL,
+    format TEXT NOT NULL DEFAULT 'markdown',
+    content TEXT NOT NULL,
+    payload_json TEXT,
+    source_doc_id TEXT,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    FOREIGN KEY(case_id) REFERENCES review_cases(id) ON DELETE CASCADE,
+    FOREIGN KEY(source_doc_id) REFERENCES documents(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -124,6 +190,14 @@ CREATE INDEX IF NOT EXISTS idx_dossier_documents_role
     ON dossier_documents(dossier_id, role, is_current);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_dossier_documents_version
     ON dossier_documents(dossier_id, role, version);
+CREATE INDEX IF NOT EXISTS idx_review_cases_updated
+    ON review_cases(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_review_tasks_assignee
+    ON review_tasks(assignee_username, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_review_tasks_case
+    ON review_tasks(case_id, status);
+CREATE INDEX IF NOT EXISTS idx_review_artifacts_case
+    ON review_artifacts(case_id, created_at DESC);
 """
 
 
@@ -229,6 +303,12 @@ def delete_document(doc_id: str) -> dict[str, Any] | None:
     if not doc:
         return None
     with connect() as conn:
+        case = conn.execute(
+            "SELECT id FROM review_cases WHERE doc_id = ? LIMIT 1",
+            (doc_id,),
+        ).fetchone()
+        if case:
+            raise ValueError("文档已进入评审案卷，不能直接删除")
         conn.execute("DELETE FROM dossier_documents WHERE doc_id = ?", (doc_id,))
         conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
         conn.execute("DELETE FROM papers WHERE doc_id = ?", (doc_id,))

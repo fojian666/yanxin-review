@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 79 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（164 个测试函数，参数化展开 182 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 80 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（166 个测试函数，参数化展开 184 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
@@ -28,10 +28,11 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：38 条 API 路由（含认证 6 条、卷宗 10 条、数据接入 3 条）、SSE 流式问答、文档读取、上传、SPA 托管（路径穿越有防护）
+app.py                 FastAPI：52 条 API 路由（含认证、卷宗、项目评审案卷、专家任务、归档、数据接入）、SSE、文档读取、上传、SPA 托管
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、128MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
-  db.py                SQLite（WAL）：documents/chunks/papers/experts/dossiers/dossier_documents/meta；导入去重 insert_*_if_new
+  db.py                SQLite（WAL）：documents/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
+  review_cases.py      项目评审状态机：预审、专家指派、回避/意见、终审、不可覆盖操作留痕、SHA256 归档与角色隔离
   dossiers.py          历史课题材料角色、计划类型/阶段体检、版本与人工确认规则
   parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；60k 字截断保护
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
@@ -61,7 +62,7 @@ tools/
                        **所有代码改完后最后跑**，否则清单又落后于刚改的文件
 corpus/                随仓库交付的真实公文快照：sources.json（URL/许可/抓取时间/sha256）+ policy/*.txt
 frontend/src/
-  pages/               Login(动态地形背景) / Welcome(登录后工作台) / Chat / Trend(3D) / KnowledgeGraph / Match(查重+专家匹配) / Review(预审) / Library(文档中心) / Admin(用户管理)
+  pages/               Login / Welcome / Chat / ReviewCase(三阶段一条龙) / ExpertReview(专家本人任务) / Dossier / Review / Match / Graph / Trend / Library / Admin
   data/workspaceViews.tsx  工作区路由、标题、说明、图标、权限与页面组件的单一配置；侧栏和顶栏共用同一顺序
   data/knowledge.ts    科研治理知识图谱：48 实体、100 关系、7 知识域、搜索与最短路径
   data/proposalWorkflow.ts  课题流程基线：指南、申请、评审、实施、验收、备案六个导航节点
@@ -88,6 +89,7 @@ frontend/src/
 3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。**两条出网面都拒绝跟随重定向**（307/308 会把原始 body 转到未校验地址），`auto` 嵌入降级到 API 前必须重跑门禁、不通过就退回纯 TF-IDF；改任何一处都要保住这条，用例已锁定。
 4. **隐私**：本地 `*.docx` / `*.doc` 申报材料、`2026科研课题立项流程及附件/`、根目录 `微信图片_*` 与 `交付材料/01-软件著作权/screenshots/` 可能含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
+6. 项目评审案卷、专家任务、操作记录和阶段归档只能追加，不得覆盖；reviewer 只能读取本人任务、预审依据及本人意见，终审决定和完整操作日志仅 manager/admin 可读。
 
 ## 已知边界（勿误报为 bug）
 
@@ -106,6 +108,7 @@ frontend/src/
 - 卷宗体检只核对本地材料角色、当前版本、人工确认和可读取文本线索；同角色新材料自动成为当前版本。不得把“文件已上传”表述为公章、签字真实，也不得把本地检查表述为官方受理、评审、验收或结题状态。
 - 承诺书、合同、自评表、评价表和评价意见是实际卷宗材料，自动识别为 `other` 并允许归入所选材料角色；只有名称含“模板”的空白文件才识别为 `template`。模板不进入归卷候选。
 - `/api/dossiers*` 的列表、详情与材料体检四角色均可只读；`/dossiers` 页面必须同步对所有登录角色开放，viewer 只隐藏新建、编辑、归卷、切换版本和人工确认入口。材料写入必须校验角色白名单和文档 kind 匹配，非法角色返回 400，不能在 DB 层静默收录。
+- 已进入 `review_cases` 的文档不能直接删除；案卷阶段按 `pre_review → expert_review → final_review → completed` 推进。预审完成后一键归档预审与查重匹配，专家任务必须全部结束且至少一份意见提交后才能进入终审，终审必须由 manager/admin 签署。
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
@@ -143,7 +146,7 @@ frontend/src/
 
 预审 03“检查项”和 04“查重与追问”的证据卡占满当前工作面剩余高度；摘要保持 4 行，展开后正文不得继续裁切，长证据只在卡内滚动，分页按钮固定可见。
 
-One Page 工作区：所有受保护路由共享同一历史课题上下文，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。侧栏顺序固定为智能问答、申报流程、项目预审、查重匹配、知识图谱、文献趋势、文档中心、用户管理（按权限过滤）；侧栏与顶栏标题都读取 `data/workspaceViews.tsx`，顺序、权限过滤与名称不得在组件内另维护；中央功能导航已移除。任务页顶部只放一个资料选择器，同时提供历史课题与单独申报书；常驻工作区在宽屏必须铺满页面内容宽度，不得保留 1440px 居中上限。历史课题无当前申请书时清空预审与查重对象，不沿用旧文档。统一 `WorkDeck` 负责章节栏、固定内容舞台、键盘方向键和 180ms 前进/后退切换。历史课题按课题概况、课题材料、归入资料、历史版本、材料体检、课题流程、检查边界逐页切换；预审按运行、结论、检查项、查重追问、边界导出切换；匹配按运行、查重、专家、回避边界、专家库切换；趋势按分析设置、图表、摘要、代表文献切换；用户管理按用户列表、新建用户、角色说明切换。常规配置、报告和结果不得把页面撑出视口，长列表用页内分项。步骤号码与两行标题必须共享同一垂直中心线。知识图谱宽屏为固定三栏，≤1050px 或高度≤720px 切为三个分区；720×450 下必须保留可操作画布。文档中心通过按钮切换文档正文和文献数据；正文视图固定左目录右书页。手机进入具体任务后隐藏问候与重复指标，只保留课题选择；≤900px 或高度≤800px 把章节栏转为网格。
+One Page 工作区：所有受保护路由共享同一历史课题上下文，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。manager/admin 侧栏包含项目评审，reviewer 包含专家审核，其余旧功能继续保留并按权限过滤；侧栏与顶栏标题都读取 `data/workspaceViews.tsx`，顺序和名称不得在组件内另维护。任务页顶部只放一个资料选择器，同时提供历史课题与单独申报书；常驻工作区在宽屏铺满页面内容宽度。统一 `WorkDeck` 负责章节栏、固定内容舞台、键盘方向键和 180ms 前进/后退切换。项目评审固定预审、专家审核、终审三步；专家审核是独立路由且只显示本人任务。历史课题按七步、预审按五步、匹配按五步、趋势按四步、用户管理按三步切换。常规配置、报告和结果不得撑出视口，长列表在页内分项或窗格内滚动。文档中心通过按钮切换文档正文、文献数据和案卷数据；案卷数据按项目展示预审、查重、专家意见、回避与终审归档。
 
 趋势快捷主题（含“大模型”“语义查重”等）和“移除演示文献”后的自动重算只更新分析设置页的 KPI 和当前主题，不自动切到“趋势图表”；只有显式点击“分析趋势”或输入后按 Enter 才进入图表章节。
 

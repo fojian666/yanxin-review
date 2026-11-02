@@ -388,6 +388,106 @@ export interface ToolCheckResult {
   disclaimer: string;
 }
 
+export type ReviewCaseStage = "pre_review" | "expert_review" | "final_review" | "completed";
+export type ReviewTaskStatus = "assigned" | "submitted" | "conflict";
+export type ReviewDecision = "approved" | "returned" | "deferred" | "rejected";
+export type ExpertRecommendation = "approve" | "revise" | "reject";
+
+export interface ReviewArtifact {
+  id: string;
+  case_id: string;
+  stage: ReviewCaseStage;
+  stage_label: string;
+  artifact_type: "pre_review" | "tool_check" | "expert_assignment" | "expert_opinion" | "expert_conflict" | "final_decision";
+  title: string;
+  round: number;
+  format: "markdown";
+  content: string;
+  payload: Record<string, unknown>;
+  source_doc_id: string;
+  created_by: string;
+  created_at: string;
+  sha256: string;
+  case_title?: string;
+  doc_name?: string;
+}
+
+export interface ReviewTask {
+  id: string;
+  case_id: string;
+  assignee_username: string;
+  expert_id: number | null;
+  expert_name: string;
+  expert_institution: string;
+  expert_title: string;
+  status: ReviewTaskStatus;
+  status_label: string;
+  conflict_declared: boolean;
+  conflict_reason: string;
+  recommendation: ExpertRecommendation | null;
+  recommendation_label?: string;
+  opinion: string | null;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  case_title?: string;
+  case_stage?: ReviewCaseStage;
+  case_status?: string;
+  doc_id?: string;
+  doc_name?: string;
+  doc_kind?: string;
+  doc_warning?: string | null;
+  round?: number;
+  pre_review?: ReviewArtifact | null;
+  tool_check?: ReviewArtifact | null;
+}
+
+export interface ReviewAction {
+  id: number;
+  case_id: string;
+  task_id: string | null;
+  actor: string;
+  action: string;
+  detail: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ReviewCase {
+  id: string;
+  title: string;
+  dossier_id: string | null;
+  doc_id: string;
+  doc_name: string;
+  doc_kind: string;
+  doc_year: number | null;
+  doc_text_len: number;
+  doc_chunk_count: number;
+  stage: ReviewCaseStage;
+  stage_label: string;
+  status: string;
+  round: number;
+  created_by: string;
+  updated_by: string;
+  created_at: string;
+  updated_at: string;
+  final_decision: ReviewDecision | null;
+  final_decision_label?: string;
+  final_comment: string | null;
+  task_total: number;
+  submitted_count: number;
+  conflict_count: number;
+  assigned_count: number;
+  artifact_count: number;
+  tasks?: ReviewTask[];
+  artifacts?: ReviewArtifact[];
+  actions?: ReviewAction[];
+}
+
+export interface ReviewerOption {
+  username: string;
+  display_name: string;
+}
+
 export interface KeywordGraphSource { doc_id: string; doc_name: string; chunk_idx: number; section: string; page: number | null; excerpt: string; }
 export interface KeywordGraphNode { id: string; name: string; chunk_count: number; sources: KeywordGraphSource[]; cluster: number | null; }
 export interface KeywordGraphLink { source: string; target: string; similarity: number; shared_chunks: number; }

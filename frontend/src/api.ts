@@ -14,7 +14,13 @@ import type {
   GenerationInfo,
   Paper,
   Expert,
+  ExpertRecommendation,
+  ReviewArtifact,
+  ReviewCase,
+  ReviewDecision,
   ReviewReport,
+  ReviewTask,
+  ReviewerOption,
   StreamHandlers,
   ToolCheckResult,
   TrendData,
@@ -226,6 +232,64 @@ export const api = {
     request<{ ok: boolean; removed: number }>("/experts/sample", { method: "DELETE" }),
   toolCheck: (docId: string, topK = 8) =>
     request<ToolCheckResult>("/tool/check", jsonOptions({ doc_id: docId, top_k: topK })),
+  reviewCases: () => request<{ cases: ReviewCase[] }>("/review-cases"),
+  reviewCase: (caseId: string) =>
+    request<{ case: ReviewCase }>(`/review-cases/${encodeURIComponent(caseId)}`),
+  createReviewCase: (payload: { title: string; doc_id: string; dossier_id: string }) =>
+    request<{ case: ReviewCase }>("/review-cases", jsonOptions(payload)),
+  runReviewCase: (caseId: string) =>
+    request<{ case: ReviewCase }>(
+      `/review-cases/${encodeURIComponent(caseId)}/run`,
+      jsonOptions({}),
+      200_000
+    ),
+  reviewCaseReviewers: () =>
+    request<{ reviewers: ReviewerOption[] }>("/review-cases/reviewers"),
+  assignReviewCaseExperts: (
+    caseId: string,
+    assignments: { expert_id: number; username: string }[]
+  ) =>
+    request<{ case: ReviewCase }>(
+      `/review-cases/${encodeURIComponent(caseId)}/experts`,
+      jsonOptions({ assignments })
+    ),
+  advanceReviewCaseFinal: (caseId: string) =>
+    request<{ case: ReviewCase }>(
+      `/review-cases/${encodeURIComponent(caseId)}/advance-final`,
+      jsonOptions({})
+    ),
+  finalizeReviewCase: (caseId: string, decision: ReviewDecision, comment: string) =>
+    request<{ case: ReviewCase }>(
+      `/review-cases/${encodeURIComponent(caseId)}/final`,
+      jsonOptions({ decision, comment })
+    ),
+  reviewTasks: (caseId = "") => {
+    const query = caseId ? `?case_id=${encodeURIComponent(caseId)}` : "";
+    return request<{ tasks: ReviewTask[] }>(`/review-tasks${query}`);
+  },
+  reviewTask: (taskId: string) =>
+    request<{ task: ReviewTask }>(`/review-tasks/${encodeURIComponent(taskId)}`),
+  submitReviewTask: (
+    taskId: string,
+    payload: {
+      recommendation: ExpertRecommendation;
+      opinion: string;
+      conflict_declared: boolean;
+      conflict_reason: string;
+    }
+  ) =>
+    request<{ case: ReviewCase }>(
+      `/review-tasks/${encodeURIComponent(taskId)}/submit`,
+      jsonOptions(payload)
+    ),
+  reviewArtifacts: (caseId = "") => {
+    const query = caseId ? `?case_id=${encodeURIComponent(caseId)}` : "";
+    return request<{ artifacts: ReviewArtifact[] }>(`/review-artifacts${query}`);
+  },
+  reviewArtifact: (artifactId: string) =>
+    request<{ artifact: ReviewArtifact }>(
+      `/review-artifacts/${encodeURIComponent(artifactId)}`
+    ),
 };
 
 export const getChatModels = () => request<{ models: ChatModelOption[] }>("/chat/options");

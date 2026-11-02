@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from rag import auth, config, db, dossiers as dossier_service, qa, review, schemas, trends
+from rag import auth, config, db, dossiers as dossier_service, qa, review, review_cases, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
 from rag import keyword_graph
@@ -236,6 +236,33 @@ class TrendRequest(BaseModel):
 class ToolCheckRequest(BaseModel):
     doc_id: str = ""
     top_k: int = Field(default=8, ge=1, le=20)
+
+
+class ReviewCaseCreateRequest(BaseModel):
+    title: str = Field(default="", max_length=160)
+    doc_id: str = Field(..., min_length=1, max_length=64)
+    dossier_id: str = Field(default="", max_length=64)
+
+
+class ReviewTaskAssignment(BaseModel):
+    expert_id: int = Field(..., ge=1)
+    username: str = Field(..., min_length=1, max_length=32)
+
+
+class ReviewCaseAssignRequest(BaseModel):
+    assignments: list[ReviewTaskAssignment] = Field(default_factory=list, max_length=20)
+
+
+class ExpertReviewSubmitRequest(BaseModel):
+    recommendation: Literal["approve", "revise", "reject"] = "approve"
+    opinion: str = Field(default="", max_length=10_000)
+    conflict_declared: bool = False
+    conflict_reason: str = Field(default="", max_length=2000)
+
+
+class FinalReviewRequest(BaseModel):
+    decision: Literal["approved", "returned", "deferred", "rejected"]
+    comment: str = Field(..., min_length=10, max_length=20_000)
 
 
 class IngestExpertsRequest(BaseModel):
@@ -796,7 +823,10 @@ def remove_sample_documents(_user: dict = Depends(require_role("manager", "admin
 
 @app.delete("/api/documents/{doc_id}")
 def remove_document(doc_id: str, _user: dict = Depends(require_role("manager", "admin"))):
-    doc = db.delete_document(doc_id)
+    try:
+        doc = db.delete_document(doc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
     try:
@@ -983,6 +1013,186 @@ def tool_check(payload: ToolCheckRequest, _user: dict = Depends(require_role("re
         return expert_service.run_tool_check(doc_id, top_k=payload.top_k)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ---------- 项目评审案卷 ----------
+
+
+@app.get("/api/review-cases")
+def list_review_cases(user: dict = Depends(require_role("reviewer", "manager", "admin"))):
+    try:
+        return {"cases": review_cases.list_cases(user)}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@app.get("/api/review-cases/reviewers")
+def list_review_case_reviewers(_user: dict = Depends(require_role("manager", "admin"))):
+    return {"reviewers": review_cases.reviewer_options()}
+
+
+@app.post("/api/review-cases")
+def create_review_case(
+    payload: ReviewCaseCreateRequest,
+    user: dict = Depends(require_role("manager", "admin")),
+):
+    try:
+        return {"case": review_cases.create_case(
+            title=payload.title,
+            doc_id=payload.doc_id,
+            dossier_id=payload.dossier_id,
+            actor=str(user.get("username", "")),
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/review-cases/{case_id}")
+def get_review_case(
+    case_id: str,
+    user: dict = Depends(require_role("reviewer", "manager", "admin")),
+):
+    try:
+        return {"case": review_cases.get_case(case_id, user)}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/review-cases/{case_id}/run")
+def run_review_case(
+    case_id: str,
+    user: dict = Depends(require_role("manager", "admin")),
+):
+    try:
+        case = review_cases.get_case(case_id, user)
+        report = review.review_document(case["doc_id"])
+        tool_result = expert_service.run_tool_check(case["doc_id"], top_k=8)
+        return {"case": review_cases.save_pre_results(
+            case_id,
+            actor=str(user.get("username", "")),
+            report=report,
+            tool_result=tool_result,
+        )}
+    except (ValueError, PermissionError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/review-cases/{case_id}/experts")
+def assign_review_case_experts(
+    case_id: str,
+    payload: ReviewCaseAssignRequest,
+    user: dict = Depends(require_role("manager", "admin")),
+):
+    try:
+        return {"case": review_cases.assign_tasks(
+            case_id,
+            [item.model_dump() for item in payload.assignments],
+            str(user.get("username", "")),
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/review-cases/{case_id}/advance-final")
+def advance_review_case_to_final(
+    case_id: str,
+    user: dict = Depends(require_role("manager", "admin")),
+):
+    try:
+        return {"case": review_cases.advance_to_final(
+            case_id,
+            str(user.get("username", "")),
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/review-cases/{case_id}/final")
+def finalize_review_case(
+    case_id: str,
+    payload: FinalReviewRequest,
+    user: dict = Depends(require_role("manager", "admin")),
+):
+    try:
+        return {"case": review_cases.finalize_case(
+            case_id,
+            str(user.get("username", "")),
+            decision=payload.decision,
+            comment=payload.comment,
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/review-tasks")
+def review_tasks_for_user(
+    case_id: str = Query(default=""),
+    user: dict = Depends(require_role("reviewer", "manager", "admin")),
+):
+    try:
+        return {"tasks": review_cases.list_tasks(user, case_id.strip() or None)}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@app.get("/api/review-tasks/{task_id}")
+def review_task_detail(
+    task_id: str,
+    user: dict = Depends(require_role("reviewer", "manager", "admin")),
+):
+    try:
+        return {"task": review_cases.get_task(task_id, user)}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/review-tasks/{task_id}/submit")
+def submit_review_task(
+    task_id: str,
+    payload: ExpertReviewSubmitRequest,
+    user: dict = Depends(require_role("reviewer")),
+):
+    try:
+        return {"case": review_cases.submit_task(
+            task_id,
+            user,
+            recommendation=payload.recommendation,
+            opinion=payload.opinion,
+            conflict_declared=payload.conflict_declared,
+            conflict_reason=payload.conflict_reason,
+        )}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/review-artifacts")
+def review_artifacts_list(
+    case_id: str = Query(default=""),
+    user: dict = Depends(require_role("reviewer", "manager", "admin")),
+):
+    try:
+        return {"artifacts": review_cases.list_artifacts(user, case_id.strip() or None)}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@app.get("/api/review-artifacts/{artifact_id}")
+def review_artifact_detail(
+    artifact_id: str,
+    user: dict = Depends(require_role("reviewer", "manager", "admin")),
+):
+    try:
+        return {"artifact": review_cases.get_artifact(artifact_id, user)}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # ---------- 外部数据接入（预留接口） ----------

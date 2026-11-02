@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Download,
+  BookMarked,
   FileSpreadsheet,
   FileText,
   Loader2,
@@ -13,8 +14,9 @@ import { useApp } from "../AppContext";
 import { DocumentDirectory } from "../components/DocumentDirectory";
 import { DocumentReader } from "../components/DocumentReader";
 import { EmptyState } from "../components/EmptyState";
+import { Markdown } from "../components/Markdown";
 import { EASE } from "../motion";
-import type { DocItem, DocumentContent } from "../types";
+import type { DocItem, DocumentContent, ReviewArtifact } from "../types";
 
 const KIND_RANK: Record<string, number> = {
   proposal: 0,
@@ -57,7 +59,13 @@ export function LibraryPage() {
   }, []);
   const [dragging, setDragging] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
-  const [libraryView, setLibraryView] = useState<"documents" | "literature">(params.get("view") === "literature" ? "literature" : "documents");
+  const [libraryView, setLibraryView] = useState<"documents" | "literature" | "case-data">(
+    params.get("view") === "literature"
+      ? "literature"
+      : params.get("view") === "case-data"
+        ? "case-data"
+        : "documents"
+  );
   const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [content, setContent] = useState<DocumentContent | null>(null);
@@ -65,6 +73,10 @@ export function LibraryPage() {
   const [contentError, setContentError] = useState("");
   const [direction, setDirection] = useState<"next" | "prev" | "same">("same");
   const [uploadedDocId, setUploadedDocId] = useState("");
+  const [caseArtifacts, setCaseArtifacts] = useState<ReviewArtifact[]>([]);
+  const [artifactQuery, setArtifactQuery] = useState("");
+  const [selectedArtifactId, setSelectedArtifactId] = useState(params.get("artifact") || "");
+  const [artifactError, setArtifactError] = useState("");
 
   const orderedDocs = useMemo(
     () => [...docs].sort((a, b) => (KIND_RANK[a.kind] ?? 9) - (KIND_RANK[b.kind] ?? 9)),
@@ -87,10 +99,45 @@ export function LibraryPage() {
     if (!requestedPaper || firstPage.some((paper) => paper.id === requestedPaper.id)) return firstPage;
     return [requestedPaper, ...papers.filter((paper) => paper.id !== requestedPaper.id)].slice(0, 100);
   }, [papers, requestedPaper]);
+  const visibleArtifacts = useMemo(() => {
+    const query = artifactQuery.trim().toLowerCase();
+    if (!query) return caseArtifacts;
+    return caseArtifacts.filter((artifact) =>
+      [artifact.case_title, artifact.title, artifact.artifact_type, artifact.doc_name, artifact.created_by]
+        .some((value) => (value || "").toLowerCase().includes(query))
+    );
+  }, [artifactQuery, caseArtifacts]);
+  const selectedArtifact = caseArtifacts.find((artifact) => artifact.id === selectedArtifactId) || null;
 
   useEffect(() => {
-    setLibraryView(requestedView === "literature" ? "literature" : "documents");
+    setLibraryView(
+      requestedView === "literature"
+        ? "literature"
+        : requestedView === "case-data"
+          ? "case-data"
+          : "documents"
+    );
   }, [requestedView]);
+
+  useEffect(() => {
+    if (libraryView !== "case-data") return;
+    let active = true;
+    setArtifactError("");
+    void api.reviewArtifacts()
+      .then((result) => {
+        if (!active) return;
+        setCaseArtifacts(result.artifacts);
+        setSelectedArtifactId((current) =>
+          result.artifacts.some((artifact) => artifact.id === current)
+            ? current
+            : result.artifacts[0]?.id || ""
+        );
+      })
+      .catch((error) => {
+        if (active) setArtifactError((error as Error).message);
+      });
+    return () => { active = false; };
+  }, [libraryView]);
 
   useEffect(() => {
     if (libraryView !== "literature" || !requestedPaperId || loading) return;
@@ -174,15 +221,28 @@ export function LibraryPage() {
     }
   };
 
-  const chooseLibraryView = (view: "documents" | "literature") => {
+  const chooseLibraryView = (view: "documents" | "literature" | "case-data") => {
     setLibraryView(view);
     const nextParams = new URLSearchParams(params);
     if (view === "literature") {
       nextParams.set("view", "literature");
+      nextParams.delete("artifact");
+    } else if (view === "case-data") {
+      nextParams.set("view", "case-data");
+      if (selectedArtifactId) nextParams.set("artifact", selectedArtifactId);
     } else {
       nextParams.delete("view");
       nextParams.delete("paper");
+      nextParams.delete("artifact");
     }
+    setParams(nextParams, { replace: true });
+  };
+
+  const chooseArtifact = (artifact: ReviewArtifact) => {
+    setSelectedArtifactId(artifact.id);
+    const nextParams = new URLSearchParams(params);
+    nextParams.set("view", "case-data");
+    nextParams.set("artifact", artifact.id);
     setParams(nextParams, { replace: true });
   };
 
@@ -293,6 +353,7 @@ export function LibraryPage() {
         <div className="library-view-switch" role="group" aria-label="文档中心视图">
           <button type="button" aria-pressed={libraryView === "documents"} onClick={() => chooseLibraryView("documents")}>文档正文</button>
           <button type="button" aria-pressed={libraryView === "literature"} onClick={() => chooseLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
+          {can("review") && <button type="button" aria-pressed={libraryView === "case-data"} onClick={() => chooseLibraryView("case-data")}>案卷数据 <span>{caseArtifacts.length}</span></button>}
         </div>
         <div className="document-center-tools">
           {can("upload") && (
@@ -430,6 +491,67 @@ export function LibraryPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="panel document-case-data" aria-label="案卷数据" hidden={libraryView !== "case-data"}>
+        <div className="document-case-data-layout">
+          <aside className="document-case-data-directory">
+            <div className="document-case-data-head">
+              <div>
+                <span className="document-case-data-mark" aria-hidden="true"><BookMarked size={18} /></span>
+                <strong>评审归档</strong>
+              </div>
+              <span>{visibleArtifacts.length}</span>
+            </div>
+            <label className="document-filter">
+              <input
+                value={artifactQuery}
+                onChange={(event) => setArtifactQuery(event.target.value)}
+                placeholder="筛选项目、报告或审核人"
+                aria-label="筛选案卷数据"
+              />
+            </label>
+            <div className="document-case-artifact-list scroll-area">
+              {visibleArtifacts.map((artifact) => (
+                <button
+                  type="button"
+                  key={artifact.id}
+                  className={artifact.id === selectedArtifactId ? "is-active" : ""}
+                  aria-pressed={artifact.id === selectedArtifactId}
+                  onClick={() => chooseArtifact(artifact)}
+                >
+                  <span>{artifact.stage_label}</span>
+                  <strong>{artifact.title}</strong>
+                  <small>{artifact.case_title} · {artifact.created_at.replace("T", " ")}</small>
+                </button>
+              ))}
+              {!visibleArtifacts.length && !artifactError && <p className="document-case-empty">暂无评审归档数据。</p>}
+              {artifactError && <p className="document-case-empty status-fail">{artifactError}</p>}
+            </div>
+          </aside>
+          <div className="document-case-artifact-reader">
+            {selectedArtifact ? (
+              <>
+                <header>
+                  <div>
+                    <span>{selectedArtifact.stage_label} · {selectedArtifact.case_title}</span>
+                    <h2>{selectedArtifact.title}</h2>
+                  </div>
+                  <div className="document-case-artifact-meta">
+                    <span>{selectedArtifact.created_by}</span>
+                    <span>{selectedArtifact.created_at.replace("T", " ")}</span>
+                    <span title={selectedArtifact.sha256}>SHA {selectedArtifact.sha256.slice(0, 12)}</span>
+                  </div>
+                </header>
+                <div className="document-case-artifact-body scroll-area">
+                  <Markdown content={selectedArtifact.content} />
+                </div>
+              </>
+            ) : (
+              <EmptyState icon={<BookMarked size={36} />} description="完成预审、专家审核或终审后，结构化数据会归档到这里。" />
             )}
           </div>
         </div>
