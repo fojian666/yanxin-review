@@ -44,7 +44,7 @@ test('@smoke 历史课题建立、材料归入与人工确认形成体检结果'
   await expect(docCounter).toHaveText(/^\d+$/);
   const docCount = await docCounter.innerText();
   await expect(stats.locator('div').filter({ hasText: '历史课题' }).locator('strong')).toHaveText('0');
-  await navigate(page, '历史课题');
+  await navigate(page, '申报流程');
   await expect(page.getByRole('heading', { name: '建立第一份历史课题' })).toBeVisible();
   await expect(page.getByRole('button', { name: /新建.*历史课题/ })).toHaveCount(1);
   await page.getByRole('button', { name: '新建历史课题' }).click();
@@ -76,7 +76,7 @@ test('@smoke 历史课题建立、材料归入与人工确认形成体检结果'
   await expect(page.getByRole('button', { name: '开始预审' })).toBeEnabled();
   await workspaceSelect.selectOption(dossierId);
   await expect(page.getByRole('button', { name: '开始预审' })).toBeDisabled();
-  await navigate(page, '历史课题');
+  await navigate(page, '申报流程');
   await expect(page.getByLabel('当前课题')).toHaveValue(dossierId);
   await expect(page.getByRole('button', { name: '开始预审' })).toHaveCount(0);
   const toggle = page.locator('button[aria-controls="dossier-details"]');
@@ -214,7 +214,7 @@ test('@smoke 历史课题建立、材料归入与人工确认形成体检结果'
 
 test('手机历史课题体检不横向溢出且表单可操作', async ({ app: page, documents }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await navigate(page, '历史课题');
+  await navigate(page, '申报流程');
   await page.getByRole('button', { name: '新建历史课题' }).click();
   const dialog = page.getByRole('dialog', { name: '新建历史课题' });
   await expect(dialog.locator('..')).toHaveCSS('position', 'fixed');

@@ -55,7 +55,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
   },
   {
     path: "/dossiers",
-    title: "历史课题",
+    title: "申报流程",
     description: "归档历史课题并核对材料情况",
     icon: FolderKanban,
     component: DossierPanel,

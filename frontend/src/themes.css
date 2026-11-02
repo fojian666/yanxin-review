@@ -406,14 +406,27 @@
 }
 @media (max-width: 680px) {
   :root[data-theme="blue"] .sidebar {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     padding-top: 0;
+    padding-bottom: 0;
   }
   :root[data-theme="blue"] .brand {
-    width: calc(100% + 36px);
+    width: 100%;
     min-height: 68px;
-    margin: 0 -18px;
+    margin: 0;
     padding: 0 18px;
     background: var(--topbar-start);
+  }
+  :root[data-theme="blue"] .nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px 8px 22px;
+    background: #fff;
   }
 }
 :root[data-theme="mono"] .nav-pill, :root[data-theme="aurora"] .nav-pill {
@@ -488,7 +501,11 @@
     flex-direction: row;
     justify-content: center;
     gap: 4px;
-    background: var(--topbar-start);
+    background-image: var(--topbar-bg);
+    background-repeat: no-repeat;
+    background-position: 0 top;
+    background-size: 100vw 68px;
+    background-attachment: fixed;
   }
   :root[data-theme="blue"] .app-shell.sidebar-collapsed .brand-mark {
     width: 44px;
@@ -588,9 +605,9 @@
     padding-top: 0;
   }
   :root[data-theme="mono"] .brand {
-    width: calc(100% + 36px);
+    width: 100%;
     min-height: 68px;
-    margin: 0 -18px;
+    margin: 0;
     padding: 0 18px;
     background: var(--topbar-start);
   }
@@ -609,7 +626,11 @@
     flex-direction: row;
     justify-content: center;
     gap: 4px;
-    background: var(--topbar-start);
+    background-image: var(--topbar-bg);
+    background-repeat: no-repeat;
+    background-position: 0 top;
+    background-size: 100vw 68px;
+    background-attachment: fixed;
   }
   :root[data-theme="mono"] .app-shell.sidebar-collapsed .brand-mark {
     width: 44px;
@@ -640,3 +661,28 @@
     background: linear-gradient(90deg, transparent, var(--line), transparent);
   }
 }
+
+/* 蓝白主题的流程工作面使用统一冷色纸面；状态提示保留语义色。 */
+:root[data-theme="blue"] :is(.dossier-empty, .dossier-material-list, .dossier-check-section, .dossier-boundary-item, .dossier-deck .work-deck-panel, .dossier-overview-note) { background: var(--panel); border-color: var(--line); }
+:root[data-theme="blue"] :is(.dossier-process, .dossier-check-head) { background: var(--panel-2); }
+:root[data-theme="blue"] :is(.dossier-material-row, .dossier-check-item) { border-color: var(--line); }
+:root[data-theme="blue"] .dossier-role { background: var(--teal-soft); border-color: var(--line-strong); }
+:root[data-theme="blue"] :is(.dossier-process-stage small, .dossier-check-item small) { color: var(--muted); }
+
+/* 蓝白主题：各步骤中的中性色面板和交互统一使用主题色。 */
+:root[data-theme="blue"] :is(.report-summary, .section-head, .check-evidence, .match-callout, .year-topic, .dossier-limitations, .kg-path-result) {
+  background: var(--panel-2); color: var(--ink-2); border-color: var(--line);
+}
+:root[data-theme="blue"] :is(.expert-card, .year-topic-chips span, .work-deck-number, .view-toggle, .scope-btn, .chip:not(.active), .workspace-register, .kg-stats) {
+  background: var(--panel); border-color: var(--line);
+}
+:root[data-theme="blue"] .duplicate-card { background: var(--panel); }
+:root[data-theme="blue"] .work-deck-rail nav button.is-active .work-deck-number { background: var(--teal); border-color: var(--teal); color: white; }
+:root[data-theme="blue"] :is(.report-summary, .match-callout, .check-evidence, .dossier-limitations) { border-left-color: var(--line-strong); }
+:root[data-theme="blue"] :is(.btn-ghost, .document-filter input) { background: var(--panel); }
+:root[data-theme="blue"] :is(.btn-ghost:hover:not(:disabled):not(.danger), .data-table tr:hover td, .kg-relations button:hover, .dropzone:hover, .dropzone.dragover, .modal-drop:hover, .modal-drop.dragover) { background: var(--teal-soft); border-color: var(--line-strong); }
+:root[data-theme="blue"] .data-table td { border-bottom-color: var(--line); color: var(--ink-2); }
+:root[data-theme="blue"] :is(.kind-badge, .msg-content code, .skeleton) { background: var(--panel-2); }
+:root[data-theme="blue"] :is(.search-box:focus-within, .composer textarea:focus, .select:focus, .field input:focus, .field select:focus) { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 12%, transparent); }
+:root[data-theme="blue"] :is(.score-bar, .score-meter, .steps-track) { background: var(--line); }
+:root[data-theme="blue"] :is(.score-bar i, .score-meter i, .steps-fill) { background: var(--teal); }

@@ -18,7 +18,7 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
 
   const nav = page.locator('.nav .nav-item');
   await expect(nav.first()).toContainText('智能问答');
-  await expect(nav.nth(1)).toContainText('历史课题');
+  await expect(nav.nth(1)).toContainText('申报流程');
   await expect(nav.first()).toHaveAttribute('href', '/chat');
   await expect(nav.nth(1)).toHaveAttribute('href', '/dossiers');
   const navWeights = await nav.evaluateAll(items => items.map(item => Number.parseInt(getComputedStyle(item).fontWeight, 10)));
@@ -97,6 +97,52 @@ test('平台固定蓝白外壳、统一品牌和无主题简约入口', async ({
   await expect(page.locator('.welcome > p, .quick-card small, .sources-panel .panel-head p')).toHaveCount(0);
   await page.goto('/library');
   await expect(page.locator('.document-center-title > div > span')).toHaveCount(0);
+
+  const legacyNeutralColors = [
+    'rgb(255, 253, 248)',
+    'rgb(251, 248, 241)',
+    'rgb(248, 244, 235)',
+    'rgb(242, 250, 246)',
+    'rgb(241, 248, 245)',
+    'rgb(239, 233, 221)',
+    'rgb(232, 246, 241)',
+    'rgb(228, 242, 237)',
+  ];
+  const assertThemeNeutral = async () => {
+    const leaks = await page.locator('.page *').evaluateAll((elements, legacyColors) => elements
+      .filter(element => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 4
+          && rect.height > 4
+          && style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && !element.closest('.status-pass, .status-warn, .status-fail, .role-badge, .badge-sample, .dossier-check-dot');
+      })
+      .map(element => {
+        const style = getComputedStyle(element);
+        const colors = [style.backgroundColor, style.backgroundImage, style.borderColor].join(' ');
+        return legacyColors.some(color => colors.includes(color))
+          ? `${element.tagName.toLowerCase()}.${String(element.className)} ${colors}`
+          : '';
+      })
+      .filter(Boolean), legacyNeutralColors);
+    expect(leaks).toEqual([]);
+  };
+
+  for (const route of ['/chat', '/graph', '/library'] as const) {
+    await page.goto(route);
+    await assertThemeNeutral();
+  }
+  for (const route of ['/dossiers', '/review', '/match', '/trend', '/admin'] as const) {
+    await page.goto(route);
+    const tabs = page.locator('.work-deck-rail [role="tab"]');
+    const count = await tabs.count();
+    for (let index = 0; index < count; index += 1) {
+      await tabs.nth(index).click();
+      await assertThemeNeutral();
+    }
+  }
 });
 
 test('主题与简约模式仍可由持久化状态生效但不再显示入口', async ({ app: page, documents }) => {
@@ -155,14 +201,27 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   expect(mobileLayout.scrollWidth).toBeLessThanOrEqual(mobileLayout.clientWidth + 1);
   expect(mobileLayout.scrollHeight).toBeLessThanOrEqual(mobileLayout.clientHeight + 1);
   await expect(page.locator('.nav .nav-item').first()).toContainText('智能问答');
-  await expect(page.locator('.nav .nav-item').nth(1)).toContainText('历史课题');
+  await expect(page.locator('.nav .nav-item').nth(1)).toContainText('申报流程');
   await expect(page.locator('.brand-mark')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('unified-blue-mobile-nav.png') });
   await page.keyboard.press('Escape');
 
+  for (const route of ['/chat', '/dossiers', '/review', '/match', '/graph', '/trend', '/library', '/admin'] as const) {
+    await page.goto(route);
+    await page.getByRole('button', { name: '打开导航' }).click();
+    const drawer = await page.evaluate(() => {
+      const sidebar = document.querySelector<HTMLElement>('.sidebar')!.getBoundingClientRect();
+      const nav = document.querySelector<HTMLElement>('.sidebar .nav')!.getBoundingClientRect();
+      return { sidebarBottom: sidebar.bottom, navBottom: nav.bottom, navHeight: nav.height };
+    });
+    expect(drawer.navHeight).toBeGreaterThan(0);
+    expect(Math.abs(drawer.sidebarBottom - drawer.navBottom)).toBeLessThanOrEqual(1);
+    await page.keyboard.press('Escape');
+  }
+  await page.goto('/welcome');
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload();
-  await navigate(page, '历史课题');
+  await navigate(page, '申报流程');
   await page.getByRole('button', { name: '收起侧边栏' }).click();
   await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/);
   await expect(page.locator('.brand-text')).toBeHidden();
@@ -196,6 +255,38 @@ test('统一品牌与导航在手机和折叠侧栏保持完整', async ({ app: 
   expect(Math.abs(hoveredItem.height - activeItem.height)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('unified-blue-collapsed-hover.png') });
   await page.screenshot({ path: testInfo.outputPath('unified-blue-collapsed.png') });
+
+  const revealBackdrop = await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>('.app-shell')!;
+    const backdrop = getComputedStyle(shell, '::before');
+    const brand = getComputedStyle(document.querySelector<HTMLElement>('.brand')!);
+    const topbar = getComputedStyle(document.querySelector<HTMLElement>('.topbar')!);
+    return {
+      backdropContent: backdrop.content,
+      backdropWidth: Number.parseFloat(backdrop.width),
+      backdropHeight: Number.parseFloat(backdrop.height),
+      backdropBackground: backdrop.backgroundColor,
+      backdropImage: backdrop.backgroundImage,
+      backdropAttachment: backdrop.backgroundAttachment,
+      backdropSize: backdrop.backgroundSize,
+      brandImage: brand.backgroundImage,
+      brandAttachment: brand.backgroundAttachment,
+      brandSize: brand.backgroundSize,
+      topbarImage: topbar.backgroundImage,
+      topbarAttachment: topbar.backgroundAttachment,
+      topbarSize: topbar.backgroundSize,
+    };
+  });
+  expect(revealBackdrop.backdropContent).toBe('""');
+  expect(revealBackdrop.backdropWidth).toBeGreaterThanOrEqual(1440);
+  expect(revealBackdrop.backdropHeight).toBeGreaterThanOrEqual(68);
+  expect(revealBackdrop.backdropAttachment).toBe('fixed');
+  expect(revealBackdrop.brandAttachment).toBe('fixed');
+  expect(revealBackdrop.topbarAttachment).toBe('fixed');
+  expect(revealBackdrop.brandImage).toBe(revealBackdrop.backdropImage);
+  expect(revealBackdrop.topbarImage).toBe(revealBackdrop.backdropImage);
+  expect(revealBackdrop.brandSize).toBe(revealBackdrop.backdropSize);
+  expect(revealBackdrop.topbarSize).toBe(revealBackdrop.backdropSize);
 
   for (const theme of ['mono', 'paper'] as const) {
     await page.setViewportSize({ width: 1000, height: 300 });
