@@ -15,7 +15,9 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
       await expect(page.locator('.workspace-index, .workspace-tab')).toHaveCount(0);
       shells.push(await page.evaluate(path => {
         const box = (selector: string) => {
-          const rect = document.querySelector(selector)!.getBoundingClientRect();
+          const element = document.querySelector(selector);
+          if (!element) return null;
+          const rect = element.getBoundingClientRect();
           return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
         };
         return {
@@ -29,12 +31,14 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
     }
 
     const taskShells = shells.filter(shell => shell.task);
+    const ledgerShells = taskShells.filter(shell => shell.path !== '/review-cases');
     const unique = (values: number[]) => Math.max(...values) - Math.min(...values) <= 1;
     expect(unique(shells.map(shell => shell.topbar.y)), `${width}px 顶栏起点应一致`).toBeTruthy();
     expect(unique(shells.map(shell => shell.topbar.height)), `${width}px 顶栏高度应一致`).toBeTruthy();
-    expect(unique(taskShells.map(shell => shell.ledger.height)), `${width}px 卷宗栏高度应一致`).toBeTruthy();
-    expect(unique(taskShells.map(shell => shell.stage.y)), `${width}px 工作面起点应一致`).toBeTruthy();
-    expect(unique(taskShells.map(shell => shell.stage.height)), `${width}px 工作面高度应一致`).toBeTruthy();
+    expect(taskShells.find(shell => shell.path === '/review-cases')?.ledger, '项目评审不应保留多余卷宗栏').toBeNull();
+    expect(unique(ledgerShells.map(shell => shell.ledger!.height)), `${width}px 卷宗栏高度应一致`).toBeTruthy();
+    expect(unique(ledgerShells.map(shell => shell.stage.y)), `${width}px 工作面起点应一致`).toBeTruthy();
+    expect(unique(ledgerShells.map(shell => shell.stage.height)), `${width}px 工作面高度应一致`).toBeTruthy();
   }
 });
 

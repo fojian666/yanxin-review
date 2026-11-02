@@ -21,7 +21,8 @@ const RECOMMENDATIONS: { value: ExpertRecommendation; label: string }[] = [
 ];
 
 export function ExpertReviewPage() {
-  const { toast } = useApp();
+  const { auth, toast } = useApp();
+  const adminDebug = auth?.role === "admin";
   const [params, setParams] = useSearchParams();
   const [tasks, setTasks] = useState<ReviewTask[]>([]);
   const [selectedId, setSelectedId] = useState(params.get("task") || "");
@@ -114,7 +115,7 @@ export function ExpertReviewPage() {
     return (
       <div className="expert-review-page">
         <section className="panel expert-review-empty">
-          <EmptyState icon={<ClipboardCheck size={40} />} description="当前没有分配给您的审核任务。" />
+          <EmptyState icon={<ClipboardCheck size={40} />} description={adminDebug ? "当前没有可调试的审核任务。" : "当前没有分配给您的审核任务。"} />
         </section>
       </div>
     );
@@ -124,7 +125,7 @@ export function ExpertReviewPage() {
     <div className="expert-review-page">
       <section className="expert-task-strip" aria-label="我的审核任务">
         <div className="expert-task-summary">
-          <span>我的审核任务</span>
+          <span>{adminDebug ? "审核任务 · 管理员调试" : "我的审核任务"}</span>
           <strong>{pendingCount} 项待办</strong>
         </div>
         <div className="expert-task-tabs scroll-area">

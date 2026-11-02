@@ -9,7 +9,7 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     await expect(nav.getByRole('link', { name: '用户管理' })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(nav.getByRole('link', { name: '查重匹配' })).toHaveCount(role === 'viewer' ? 0 : 1);
     await expect(nav.getByRole('link', { name: '项目评审' })).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
-    await expect(nav.getByRole('link', { name: '专家审核' })).toHaveCount(role === 'reviewer' ? 1 : 0);
+    await expect(nav.getByRole('link', { name: '专家审核' })).toHaveCount(['admin', 'reviewer'].includes(role) ? 1 : 0);
     await expect(nav.getByRole('link', { name: '申报流程' })).toHaveCount(1);
     await expect(page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true })).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
     await navigate(page, '文档中心');
@@ -19,6 +19,13 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     expect((await context.request.get('/api/experts')).status()).toBe(role === 'viewer' ? 403 : 200);
     expect((await context.request.get('/api/review-cases')).status()).toBe(role === 'viewer' ? 403 : 200);
     expect((await context.request.get('/api/review-cases/reviewers')).status()).toBe(['admin', 'manager'].includes(role) ? 200 : 403);
+    expect((await context.request.get('/api/review-tasks')).status()).toBe(role === 'viewer' ? 403 : 200);
+    expect((await context.request.post('/api/review-tasks/missing/submit', { data: {
+      recommendation: 'approve',
+      opinion: '管理员调试提交权限验证。',
+      conflict_declared: false,
+      conflict_reason: '',
+    } })).status()).toBe(['admin', 'reviewer'].includes(role) ? 400 : 403);
     if (role !== 'viewer') {
       expect((await context.request.post('/api/review-cases', { data: { doc_id: 'missing' } })).status()).toBe(['admin', 'manager'].includes(role) ? 400 : 403);
     }

@@ -17,7 +17,7 @@
 |---|---|
 | 智能问答 | 上传文档后多轮提问；SSE 流式输出；句级 `[1][2]` 引用；右侧证据面板可回看原文、页码/章节、相似度 |
 | 项目评审 | 新独立路由 `/review-cases`：选择历史课题或申报书建立案卷，一键完成预审、查重与专家候选，再进入专家任务和终审；预审与终审均提供逐阶段进度动画，每阶段状态、操作人、时间与结果均留痕 |
-| 专家审核 | 新独立路由 `/expert-review`：绑定 reviewer 登录账号，只显示分配给本人的任务；可查看申报书和预审报告、声明回避、提交独立意见，提交后不可覆盖 |
+| 专家审核 | 新独立路由 `/expert-review`：reviewer 只显示分配给本人的任务；admin 可进入调试视图查看全部任务并代提交。可查看申报书和预审报告、声明回避、提交独立意见，提交后不可覆盖 |
 | 文档上传 | DOCX / DOC / PDF / OFD / ODT / RTF / PPTX / XLSX / HTML / TXT / MD；自动识别标题、年份、资料类型；解析、分块、建索引；真实上传进度（百分比+解析阶段提示）；支持删除 |
 | 项目预审 | 形式完整性、科研诚信与规范性、文本查重、政策合规四类检查；结论首屏始终显示免责声明与能力边界，风险等级环和摘要区可滚动；边界页桌面采用“能力边界 / 报告输出”双栏，矮屏单列页内滚动，并保留 Markdown 与打印 PDF 入口。政策合规已接入两部真实公文，按「文件＋章＋条」给出依据（如《江苏省科技计划项目信用管理办法》第一章 总则 · 第一条），仍需人工核对版本时效 |
 | 知识图谱 | 文档关键词星图本地提词、按分块共现余弦展示最多 500 个词，支持选择数量及全库或单个卷宗，并提供原文来源；人工图谱为 48 个实体、100 条关系、7 个知识域；知识域显隐、实体与关系搜索、邻接关系、最短路径和大模型解释入口；覆盖科研全周期、诚信合规、评审专家、知识底座、模型智能体、自然资源场景与安全治理 |
@@ -497,9 +497,9 @@ LLM_MODEL=Qwen3-32B
 | POST | `/api/review-cases/{case_id}/experts` | 将候选专家指派给 reviewer 账号 |
 | POST | `/api/review-cases/{case_id}/advance-final` | 专家任务完成后进入终审 |
 | POST | `/api/review-cases/{case_id}/final` | 提交终审决定并归档 |
-| GET | `/api/review-tasks` | reviewer 的本人任务；manager/admin 可查看任务状态 |
+| GET | `/api/review-tasks` | reviewer 的本人任务；admin 可查看全部任务用于调试；manager 可查看任务状态 |
 | GET | `/api/review-tasks/{task_id}` | 专家审核任务详情与预审依据 |
-| POST | `/api/review-tasks/{task_id}/submit` | reviewer 提交独立意见或回避声明，仅能提交一次 |
+| POST | `/api/review-tasks/{task_id}/submit` | reviewer 提交本人意见；admin 可代提交用于调试，仅能提交一次并记录原指派账号 |
 | GET | `/api/review-artifacts` | 案卷归档数据列表，支持按案卷筛选 |
 | GET | `/api/review-artifacts/{artifact_id}` | 读取单项归档 Markdown 及哈希 |
 | POST | `/api/trends` | 文献趋势（query、start_year、end_year） |

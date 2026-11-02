@@ -106,6 +106,7 @@ export function WelcomePage() {
   const showBadge = named && Boolean(role);
   const primaryPath = defaultPath;
   const isOverview = location.pathname === "/welcome";
+  const hideWorkspaceLedger = location.pathname === "/review-cases";
   const selectWorkspaceDocument = (nextDocId: string) => {
     setSelectedDocs(nextDocId ? [nextDocId] : []);
     setChatMessages([]);
@@ -113,14 +114,14 @@ export function WelcomePage() {
   };
 
   return (
-    <div className={`welcome-home workspace-home ${location.pathname === "/welcome" ? "is-overview" : "is-task"}`}>
-      <motion.section className={`workspace-ledger ${unfold ? "is-unfolding" : ""}`} aria-label="历史课题工作区">
+    <div className={`welcome-home workspace-home ${location.pathname === "/welcome" ? "is-overview" : "is-task"}${hideWorkspaceLedger ? " is-no-ledger" : ""}`}>
+      {!hideWorkspaceLedger && <motion.section className={`workspace-ledger ${unfold ? "is-unfolding" : ""}`} aria-label="历史课题工作区">
         <div className="workspace-ledger-main">
         <div className="welcome-greeting-row">
           <h2>{greeting()}，{name}</h2>
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
-        <div className="workspace-document-row">
+        {location.pathname !== "/review-cases" && <div className="workspace-document-row">
           <label htmlFor="workspace-document">当前课题</label>
           {dossiers.length ? (
             <select
@@ -176,7 +177,7 @@ export function WelcomePage() {
               {docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other").map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
             </select>
           )}
-        </div>
+        </div>}
         {location.pathname === "/welcome" && <div className="welcome-actions">
           <Link
             className="btn btn-primary"
@@ -213,7 +214,7 @@ export function WelcomePage() {
             <span>政策</span>
           </div>
         </div>
-      </motion.section>
+      </motion.section>}
 
       <div className="workspace-stage">
         {isOverview ? (

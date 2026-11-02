@@ -1154,7 +1154,7 @@ def review_task_detail(
 def submit_review_task(
     task_id: str,
     payload: ExpertReviewSubmitRequest,
-    user: dict = Depends(require_role("reviewer")),
+    user: dict = Depends(require_role("reviewer", "admin")),
 ):
     try:
         return {"case": review_cases.submit_task(

@@ -9,7 +9,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 export interface AuthUser {
   username: string;
-  role: Role;
+  role: UserRole;
   display_name: string;
 }
 

@@ -4,12 +4,17 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   test.setTimeout(120_000);
   const source = documents[0];
   await navigate(page, '项目评审');
+  await expect(page.getByLabel('当前课题')).toHaveCount(0);
+  await expect(page.locator('.workspace-ledger')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '建立项目评审案卷' })).toBeVisible();
   await page.getByLabel('关联历史课题（可选）').selectOption('');
   await page.getByLabel('申报书 / 项目材料').selectOption(source.id);
   await page.getByLabel('案卷名称').fill('E2E 全过程评审');
   await page.getByRole('button', { name: '建立并开始' }).click();
   await expect(page.getByRole('tab', { name: '预审' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByLabel('当前课题')).toHaveCount(0);
+  await expect(page.locator('.workspace-ledger')).toHaveCount(0);
+  await expect(page.getByLabel('切换评审案卷')).toBeVisible();
 
   await page.route('**/api/review-cases/*/run', async route => {
     await new Promise(resolve => setTimeout(resolve, 450));
@@ -18,7 +23,10 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.getByRole('button', { name: '一键预审并匹配专家' }).click();
   await expect(page.locator('.review-process-progress')).toContainText('预审进行中');
   await page.screenshot({ path: testInfo.outputPath('review-case-pre-progress.png') });
-  await expect(page.getByRole('tab', { name: '专家审核' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: '重新运行需新建轮次' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: '预审' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.review-case-kpis')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('review-case-pre-complete.png') });
   await page.unroute('**/api/review-cases/*/run');
   await page.getByRole('tab', { name: '专家审核' }).click();
   const firstCandidate = page.locator('.review-candidate-list label').first();
@@ -31,13 +39,22 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.screenshot({ path: testInfo.outputPath('review-case-expert-assigned.png') });
 
   await context.request.post('/api/auth/logout');
-  await loginUI(page, 'reviewer');
+  await loginUI(page, 'admin');
   await navigate(page, '专家审核');
   await expect(page.locator('.expert-task-tabs button')).toHaveCount(1);
+  await expect(page.locator('.expert-task-summary')).toContainText('管理员调试');
   await expect(page.getByRole('heading', { name: 'E2E 全过程评审' })).toBeVisible();
   await page.getByLabel('独立审核意见').fill('项目材料完整，技术路线清晰，建议通过并补充年度监测计划。');
   await page.getByRole('button', { name: '提交审核意见' }).click();
   await expect(page.getByRole('heading', { name: '审核意见已提交' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('expert-review-admin-debug-submitted.png') });
+
+  await context.request.post('/api/auth/logout');
+  await loginUI(page, 'reviewer');
+  await navigate(page, '专家审核');
+  await expect(page.getByRole('heading', { name: 'E2E 全过程评审' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '审核意见已提交' })).toBeVisible();
+  await expect(page.getByText('项目材料完整，技术路线清晰，建议通过并补充年度监测计划。')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('expert-review-submitted.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
@@ -64,6 +81,12 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.getByText('终审决定', { exact: true })).toBeVisible();
   await expect(page.getByText('通过', { exact: true }).last()).toBeVisible();
   await expect(page.getByText(/归档哈希|^SHA /)).toHaveCount(0);
+  const passAlignment = await page.locator('.review-stage-heading .status-pass').evaluate(element => {
+    const icon = element.querySelector('svg')!.getBoundingClientRect();
+    const label = element.querySelector('span')!.getBoundingClientRect();
+    return Math.abs((icon.top + icon.height / 2) - (label.top + label.height / 2));
+  });
+  expect(passAlignment).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('review-case-finalized.png') });
 
   await navigate(page, '文档中心');

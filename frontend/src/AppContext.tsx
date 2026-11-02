@@ -75,7 +75,7 @@ const PERMISSIONS: Record<string, string[]> = {
   import: ["manager", "admin"],
   "remove-sample": ["manager", "admin"],
   "review-case": ["manager", "admin"],
-  "expert-review": ["reviewer"],
+  "expert-review": ["reviewer", "admin"],
   review: ["reviewer", "manager", "admin"],
   tool: ["reviewer", "manager", "admin"],
   admin: ["admin"],

@@ -193,9 +193,9 @@ export function ReviewCasePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId]);
 
-  const applyCase = async (next: ReviewCase) => {
+  const applyCase = async (next: ReviewCase, targetStage: FlowStage = stageForCase(next)) => {
     setCurrent(next);
-    setStage(stageForCase(next));
+    setStage(targetStage);
     setCases((items) => {
       const exists = items.some((item) => item.id === next.id);
       return exists ? items.map((item) => item.id === next.id ? next : item) : [next, ...items];
@@ -232,8 +232,7 @@ export function ReviewCasePage() {
     setBusy("pre");
     try {
       const result = await api.runReviewCase(current.id);
-      await applyCase(result.case);
-      setStage("expert_review");
+      await applyCase(result.case, "pre_review");
       toast("预审、查重和专家匹配已完成并归档");
     } catch (error) {
       toast(`预审失败：${(error as Error).message}`, "error");
@@ -522,7 +521,12 @@ export function ReviewCasePage() {
             <div className="review-stage-page">
               <div className="review-stage-heading">
                 <div><span>第 3 阶段</span><h2>意见汇总与终审</h2></div>
-                {current.stage === "completed" && <span className="status-pill status-pass"><CheckCircle2 size={14} />{current.final_decision_label}</span>}
+                {current.stage === "completed" && (
+                  <span className="status-pill status-pass">
+                    <CheckCircle2 size={14} aria-hidden="true" />
+                    <span>{current.final_decision_label}</span>
+                  </span>
+                )}
               </div>
               {busy === "final" ? (
                 <ReviewProgress mode="final" current={processStep} />

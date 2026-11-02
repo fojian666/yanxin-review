@@ -94,14 +94,23 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
     reviewer = {"username": "reviewer-case", "role": "reviewer"}
     task = review_cases.get_task(task_id, reviewer)
     assert task["pre_review"]["artifact_type"] == "pre_review"
-    review_cases.submit_task(
+    admin_debug = {"username": "admin-debug", "role": "admin"}
+    task = review_cases.get_task(task_id, admin_debug)
+    assert task["assignee_username"] == "reviewer-case"
+    case = review_cases.submit_task(
         task_id,
-        reviewer,
+        admin_debug,
         recommendation="approve",
         opinion="项目材料完整，建议通过并补充年度监测计划。",
         conflict_declared=False,
         conflict_reason="",
     )
+    assert case["tasks"][0]["status"] == "submitted"
+    opinion_artifact = next(
+        item for item in case["artifacts"] if item["artifact_type"] == "expert_opinion"
+    )
+    assert opinion_artifact["payload"]["admin_debug"] is True
+    assert opinion_artifact["payload"]["assignee_username"] == "reviewer-case"
 
     case = review_cases.advance_to_final(case["id"], "manager-case")
     assert case["stage"] == "final_review"

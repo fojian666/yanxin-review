@@ -95,7 +95,7 @@ def _artifact_visible(row, user: dict) -> bool:
         return True
     if row["created_by"] == user.get("username"):
         return True
-    if row["artifact_type"] == "expert_assignment":
+    if row["artifact_type"] in {"expert_assignment", "expert_opinion", "expert_conflict"}:
         try:
             payload = json.loads(row["payload_json"] or "{}")
         except json.JSONDecodeError:
@@ -640,11 +640,20 @@ def submit_task(
         ).fetchone()
         if not row:
             raise ValueError("审核任务不存在")
-        if row["assignee_username"] != username:
+        admin_debug = (
+            user.get("role") == "admin"
+            and row["assignee_username"] != username
+        )
+        if row["assignee_username"] != username and not admin_debug:
             raise PermissionError("只能提交本人的审核任务")
         if row["status"] != "assigned":
             raise ValueError("该任务已提交，不能覆盖")
         stamp = db.now()
+        debug_line = (
+            f"- 管理员调试，原指派账号：{row['assignee_username']}\n"
+            if admin_debug
+            else ""
+        )
         if conflict_declared:
             status = "conflict"
             recommendation_value = None
@@ -655,6 +664,7 @@ def submit_task(
                 f"- 案卷：{row['case_title']}\n"
                 f"- 专家：{row['expert_name']}\n"
                 f"- 审核账号：{username}\n"
+                f"{debug_line}"
                 f"- 回避原因：{conflict_reason}\n"
             )
             payload = {"conflict": True, "reason": conflict_reason}
@@ -668,10 +678,13 @@ def submit_task(
                 f"- 专家：{row['expert_name']}（{row['expert_institution']} / {row['expert_title']}）\n"
                 f"- 审核建议：{_RECOMMENDATIONS[recommendation]}\n"
                 f"- 提交账号：{username}\n"
+                f"{debug_line}"
                 f"- 提交时间：{stamp}\n\n"
                 f"## 审核意见\n\n{opinion}\n"
             )
             payload = {"recommendation": recommendation, "opinion": opinion}
+        if admin_debug:
+            payload.update({"admin_debug": True, "assignee_username": row["assignee_username"]})
         conn.execute(
             """
             UPDATE review_tasks
@@ -715,7 +728,7 @@ def submit_task(
             (username, stamp, row["case_id"]),
         )
         case_id = row["case_id"]
-    return get_case(case_id, {"username": username, "role": "reviewer"})
+    return get_case(case_id, user)
 
 
 def advance_to_final(case_id: str, actor: str) -> dict[str, Any]:
