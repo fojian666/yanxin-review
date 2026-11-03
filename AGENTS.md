@@ -14,8 +14,9 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 80 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（166 个测试函数，参数化展开 184 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（170 个测试函数，参数化展开 188 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
+python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
 python3 -m rag.corpus                                       # 导入公开政策语料（幂等；--force 重建）
 python3 tools/fetch_corpus.py --check                       # 离线校验政策快照与溯源清单 sha256
@@ -31,7 +32,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 app.py                 FastAPI：52 条 API 路由（含认证、卷宗、项目评审案卷、专家任务、归档、数据接入）、SSE、文档读取、上传、SPA 托管
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、128MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
-  db.py                SQLite（WAL）：documents/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
+  db.py                SQLite/PostgreSQL 双适配：documents/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
   review_cases.py      项目评审状态机：预审、专家指派、回避/意见、终审、不可覆盖操作留痕、SHA256 归档与角色隔离
   dossiers.py          历史课题材料角色、计划类型/阶段体检、版本与人工确认规则
   parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；60k 字截断保护
@@ -39,6 +40,7 @@ rag/
   keyword_graph.py     本地提取分块关键词，按分块频次取最多500个；共现余弦连线、自动聚类和来源摘录，按内容缓存提词，不出网
   retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
                        keyword/章节加权与文档间段落查重（查重固定走 TF-IDF，理由见下）
+  vector_stores.py     NumPy/pgvector/Milvus 三种向量存储，统一 index/score/clear 接口
   embeddings.py        嵌入后端 local/api/none（auto 逐级降级，本地加载失败改走 API）；公网端点受
                        ALLOW_EXTERNAL_EMBED 门禁 + 拒绝跟随重定向；向量按「后端|端点|模型 + 单条文本」
                        哈希缓存（新增文档不重算整库），查询向量不落盘
@@ -50,13 +52,15 @@ rag/
   llm.py               OpenAI 兼容客户端（DashScope/DeepSeek/内网 vLLM/SGLang/Ollama）；
                        思考参数按方言发送（Qwen 的 enable_thinking / DeepSeek 的 thinking.type）
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）
-  auth.py               账号密码认证（PBKDF2）+ 会话（SQLite）+ 四角色
+  auth.py               账号密码认证（PBKDF2）+ 数据库会话 + 四角色
   corpus.py             公开政策语料入库（corpus/ → documents kind=policy/source=public，幂等，--force 重建）
   seed.py              演示数据种子（标记存 meta 表，与库同生命周期；旧 .seeded_* 文件自动迁移）
   demo_proposals.py    10 份虚构演示本子（内置相似段落/同单位/负载满等演示设计）
 tools/
   fetch_corpus.py      抓取公开公文 → corpus/policy/*.txt + corpus/sources.json（唯一联网环节，--check 离线校验）
   eval_retrieval.py    14 个政策问题的 TF-IDF vs 向量召回对比（命中@k / MRR，答案按原文关键句定位）
+  migrate_sqlite_to_postgres.py  幂等复制 SQLite 业务表到 PostgreSQL
+  smoke_postgres.py             隔离测试库写链路与评审状态机冒烟
   doc_check.py         文档漂移检查：测试数/接口表/模块清单/环境变量/软著材料/过时表述，只读，退出码非 0 即有不一致
   soft_copyright.py    生成软著《源程序清单》并打印规模表（--check 只校验）——
                        **所有代码改完后最后跑**，否则清单又落后于刚改的文件
@@ -75,7 +79,7 @@ frontend/src/
 
 ## 数据事实
 
-- 库：`data/app.db`；上传原件：`data/uploads/`；两者均在 `.gitignore`。
+- 库：默认 SQLite `data/app.db`，可切换 PostgreSQL；上传原件：`data/uploads/`；两者均在 `.gitignore`。
 - 当前默认数据 = **10 份虚构演示本子**（`rag/demo_proposals.py`，source='demo'，界面可“移除演示本子”）+ 42 篇合成文献 + 12 位合成专家（均 `is_sample=1`，可一键移除）；真实申报书默认不入库（`SEED_SAMPLE_DOC=0`）。
 - **真实政策语料**：`corpus/` 下两部政府公开公文（科技部等22部门《科研失信行为调查处理规则》国科发监〔2022〕221号、江苏省《科技计划项目信用管理办法》苏科技规〔2022〕3号），`python3 -m rag.corpus` 导入为 `kind='policy'`、`source='public'`，溯源信息存 `corpus/sources.json` 与 `documents.meta_json`。**它不是演示数据**：`./run.sh` 启动时自动导入一次（幂等、失败不阻断）；直接用 `uvicorn` 起服务时需手动跑 `rag.corpus`。
 - 演示本子内置演示设计：P01/P02 同域含相似段落（查重演示）、P02/P07 同申报单位（同单位回避演示）、专家 K 负载满 / L 不可评审 / D 回避单位（排除演示）。
@@ -94,7 +98,7 @@ frontend/src/
 
 ## 已知边界（勿误报为 bug）
 
-- 检索有向量后端，但**不是向量库**：矩阵在内存里做点积（几千条量级，numpy 比 HTTP 往返快），不需要 Milvus。未配置或端点在公网且未授权时自动退回纯 TF-IDF。
+- 向量存储支持 NumPy、pgvector、Milvus：小规模和单测默认 NumPy；本地/阿里云生产默认 pgvector；百万级向量、高并发或多租户再切 Milvus。未配置或端点在公网且未授权时自动退回纯 TF-IDF。
 - 两种打分尺度不同，阈值必须分开：结果下限 `EMBED_MIN_SCORE=0.45`（向量）、政策引用 `0.58` / TF-IDF `0.08`；证据面板的相似度条也按后端分档。改任何一个前先跑 `tools/eval_retrieval.py`，并在真实本子上确认政策引用非空。
 - **查重候选排除政策**：仅影响查重，问答和合规引用保留政策；候选截断前过滤，防止政策块挤占真正的重复本子。
 - **查重不走向量**：字面重合查重才是对的，向量会把“主题相近但无重复”判成高相似。

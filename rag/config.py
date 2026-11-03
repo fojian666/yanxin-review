@@ -32,6 +32,14 @@ def _env_flag(name: str, default: bool = False) -> bool:
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
 UPLOAD_DIR = DATA_DIR / "uploads"
 DB_PATH = Path(os.getenv("DB_PATH", str(DATA_DIR / "app.db")))
+DATABASE_BACKEND = (os.getenv("DATABASE_BACKEND") or "sqlite").strip().lower()
+if DATABASE_BACKEND not in {"sqlite", "postgresql"}:
+    raise ValueError("DATABASE_BACKEND 必须是 sqlite 或 postgresql")
+DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
+if DATABASE_BACKEND == "postgresql" and not DATABASE_URL:
+    DATABASE_URL = "postgresql:///yanxin_review"
+DATABASE_POOL_MIN = max(0, int(os.getenv("DATABASE_POOL_MIN", "1")))
+DATABASE_POOL_MAX = max(DATABASE_POOL_MIN + 1, int(os.getenv("DATABASE_POOL_MAX", "10")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -121,6 +129,21 @@ EMBED_CACHE_DIR = DATA_DIR / "embed_cache"
 EMBED_MIN_SCORE = float(os.getenv("EMBED_MIN_SCORE", "0.45"))
 # 嵌入同样属于「数据出内网」面：公网端点需显式授权，否则降级为纯 TF-IDF
 ALLOW_EXTERNAL_EMBED = _env_flag("ALLOW_EXTERNAL_EMBED", False)
+
+# 向量存储：numpy（小规模）、pgvector（PostgreSQL 生产默认）、milvus（大规模）
+VECTOR_STORE_BACKEND = (os.getenv("VECTOR_STORE_BACKEND") or "numpy").strip().lower()
+if VECTOR_STORE_BACKEND not in {"numpy", "pgvector", "milvus"}:
+    raise ValueError("VECTOR_STORE_BACKEND 必须是 numpy、pgvector 或 milvus")
+if VECTOR_STORE_BACKEND == "pgvector" and DATABASE_BACKEND != "postgresql":
+    raise ValueError("pgvector 需要 DATABASE_BACKEND=postgresql")
+VECTOR_CANDIDATE_K = max(20, int(os.getenv("VECTOR_CANDIDATE_K", "200")))
+PGVECTOR_DIM = max(1, int(os.getenv("PGVECTOR_DIM", "1024")))
+PGVECTOR_TABLE = (os.getenv("PGVECTOR_TABLE") or "chunk_vectors").strip()
+if not PGVECTOR_TABLE.replace("_", "").isalnum():
+    raise ValueError("PGVECTOR_TABLE 只能包含字母、数字和下划线")
+MILVUS_URI = (os.getenv("MILVUS_URI") or "http://127.0.0.1:19530").strip()
+MILVUS_TOKEN = (os.getenv("MILVUS_TOKEN") or "").strip()
+MILVUS_COLLECTION = (os.getenv("MILVUS_COLLECTION") or "yanxin_chunks").strip()
 
 DOCUMENT_UPLOAD_TYPES = (
     (".docx", "DOCX"),

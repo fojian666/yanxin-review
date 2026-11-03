@@ -24,7 +24,7 @@ find_python() {
   done
   candidates+=("python3")
   for base in "${candidates[@]}"; do
-    if "$base" -c "import fastapi, uvicorn, multipart, sklearn, numpy, jieba, dotenv, requests" 2>/dev/null; then
+    if "$base" -c "import fastapi, uvicorn, multipart, sklearn, numpy, jieba, dotenv, requests, psycopg, psycopg_pool" 2>/dev/null; then
       echo "$base"; return 0
     fi
   done
@@ -38,7 +38,7 @@ PY="$(find_python)" || { echo "未找到可用的 Python 解释器，请安装 P
 echo "使用 Python：${PY}（$("${PY}" -V 2>&1)）"
 
 "${PY}" - <<'PY' || "${PY}" -m pip install -r requirements.txt
-import fastapi, uvicorn, multipart, sklearn, numpy, jieba, dotenv, requests
+import fastapi, uvicorn, multipart, sklearn, numpy, jieba, dotenv, requests, psycopg, psycopg_pool
 PY
 
 if [ ! -d frontend/dist ]; then

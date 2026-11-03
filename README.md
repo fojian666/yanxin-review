@@ -89,9 +89,35 @@ cp .env.example .env        # 可选：填入千问配置
 2. 如果 `frontend/dist` 不存在，执行 `cd frontend && npm install && npm run build`；
 3. 用 Uvicorn 启动 FastAPI，并托管 React 构建产物。
 
+数据库可选 SQLite 或 PostgreSQL：
+
+```bash
+# 单机测试：使用 data/app.db
+DATABASE_BACKEND=sqlite
+VECTOR_STORE_BACKEND=numpy
+
+# PostgreSQL + pgvector
+DATABASE_BACKEND=postgresql
+DATABASE_URL=postgresql:///yanxin_review
+VECTOR_STORE_BACKEND=pgvector
+PGVECTOR_DIM=1024
+```
+
+从现有 SQLite 数据迁移到 PostgreSQL：
+
+```bash
+createdb yanxin_review
+psql -d yanxin_review -c 'CREATE EXTENSION IF NOT EXISTS vector'
+python3 -m tools.migrate_sqlite_to_postgres \
+  --sqlite data/app.db \
+  --database-url postgresql:///yanxin_review
+```
+
+迁移脚本幂等保留主键；只有显式传入 `--clear` 才清空目标业务表。PostgreSQL 后端首次初始化会创建业务表、`chunk_vectors` 和 pgvector HNSW 索引。
+
 首次启动会自动：
 
-1. 创建 `data/app.db` 与 `data/uploads/`；
+1. 创建当前数据库表、`data/uploads/` 与嵌入缓存目录；
 2. 演示账号种子（仅本机监听时创建，见“登录与角色”）；课题申请书含个人信息，**默认不再自动入库**——需要示例本子时在 `.env` 显式设 `SEED_SAMPLE_DOC=1` 并把文件放入项目根目录后重启；
 3. 写入 42 篇合成演示文献，用于验证趋势功能；
 4. 写入 12 位合成演示专家（`is_sample=1`），用于验证专家匹配。
@@ -291,6 +317,14 @@ LLM_MODEL=Qwen3-32B
 
 后端由 `EMBED_BACKEND` 选择：`local`（进程内 sentence-transformers，模型放 `models/`，不进仓库）、`api`（OpenAI 兼容 `/embeddings`，默认 `BAAI/bge-m3`）、`none`（纯 TF-IDF）；默认 `auto` 按 本地 → API → none 取第一个可用的。
 
+向量存储由 `VECTOR_STORE_BACKEND` 选择：
+
+- `numpy`：进程内精确点积，适合单机与测试；
+- `pgvector`：向量写入 PostgreSQL，使用 HNSW 余弦索引，生产默认；
+- `milvus`：通过 `MILVUS_URI` / `MILVUS_TOKEN` 连接独立 Milvus，适合百万级向量和高并发。
+
+三种存储共享 `index / score / clear` 接口。先取 `VECTOR_CANDIDATE_K` 个向量候选，再叠加关键词、章节权重和文档范围过滤；查重仍使用独立的 TF-IDF 字面相似度。
+
 安全口径与 LLM 一致：公网端点默认拦住，必须显式 `ALLOW_EXTERNAL_EMBED=1` 才放行（本机 `127.0.0.1` 不受限）。**真实评审材料应使用 `local` 或内网端点**，见 `SECURITY.md` §5。
 
 向量按「单条文本 + 模型」哈希缓存在 `data/embed_cache/`：新增一份文档只补算它自己的分块，不会整库重算。实测 32 条冷启动 0.6s（2 次批量请求），命中缓存 0.1ms；单次检索向量 37ms、TF-IDF 0.8ms。
@@ -397,8 +431,11 @@ LLM_MODEL=Qwen3-32B
 | jieba | 中文分词与关键词 |
 | python-dotenv | `.env` 配置 |
 | requests | 调用千问/OpenAI 兼容接口 |
+| psycopg | PostgreSQL 业务数据库 |
+| psycopg-pool | PostgreSQL 连接池与并发复用 |
+| pymilvus | Milvus 向量检索适配器 |
 
-系统依赖：`pdftotext`（Poppler）。数据库：SQLite（标准库 `sqlite3`）；文件：本地 `data/uploads`。
+系统依赖：`pdftotext`（Poppler）。数据库：SQLite（测试/单机）或 PostgreSQL（生产）；文件：本地 `data/uploads`。
 
 ---
 
@@ -409,7 +446,7 @@ LLM_MODEL=Qwen3-32B
 ├── app.py                  # FastAPI 入口、API、React 静态托管
 ├── rag/
 │   ├── config.py           # 路径、模型、分块参数
-│   ├── db.py               # SQLite 表、文档/卷宗/材料版本与读写
+│   ├── db.py               # SQLite/PostgreSQL 双适配、表结构与数据读写
 │   ├── review_cases.py     # 评审案卷、专家任务、操作留痕、阶段归档与访问控制
 │   ├── dossiers.py         # 历史课题材料角色、计划类型材料体检与人工核验规则
 │   ├── schemas.py          # 外部数据接入契约（含预留实体）
@@ -420,6 +457,7 @@ LLM_MODEL=Qwen3-32B
 │   ├── auth.py             # 账号密码（PBKDF2）、会话、四角色权限
 │   ├── retrieval.py        # 检索（TF-IDF 基线 + 向量接管）与查重
 │   ├── embeddings.py       # 嵌入后端（local / api / none，含出口门禁与缓存）
+│   ├── vector_stores.py    # NumPy / pgvector / Milvus 三种向量存储
 │   ├── llm.py              # Qwen / OpenAI 兼容客户端
 │   ├── qa.py               # RAG 问答与离线摘录
 │   ├── review.py           # 项目预审
@@ -431,6 +469,8 @@ LLM_MODEL=Qwen3-32B
 ├── tools/
 │   ├── fetch_corpus.py     # 抓取公开公文 + 清洗 + 生成溯源清单（唯一联网环节）
 │   ├── eval_retrieval.py   # TF-IDF 与向量召回对比（命中@k / MRR）
+│   ├── migrate_sqlite_to_postgres.py # SQLite → PostgreSQL 幂等迁移
+│   ├── smoke_postgres.py   # PostgreSQL 写链路与评审状态机隔离冒烟
 │   ├── doc_check.py        # 文档漂移检查：测试数/接口/模块/环境变量/软著材料/过时表述
 │   └── soft_copyright.py   # 生成软著《源程序清单》并校验是否过期
 ├── corpus/                 # 随仓库交付的政策语料快照（真实公文，非演示数据）
@@ -448,8 +488,8 @@ LLM_MODEL=Qwen3-32B
 │   │   └── styles.css
 │   ├── package.json
 │   └── vite.config.ts
-├── data/                   # 运行时生成：SQLite + 上传文件
-├── tests/                  # pytest 回归（166 个测试函数，参数化展开 184 项）
+├── data/                   # SQLite、上传文件与嵌入缓存
+├── tests/                  # pytest 回归（170 个测试函数，参数化展开 188 项）
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── .env.example
@@ -531,9 +571,9 @@ LLM_MODEL=Qwen3-32B
 - 查重匹配：同文档重复上传识别相似度 0.997；专家库 12 人，按可用/负载/回避过滤后推荐 8 人，排除 2 人；专家 CSV 导入通过。
 - 交付材料：`交付材料/` 下已提供考核指标对照表、软著说明书/源代码说明/申请信息表、本地验证报告初稿、研究报告初稿、论文提纲。
 - 登录与角色：未登录 401、viewer 删除 403、manager 正常 200、admin 用户管理页创建账号；浏览器实测三角色界面门控与登录/退出流转。
-- 健壮性回归：pytest 166 个测试函数（参数化展开 184 项）通过，覆盖项目评审案卷状态机、专家任务隔离与回避留痕、终审归档、登录哈希/会话/端点、空库趋势、SPA 路径穿越、错误脱敏、请求体上限、登录 IP 限速、向量维度熔断、多格式文档解析、历史课题版本/材料体检、模型出口门禁、趋势口径、导入去重、分块清理和接入鉴权。
-- 公开政策语料：`tools/fetch_corpus.py` 抓取两部公开公文，清洗后保留全角标点、章名还原（`处 理`→`处理`）、7 章 24 条与 53 条完整；`--check` 校验 sha256 与关键标记；`python3 -m rag.corpus` 导入幂等（重复执行全部跳过、`--force` 重建）、空库可直接导入（先建表再写）；默认只读取 `corpus/` 内的相对路径；SHA256 必填，缺失、格式错误、越界与摘要不符一律拒绝；分块 section 按「块首所属条」回填（`第一章 总则 · 第一条`），段落合并后仍按归一正文定位，修正第二十条、第三十条曾被错标为下一条的问题；重复导入会在快照 SHA 一致时原位修正旧条号，保留文档与分块 ID、正文。预审「政策合规」由“政策库未接入”变为按「文件＋章＋条」引用真实条款，检索词取自本子本身（不同本子命中不同），且政策项不计入风险等级。回归测试 166 个测试函数。
-- 向量检索：接入 OpenAI 兼容嵌入端点（`BAAI/bge-m3`，1024 维），`tools/eval_retrieval.py` 在 14 个政策问题上实测命中@3 由 71.4% 提升到 92.9%、MRR 0.631→0.762；降级路径全部实测——后端不可用、向量行数与分块数不符、查询向量化失败三种情况都回落到 TF-IDF 且接口不报错；公网端点未授权时状态为 `none`（`ALLOW_EXTERNAL_EMBED=0`）。失败面按类型分治并有用例锁定：401 只发 1 次、5xx 重试 3 次、307 重定向拒绝跟随、乱序响应按 `index` 落位、截断的缓存文件自动删除重建、换端点/换模型不串用旧向量。单测默认关闭嵌入（`tests/conftest.py`），不发真实请求。
+- 健壮性回归：pytest 170 个测试函数（参数化展开 188 项）通过，覆盖项目评审案卷状态机、专家任务隔离与回避留痕、终审归档、登录哈希/会话/端点、空库趋势、SPA 路径穿越、错误脱敏、请求体上限、登录 IP 限速、三种向量存储、PostgreSQL/SQLite 适配、多格式文档解析、历史课题版本/材料体检、模型出口门禁、趋势口径、导入去重、分块清理和接入鉴权。
+- 公开政策语料：`tools/fetch_corpus.py` 抓取两部公开公文，清洗后保留全角标点、章名还原（`处 理`→`处理`）、7 章 24 条与 53 条完整；`--check` 校验 sha256 与关键标记；`python3 -m rag.corpus` 导入幂等（重复执行全部跳过、`--force` 重建）、空库可直接导入（先建表再写）；默认只读取 `corpus/` 内的相对路径；SHA256 必填，缺失、格式错误、越界与摘要不符一律拒绝；分块 section 按「块首所属条」回填（`第一章 总则 · 第一条`），段落合并后仍按归一正文定位，修正第二十条、第三十条曾被错标为下一条的问题；重复导入会在快照 SHA 一致时原位修正旧条号，保留文档与分块 ID、正文。预审「政策合规」由“政策库未接入”变为按「文件＋章＋条」引用真实条款，检索词取自本子本身（不同本子命中不同），且政策项不计入风险等级。回归测试 170 个测试函数。
+- 向量检索：接入 OpenAI 兼容嵌入端点（`BAAI/bge-m3`，1024 维），提供 NumPy、pgvector、Milvus 三种可切换存储。当前本地 PostgreSQL 已迁移 18 份文档、306 个分块，并在 pgvector 中建立 306 条 1024 维向量和 HNSW 索引；Milvus Lite 完成本地写入、过滤检索与清理验证。`tools/eval_retrieval.py` 在 14 个政策问题上实测命中@3 由 71.4% 提升到 92.9%、MRR 0.631→0.762；嵌入不可用、维度漂移或向量存储失败时回落 TF-IDF。单测默认使用临时 SQLite + NumPy，不发真实请求。
 - 文档与代码一致性：`python3 -m tools.doc_check` 核对测试函数、参数化用例、80 项浏览器回归、API 路由、模块、环境变量与软著材料，并把它接成 pytest 用例——文档落后于代码时测试直接失败。软著《源程序清单》改由 `tools/soft_copyright.py` 生成，不再手写。
 - 登录页与全站动效：headless Chrome 截图 + DOM 探针验证地形背景、状态动效与 `prefers-reduced-motion` 降级，无控制台错误。
 - 文案打磨：全站标题/空态/引导语改写后逐页截图核对，无换行孤字与溢出。
@@ -545,7 +585,7 @@ LLM_MODEL=Qwen3-32B
 回归测试（无需前端构建，纯后端）：
 
 ```bash
-python3 -m pytest tests/ -q          # 184 passed（166 个测试函数，含参数化）
+python3 -m pytest tests/ -q          # 188 passed（170 个测试函数，含参数化）
 ```
 
 页面顶栏仅显示标题和必要操作；右上角上传入口在≤680px时统一为44px图标按钮，宽屏恢复文字。
@@ -571,6 +611,7 @@ npm run test:e2e:report # 查看 HTML 报告
 - **错误信息不外泄**：未捕获异常统一返回“服务器内部错误”，响应体不含内部细节（如密码、堆栈）。
 - **`top_k` 边界**：`ToolCheckRequest.top_k` 限定 `1–20`，越界返回 422。
 - **SQLite 并发**：连接启用 `WAL` + `busy_timeout=5000`，缓解读写并发锁冲突。
+- **PostgreSQL 生产适配**：兼容层处理 `?` 参数、identity 主键、事务提交和行访问；目标库迁移前后统计一致。
 - **超长文档截断**：解析后统一执行 `MAX_CONTENT_CHARS`（默认 6 万字）截断并给出 warning，避免超大文件撑爆分块/索引（已用 8 万字 TXT 端到端验证：截断至 6 万字、86 块、提示“文档过长”）。
 
 前端健壮性（经 `tsc --noEmit` + 构建 + 跨路由冒烟验证，无控制台错误）：
@@ -584,10 +625,10 @@ npm run test:e2e:report # 查看 HTML 报告
 
 **边界**
 
-- 单机演示版：默认只监听 `127.0.0.1`；内网其他机器访问设 `HOST=0.0.0.0` 前，应先配置强口令（`SEED_DEMO_USERS` + `DEMO_USER_PASSWORD`）与防火墙。已有账号密码登录与四角色权限矩阵，SSO/OIDC 待接。
+- 默认只监听 `127.0.0.1`；内网其他机器访问设 `HOST=0.0.0.0` 前，应先配置强口令（`SEED_DEMO_USERS` + `DEMO_USER_PASSWORD`）与防火墙。已有账号密码登录与四角色权限矩阵，SSO/OIDC 待接。
 - 当前使用 Uvicorn 开发模式；生产部署请配置多 worker、Nginx、HTTPS、日志与进程守护。
 - 无 OCR；扫描件需先转文本。
-- 检索默认 TF-IDF，配置嵌入后端后走向量；但**没有向量库**（矩阵在内存点积，几千块量级足够），也没有混合检索与重排；嵌入模型尚未本地化，公网端点需显式授权。
+- 检索支持 NumPy、pgvector、Milvus 三种存储；生产规模建议 pgvector，达到百万级向量、高并发或多租户后再切 Milvus。混合检索先取向量候选，再在应用层加词面/章节权重和二次排序；嵌入模型尚未全面本地化，公网端点需显式授权。
 - 3D 图表依赖 WebGL；无 WebGL 自动降级 2D。
 - 已做路由级 code splitting：首屏 JS 约 423KB；3D 趋势页按需加载约 1.66MB（ECharts GL 占比较大）。
 - 预审为规则 + 可选千问，不替代专家评审；查重结果需人工复核。
@@ -599,12 +640,12 @@ npm run test:e2e:report # 查看 HTML 报告
 **建议下一步**
 
 1. 配置真实 Qwen（内网优先），用 20–30 份真实本子做评测集，校准检索阈值和预审口径。
-2. 嵌入模型本地化（bge-m3 落内网）+ 词面/向量混合检索 + 重排；语料上到十万块再评估向量库（Milvus）。
+2. 嵌入模型本地化（bge-m3 落内网）+ 增加 Reranker；先用 pgvector，达到百万级向量后再评估 Milvus。
 3. 导入真实政策库（含生效/失效日期），启用条款级合规审查。
 4. 接入现有科技管理系统：只读 API/视图、SSO、预审任务回写。
 5. 生产化：OCR、权限、审计、加密、等保、模型服务监控。
 
-专家单位回避只统一排版空白、全半角字符及括号，保留英文词间空格与括号内容；不推断简称、别名或隶属关系。页面和 Markdown 导出均保留双方原名、命中依据及缺失申报信息警告。当前回归包含 166 个测试函数，参数化展开为 184 个用例。
+专家单位回避只统一排版空白、全半角字符及括号，保留英文词间空格与括号内容；不推断简称、别名或隶属关系。页面和 Markdown 导出均保留双方原名、命中依据及缺失申报信息警告。当前回归包含 170 个测试函数，参数化展开为 188 个用例。
 
 生成来源 API 契约：`/api/chat` 和 `/api/review` 返回增量字段 `generation`（`provider`、`label`、`model`、`status`）；SSE 在首段正文之前发 `generation` 事件，`done` 带最终来源。`status` 为 `complete` / `fallback` / `interrupted`。保留旧 `mode="qwen"` 表示模型路径以兼容客户端，不以它判断实际供应商；来源快照不含密钥或接口地址。流未收到 `done` 即结束按中断处理。
 

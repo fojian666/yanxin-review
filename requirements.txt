@@ -8,3 +8,6 @@ numpy>=1.26
 jieba>=0.42.1
 python-dotenv>=1.0
 requests>=2.31
+psycopg[binary]>=3.2,<4
+psycopg-pool>=3.2,<4
+pymilvus>=2.4,<3

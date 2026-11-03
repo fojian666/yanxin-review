@@ -9,6 +9,9 @@ import os
 os.environ["EMBED_BACKEND"] = "none"
 os.environ["ALLOW_EXTERNAL_EMBED"] = "0"
 os.environ["ALLOW_EXTERNAL_LLM"] = "0"
+os.environ["DATABASE_BACKEND"] = "sqlite"
+os.environ["DATABASE_URL"] = ""
+os.environ["VECTOR_STORE_BACKEND"] = "numpy"
 
 # 模型相关变量也要清干净：本机 .env 里可能配了 DeepSeek，单测不该被它影响，
 # 也不该在没授权的情况下发请求。

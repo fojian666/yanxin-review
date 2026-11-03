@@ -153,7 +153,7 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
             JOIN documents d ON d.id = c.doc_id
             LEFT JOIN review_tasks t ON t.case_id = c.id
             {where}
-            GROUP BY c.id
+            GROUP BY c.id, d.name, d.kind
             ORDER BY c.updated_at DESC, c.created_at DESC
             """,
             params,

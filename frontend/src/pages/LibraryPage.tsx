@@ -75,6 +75,7 @@ export function LibraryPage() {
   const [direction, setDirection] = useState<"next" | "prev" | "same">("same");
   const [uploadedDocId, setUploadedDocId] = useState("");
   const [caseArtifacts, setCaseArtifacts] = useState<ReviewArtifact[]>([]);
+  const [loadingArtifacts, setLoadingArtifacts] = useState(false);
   const [artifactQuery, setArtifactQuery] = useState("");
   const [selectedArtifactId, setSelectedArtifactId] = useState(params.get("artifact") || "");
   const [artifactError, setArtifactError] = useState("");
@@ -133,9 +134,12 @@ export function LibraryPage() {
     );
   }, [requestedView]);
 
+  const canReview = can("review");
+
   useEffect(() => {
-    if (libraryView !== "case-data") return;
+    if (!canReview) return;
     let active = true;
+    setLoadingArtifacts(true);
     setArtifactError("");
     void api.reviewArtifacts()
       .then((result) => {
@@ -147,11 +151,10 @@ export function LibraryPage() {
             : result.artifacts[0]?.id || ""
         );
       })
-      .catch((error) => {
-        if (active) setArtifactError((error as Error).message);
-      });
+      .catch((error) => { if (active) setArtifactError((error as Error).message); })
+      .finally(() => { if (active) setLoadingArtifacts(false); });
     return () => { active = false; };
-  }, [libraryView]);
+  }, [canReview, libraryView]);
 
   useEffect(() => {
     if (libraryView !== "literature" || !requestedPaperId || loading) return;
@@ -367,7 +370,7 @@ export function LibraryPage() {
         <div className="library-view-switch" role="group" aria-label="文档中心视图">
           <button type="button" aria-pressed={libraryView === "documents"} onClick={() => chooseLibraryView("documents")}>文档正文</button>
           <button type="button" aria-pressed={libraryView === "literature"} onClick={() => chooseLibraryView("literature")}>文献数据 <span>{papers.length}</span></button>
-          {can("review") && <button type="button" aria-pressed={libraryView === "case-data"} onClick={() => chooseLibraryView("case-data")}>案卷数据 <span>{caseArtifacts.length}</span></button>}
+          {canReview && <button type="button" aria-pressed={libraryView === "case-data"} onClick={() => chooseLibraryView("case-data")}>案卷数据 <span>{loadingArtifacts && !caseArtifacts.length ? "…" : caseArtifacts.length}</span></button>}
         </div>
         <div className="document-center-tools">
           {can("upload") && (
@@ -557,7 +560,9 @@ export function LibraryPage() {
                   </div>
                 </details>
               ))}
-              {!visibleArtifacts.length && !artifactError && <p className="document-case-empty">暂无评审归档数据。</p>}
+              {loadingArtifacts
+                ? <p className="document-case-empty">正在读取评审归档数据…</p>
+                : !visibleArtifacts.length && !artifactError && <p className="document-case-empty">暂无评审归档数据。</p>}
               {artifactError && <p className="document-case-empty status-fail">{artifactError}</p>}
             </div>
           </aside>

@@ -11,6 +11,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from . import config, db
 from .embeddings import EmbeddingUnavailable, embedder
 from .text import extract_terms
+from .vector_stores import (
+    MilvusVectorStore,
+    NumpyVectorStore,
+    PgVectorStore,
+    create_vector_store,
+)
 
 log = logging.getLogger("rag.retrieval")
 
@@ -32,7 +38,7 @@ class Retriever:
         self.chunks: list[dict] = []
         self.vectorizer: TfidfVectorizer | None = None
         self.matrix = None
-        self.embed_matrix: np.ndarray | None = None
+        self.vector_store: NumpyVectorStore | PgVectorStore | MilvusVectorStore | None = None
         self.embed_model: str = ""
 
     def rebuild(self) -> None:
@@ -51,7 +57,7 @@ class Retriever:
             self.chunks = chunks
             self.vectorizer = None
             self.matrix = None
-            self.embed_matrix = None
+            self.vector_store = None
             self.embed_model = ""
             if not chunks:
                 return
@@ -87,8 +93,39 @@ class Retriever:
                 len(self.chunks),
             )
             return
-        self.embed_matrix = matrix
+        store = create_vector_store()
+        try:
+            store.index(self.chunks, matrix, embedder.status().get("model") or "")
+        except Exception as exc:
+            if not isinstance(store, NumpyVectorStore):
+                log.warning(
+                    "%s 向量索引不可用，回退 NumPy：%s",
+                    store.kind,
+                    exc,
+                )
+                store = NumpyVectorStore()
+                store.index(self.chunks, matrix, embedder.status().get("model") or "")
+            else:
+                log.warning("NumPy 向量索引建立失败，检索走 TF-IDF：%s", exc)
+                return
+        self.vector_store = store
         self.embed_model = embedder.status().get("model") or ""
+
+    @property
+    def embed_matrix(self) -> np.ndarray | None:
+        if isinstance(self.vector_store, NumpyVectorStore):
+            return self.vector_store.matrix
+        return None
+
+    @embed_matrix.setter
+    def embed_matrix(self, value: np.ndarray | None) -> None:
+        if value is None:
+            self.vector_store = None
+            self.embed_model = ""
+            return
+        store = NumpyVectorStore()
+        store.index(self.chunks, value, self.embed_model)
+        self.vector_store = store
 
     @property
     def ready(self) -> bool:
@@ -96,7 +133,11 @@ class Retriever:
 
     @property
     def uses_embedding(self) -> bool:
-        return self.embed_matrix is not None
+        return bool(self.vector_store and self.vector_store.ready)
+
+    @property
+    def vector_store_kind(self) -> str:
+        return self.vector_store.kind if self.vector_store else ""
 
     @property
     def score_floor(self) -> float:
@@ -107,26 +148,28 @@ class Retriever:
         """
         return config.EMBED_MIN_SCORE if self.uses_embedding else 0.0
 
-    def _score_embedding(self, query: str) -> np.ndarray | None:
+    def _score_embedding(
+        self,
+        query: str,
+        scope: list[str] | None = None,
+    ) -> np.ndarray | None:
         """向量余弦；失败则熔断（本次索引不再尝试），交给 TF-IDF。"""
         try:
             vector = np.asarray(
                 embedder.embed([query[:1500]], cache=False)[0], dtype=np.float32
             )
-            matrix = self.embed_matrix
-            if (
-                matrix is None
-                or matrix.ndim != 2
-                or vector.ndim != 1
-                or matrix.shape[1] != vector.shape[0]
-            ):
-                raise ValueError(
-                    f"向量维度不一致：索引 {getattr(matrix, 'shape', None)}，查询 {vector.shape}"
-                )
-            return matrix @ vector
+            store = self.vector_store
+            if store is None or not store.ready:
+                raise ValueError("向量索引未就绪")
+            return store.score(
+                vector,
+                self.chunks,
+                set(scope) if scope else None,
+                config.VECTOR_CANDIDATE_K,
+            )
         except Exception as exc:
             log.warning("查询向量化失败，本索引改用 TF-IDF：%s", exc)
-            self.embed_matrix = None
+            self.vector_store = None
             self.embed_model = ""
             return None
 
@@ -150,7 +193,7 @@ class Retriever:
         with self._lock:
             if not self.ready:
                 return []
-            scores = self._score_embedding(query) if self.uses_embedding else None
+            scores = self._score_embedding(query, scope) if self.uses_embedding else None
             if scores is None:
                 scores = self._score_tfidf(query)
             terms = extract_terms(query, max_terms=8)
@@ -161,7 +204,7 @@ class Retriever:
                 section = chunk.get("section") or ""
                 if section and any(t and t in section for t in terms):
                     scores[i] += 0.06
-            if scope:
+            if scope and not self.uses_embedding:
                 scope_set = set(scope)
                 mask = np.array([c["doc_id"] in scope_set for c in self.chunks])
                 scores = np.where(mask, scores, -1.0)

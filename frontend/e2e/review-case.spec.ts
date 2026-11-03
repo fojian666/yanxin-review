@@ -90,7 +90,10 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.screenshot({ path: testInfo.outputPath('review-case-finalized.png') });
 
   await navigate(page, '文档中心');
-  await page.getByRole('button', { name: /案卷数据/ }).click();
+  const caseDataButton = page.getByRole('button', { name: /案卷数据/ });
+  await expect(caseDataButton).toContainText('5');
+  await expect(caseDataButton).toHaveAttribute('aria-pressed', 'false');
+  await caseDataButton.click();
   await expect(page.locator('.document-case-group')).toHaveCount(1);
   await expect(page.locator('.document-case-group > summary')).toContainText('E2E 全过程评审');
   await expect(page.locator('.document-case-artifact-list button')).toHaveCount(5);

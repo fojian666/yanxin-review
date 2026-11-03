@@ -106,7 +106,10 @@ async def lifespan(_app: FastAPI):
     db.init_db()
     seed_all()
     retriever.rebuild()
-    yield
+    try:
+        yield
+    finally:
+        db.close_db()
 
 
 app = FastAPI(
@@ -430,12 +433,18 @@ def health():
         "ok": True,
         "llm": llm.status(),
         "stats": db.stats(),
+        "database": {"backend": db.backend()},
         "retriever_ready": retriever.ready,
         "retrieval": {
             "mode": "embedding" if retriever.uses_embedding else "tfidf",
             "model": retriever.embed_model,
             # 索引在进程启动时构建；用 CLI 导完语料需重启才生效，这里给出块数便于自查
             "chunks": len(retriever.chunks),
+            "vector_store": (
+                retriever.vector_store.status()
+                if retriever.vector_store is not None
+                else {"backend": config.VECTOR_STORE_BACKEND, "ready": False}
+            ),
         },
         "upload_limit_mb": config.MAX_UPLOAD_BYTES // 1024 // 1024,
         "upload_types": [

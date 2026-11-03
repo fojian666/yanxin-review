@@ -1,12 +1,12 @@
 源程序清单（首期原型 V2.0）
 
 后端（Python）
-   1297 app.py
+   1306 app.py
       1 rag/__init__.py
     220 rag/auth.py
-    296 rag/config.py
+    319 rag/config.py
     272 rag/corpus.py
-    824 rag/db.py
+   1183 rag/db.py
     293 rag/demo_proposals.py
     446 rag/dossiers.py
     362 rag/embeddings.py
@@ -16,14 +16,15 @@
     294 rag/llm.py
     712 rag/parsers.py
     193 rag/qa.py
-    237 rag/retrieval.py
+    280 rag/retrieval.py
     499 rag/review.py
     887 rag/review_cases.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-   8447 total
+    342 rag/vector_stores.py
+   9223 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     358 frontend/src/AppContext.tsx
@@ -60,7 +61,7 @@
     584 frontend/src/pages/ChatPage.tsx
     225 frontend/src/pages/ExpertReviewPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
-    591 frontend/src/pages/LibraryPage.tsx
+    596 frontend/src/pages/LibraryPage.tsx
     302 frontend/src/pages/LoginPage.tsx
     422 frontend/src/pages/MatchPage.tsx
     580 frontend/src/pages/ReviewCasePage.tsx
@@ -72,9 +73,9 @@
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
     494 frontend/src/types.ts
-  18503 total
+  18508 total
 测试（Python）
-     31 tests/conftest.py
+     34 tests/conftest.py
     292 tests/test_corpus.py
      42 tests/test_docs.py
     369 tests/test_dossiers.py
@@ -84,13 +85,16 @@
     417 tests/test_retrieval_embedding.py
     196 tests/test_review_cases.py
    1294 tests/test_robustness.py
-   3268 total
+    131 tests/test_vector_stores.py
+   3402 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
     506 tools/fetch_corpus.py
+    118 tools/migrate_sqlite_to_postgres.py
+    145 tools/smoke_postgres.py
     174 tools/soft_copyright.py
-   1109 total
+   1372 total
 浏览器回归（TypeScript/Python）
     130 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
@@ -101,18 +105,18 @@
     259 frontend/e2e/knowledge-document.spec.ts
     231 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
-    106 frontend/e2e/review-case.spec.ts
+    109 frontend/e2e/review-case.spec.ts
     363 frontend/e2e/review-match.spec.ts
     165 frontend/e2e/route-arrival.spec.ts
-     50 frontend/e2e/server.py
+     51 frontend/e2e/server.py
     322 frontend/e2e/themes.spec.ts
      89 frontend/e2e/trend-zoom.spec.ts
     155 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3145 total
+   3149 total
 合计
-  34472 total（101 个文件）
+  35654 total（105 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
