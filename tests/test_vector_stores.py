@@ -1,3 +1,6 @@
+import sys
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -136,3 +139,29 @@ def test_milvus_public_uri_requires_explicit_permission(monkeypatch):
     monkeypatch.setattr(config, "ALLOW_EXTERNAL_MILVUS", False)
     with pytest.raises(RuntimeError, match="ALLOW_EXTERNAL_MILVUS"):
         MilvusVectorStore()._get_client()
+
+
+@pytest.mark.parametrize(
+    "uri",
+    ["http://127.0.0.1:19530", "http://milvus.internal:19530"],
+)
+def test_milvus_private_http_uri_is_allowed_without_external_opt_in(
+    monkeypatch,
+    uri,
+):
+    seen = []
+
+    class Client:
+        def __init__(self, **kwargs):
+            seen.append(kwargs)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pymilvus",
+        SimpleNamespace(MilvusClient=Client),
+    )
+    monkeypatch.setattr(config, "MILVUS_URI", uri)
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_MILVUS", False)
+    store = MilvusVectorStore()
+    assert isinstance(store._get_client(), Client)
+    assert seen == [{"uri": uri}]

@@ -214,8 +214,8 @@ class MilvusVectorStore:
         from urllib.parse import urlparse
 
         parsed = urlparse(uri)
-        if parsed.scheme in {"http", "https"} and config._is_public_host(uri):
-            if not config.ALLOW_EXTERNAL_MILVUS:
+        if parsed.scheme in {"http", "https"}:
+            if config._is_public_host(uri) and not config.ALLOW_EXTERNAL_MILVUS:
                 raise RuntimeError(
                     "Milvus 公网端点已阻止（需 ALLOW_EXTERNAL_MILVUS=1 并完成数据出域审批）"
                 )

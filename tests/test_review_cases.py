@@ -139,11 +139,14 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
 
     reviewer_case = review_cases.get_case(case["id"], reviewer)
     assert len(reviewer_case["tasks"]) == 1
+    assert reviewer_case["status"] == "completed"
     assert "final_decision" not in reviewer_case
     assert "final_decision_label" not in reviewer_case
     assert "final_comment" not in reviewer_case
     reviewer_list = review_cases.list_cases(reviewer)
     assert reviewer_list
+    reviewer_summary = next(item for item in reviewer_list if item["id"] == case["id"])
+    assert reviewer_summary["status"] == "completed"
     assert all("final_decision" not in item and "final_comment" not in item for item in reviewer_list)
     assert {item["artifact_type"] for item in reviewer_case["artifacts"]} == {
         "pre_review",

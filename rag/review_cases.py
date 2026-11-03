@@ -176,6 +176,8 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
     result = [_case_summary(row) for row in rows]
     if role == "reviewer":
         for item in result:
+            if item.get("stage") == "completed":
+                item["status"] = "completed"
             item.pop("final_decision", None)
             item.pop("final_decision_label", None)
             item.pop("final_comment", None)
@@ -277,6 +279,8 @@ def get_case(case_id: str, user: dict) -> dict[str, Any]:
             ).fetchall()
     data = _row(row) or {}
     if user.get("role") == "reviewer":
+        if data.get("stage") == "completed":
+            data["status"] = "completed"
         data.pop("final_decision", None)
         data.pop("final_decision_label", None)
         data.pop("final_comment", None)

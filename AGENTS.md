@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 80 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（180 个测试函数，参数化展开 198 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（181 个测试函数，参数化展开 200 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -93,7 +93,7 @@ frontend/src/
 3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。**两条出网面都拒绝跟随重定向**（307/308 会把原始 body 转到未校验地址），`auto` 嵌入降级到 API 前必须重跑门禁、不通过就退回纯 TF-IDF；改任何一处都要保住这条，用例已锁定。
 4. **隐私**：本地 `*.docx` / `*.doc` 申报材料、`2026科研课题立项流程及附件/`、根目录 `微信图片_*` 与 `交付材料/01-软件著作权/screenshots/` 可能含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
-6. 项目评审案卷、专家任务、操作记录和阶段归档只能追加，不得覆盖；专家任务 `(case_id, expert_id)` 唯一，任务提交和阶段推进必须使用带前置状态条件的原子 UPDATE 并校验 rowcount；reviewer 只能读取本人任务、预审依据及本人意见，API 必须裁剪 `final_decision`、`final_decision_label`、`final_comment`；admin 可进入专家审核页调试并代提交，归档必须同时记录原指派账号和管理员调试标记；终审决定和完整操作日志仅 manager/admin 可读。
+6. 项目评审案卷、专家任务、操作记录和阶段归档只能追加，不得覆盖；专家任务 `(case_id, expert_id)` 唯一，任务提交和阶段推进必须使用带前置状态条件的原子 UPDATE 并校验 rowcount；reviewer 只能读取本人任务、预审依据及本人意见，API 必须裁剪 `final_decision`、`final_decision_label`、`final_comment`，已完成案卷对 reviewer 的 `status` 统一返回 `completed`，不得用 `approved/rejected` 推断决定；admin 可进入专家审核页调试并代提交，归档必须同时记录原指派账号和管理员调试标记；终审决定和完整操作日志仅 manager/admin 可读。
 7. 项目评审的预审和终审提交必须显示逐阶段进度动画，减少动态效果时停止轨道与脉冲但保留步骤文字；文档中心案卷数据按 `case_id` 形成可展开目录，同一申报流程不得散落为平铺记录。
 
 ## 已知边界（勿误报为 bug）
