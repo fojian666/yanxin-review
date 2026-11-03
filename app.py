@@ -409,21 +409,29 @@ def _cite_payload(citations: list[dict]) -> list[dict]:
 
 async def _save_upload(file: UploadFile, target: Path) -> int:
     size = 0
-    with target.open("wb") as fh:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > config.MAX_UPLOAD_BYTES:
-                fh.close()
-                target.unlink(missing_ok=True)
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"文件超过大小限制（{config.MAX_UPLOAD_BYTES // 1024 // 1024} MB）",
-                )
-            fh.write(chunk)
-    await file.close()
+    created = False
+    try:
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        created = True
+        with os.fdopen(fd, "wb") as fh:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > config.MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"文件超过大小限制（{config.MAX_UPLOAD_BYTES // 1024 // 1024} MB）",
+                    )
+                fh.write(chunk)
+    except BaseException:
+        # 客户端断连、任务取消以及解析前任何异常都不能留下半截原件。
+        if created:
+            target.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
     return size
 
 

@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 80 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（175 个测试函数，参数化展开 193 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（180 个测试函数，参数化展开 198 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -119,7 +119,7 @@ frontend/src/
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
 - XML 实体扫描会同时检查原始字节和 UTF-8/UTF-16/UTF-32 解码结果，不能只做 ASCII 正则；RTF 控制字使用带位置的正则线性解析，并受 `RTF_PARSE_TIMEOUT_SECONDS` 限制。历史课题已关联评审案卷时禁止删除，避免 `SET NULL` 静默破坏案卷归属。
-- 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示；上传走 XHR 以显示真实进度。旧版 DOC 需要本机 LibreOffice/antiword；macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
+- 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示且不得写死回退值；上传走 XHR 以显示真实进度。原件以 `0600` 权限独占写入，断连或失败时清理半截文件。Office 压缩文档限制条目数、单条体积、解压总量和压缩比；旧版 DOC 多个本机转换器共享 `DOC_PARSE_TIMEOUT_SECONDS` 总预算，macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
 
 ## 改动与提交约定
 

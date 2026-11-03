@@ -48,8 +48,18 @@ MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "60000"))
 MAX_DOCX_UNCOMPRESSED_BYTES = int(
     os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(256 * 1024 * 1024))
 )
+MAX_ARCHIVE_ENTRY_BYTES = int(
+    os.getenv("MAX_ARCHIVE_ENTRY_BYTES", str(64 * 1024 * 1024))
+)
+MAX_ARCHIVE_ENTRIES = max(1, int(os.getenv("MAX_ARCHIVE_ENTRIES", "10000")))
+# 重复度很高的文档可能合法超过 250:1；500:1 只用于拦截典型压缩炸弹。
+MAX_ARCHIVE_COMPRESSION_RATIO = max(
+    1.0, float(os.getenv("MAX_ARCHIVE_COMPRESSION_RATIO", "500"))
+)
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
 RTF_PARSE_TIMEOUT_SECONDS = max(0.1, float(os.getenv("RTF_PARSE_TIMEOUT_SECONDS", "20")))
+# 旧版 DOC 会依次尝试多个本机转换器，总时长必须有共同上限。
+DOC_PARSE_TIMEOUT_SECONDS = max(0.1, float(os.getenv("DOC_PARSE_TIMEOUT_SECONDS", "120")))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))

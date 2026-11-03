@@ -86,15 +86,16 @@
 | 风险 | 防护 | 位置 |
 |---|---|---|
 | 任意文件上传 | 扩展名白名单 `.pdf .docx .doc .ofd .odt .rtf .pptx .xlsx .html .htm .txt .md .csv`；单文件 ≤128MB（`MAX_UPLOAD_BYTES`，由 `/api/health` 下发前端同步展示） | `rag/config.py` |
-| zip 炸弹 | DOCX/ODT/OFD/PPTX/XLSX 解压总量 ≤256MB（`MAX_DOCX_UNCOMPRESSED_BYTES`），逐条目累加校验 | `rag/parsers.py` |
+| zip 炸弹 | DOCX/ODT/OFD/PPTX/XLSX 默认限制 10,000 个条目、单条目 64MB、解压总量 256MB、压缩比 500:1；分别由 `MAX_ARCHIVE_ENTRIES`、`MAX_ARCHIVE_ENTRY_BYTES`、`MAX_DOCX_UNCOMPRESSED_BYTES`、`MAX_ARCHIVE_COMPRESSION_RATIO` 配置 | `rag/parsers.py` |
 | XML 实体攻击 | 原始字节及 UTF-8/UTF-16/UTF-32 解码文本都全文扫描 `DOCTYPE/ENTITY`，命中即拒绝；扫描范围由体积上限约束，不受偏移限制 | `rag/parsers.py` |
 | RTF 复杂度 | 控制字使用带位置正则线性扫描；超过 `RTF_PARSE_TIMEOUT_SECONDS` 立即终止 | `rag/parsers.py` |
+| 旧版 DOC 转换 | textutil、Quick Look、LibreOffice 与 antiword 共享 `DOC_PARSE_TIMEOUT_SECONDS` 总预算，超时终止 | `rag/parsers.py` |
 | 超大 PDF | `pdftotext -l MAX_PDF_PAGES`（默认 2000，0 为不限） | `rag/parsers.py` |
 | 超长内容撑爆索引 | 解析后统一截断 `MAX_CONTENT_CHARS`（默认 6 万字）并返回 warning | `rag/text.py` |
 | 参数越界 | `ToolCheckRequest.top_k` 限 1–20，越界 422 | `app.py` |
 | 请求体容量 | 登录 16KB、JSON 接入 2MB、普通 JSON 2MB、上传为配置上限加 1MB；同时校验 `Content-Length` 和实际接收字节，分块传输不能绕过 | `app.py:RequestBodyLimitMiddleware` |
 | 路径穿越 | SPA 静态托管对 `/../` 等越界路径一律 404，绝不返回 `frontend/dist` 之外文件 | `app.py` |
-| 分块失败残留 | 解析/分块失败时清理已落盘的上传文件 | `app.py` |
+| 上传中断与残留 | 原件以 `0600` 权限独占写入；客户端断连、解析/分块失败时清理半截文件 | `app.py` |
 
 ## 7. 输出安全（注入 / XSS / 脱敏）
 
@@ -141,7 +142,7 @@
 
 - 本仓库为课题原型，**无外部赏金计划**；发现安全问题请通过课题负责人内网渠道报告，勿在公开 issue 中披露可利用细节。
 - 报告请附：影响端点/文件、复现步骤、危害评估；修复后在 `CHANGELOG`（待建）与本文同步记录。
-- 回归基线：`python3 -m pytest tests/ -q`（175 个测试函数，参数化展开 193 项；含认证矩阵、项目评审案卷状态机、专家任务隔离与留痕、卷宗权限/版本/材料体检、路径穿越、脱敏、实际请求体上限、登录 IP 限速、三种向量存储、PostgreSQL/SQLite 适配、文档正文接口、实体防护（含偏移绕过）、登录入参上限、接入鉴权等 ASGI 级用例）。
+- 回归基线：`python3 -m pytest tests/ -q`（180 个测试函数，参数化展开 198 项；含认证矩阵、项目评审案卷状态机、专家任务隔离与留痕、卷宗权限/版本/材料体检、路径穿越、脱敏、实际请求体上限、登录 IP 限速、三种向量存储、PostgreSQL/SQLite 适配、文档正文接口、实体防护（含偏移绕过）、登录入参上限、接入鉴权等 ASGI 级用例）。
 
 ## 12. 浏览器测试隔离
 

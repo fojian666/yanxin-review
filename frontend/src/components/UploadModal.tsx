@@ -37,7 +37,7 @@ export function UploadModal() {
   const cardRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const limitMb = health?.upload_limit_mb ?? 128;
+  const limitMb = health?.upload_limit_mb;
   const uploadTypes = health?.upload_types ?? FALLBACK_UPLOAD_TYPES;
   const acceptedSuffixes = uploadTypes.map(({ suffix }) => suffix);
   const acceptedLabels = [...new Set(uploadTypes.map(({ label }) => label))].join(" / ");
@@ -108,6 +108,10 @@ export function UploadModal() {
 
   const pickFile = (picked: File | null | undefined) => {
     if (!picked) return;
+    if (limitMb === undefined) {
+      toast("上传限制尚未加载，请稍后重试", "error");
+      return;
+    }
     const suffix = (picked.name.split(".").pop() || "").toLowerCase();
     if (!acceptedSuffixes.includes(`.${suffix}`)) {
       toast(`仅支持 ${acceptedLabels}`, "error");
@@ -241,7 +245,10 @@ export function UploadModal() {
                     transition={{ duration: 0.18, ease: EASE }}
                   >
                     <div className="drop-icon small"><UploadCloud size={22} /></div>
-                    <p>点击选择或拖拽 {acceptedLabels}（≤ {limitMb}MB）</p>
+                    <p>
+                      点击选择或拖拽 {acceptedLabels}
+                      {limitMb === undefined ? "（大小限制读取中）" : `（≤ ${limitMb}MB）`}
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>

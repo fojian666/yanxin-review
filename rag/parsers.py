@@ -24,14 +24,43 @@ class ParseError(RuntimeError):
 
 
 def _check_zip_size(z: zipfile.ZipFile) -> None:
-    """拒绝解压后体积异常的 DOCX，避免压缩炸弹耗尽内存。"""
-    total = sum(info.file_size for info in z.infolist())
+    """拒绝条目、单条体积、总量或压缩比异常的 Office 压缩包。"""
+    entries = z.infolist()
+    if len(entries) > config.MAX_ARCHIVE_ENTRIES:
+        raise ParseError(
+            f"压缩文档条目过多（{len(entries)} 个，上限 {config.MAX_ARCHIVE_ENTRIES}）"
+        )
+    oversized = next(
+        (
+            info
+            for info in entries
+            if info.file_size > config.MAX_ARCHIVE_ENTRY_BYTES
+        ),
+        None,
+    )
+    if oversized is not None:
+        raise ParseError(
+            f"压缩文档单条目过大（{oversized.filename}，"
+            f"{oversized.file_size // 1024 // 1024} MB，"
+            f"上限 {config.MAX_ARCHIVE_ENTRY_BYTES // 1024 // 1024} MB）"
+        )
+    total = sum(info.file_size for info in entries)
     limit = config.MAX_DOCX_UNCOMPRESSED_BYTES
     if total > limit:
         raise ParseError(
-            f"DOCX 解压后体积过大（{total // 1024 // 1024} MB，"
+            f"压缩文档解压后体积过大（{total // 1024 // 1024} MB，"
             f"上限 {limit // 1024 // 1024} MB），已拒绝解析"
         )
+    compressed = sum(info.compress_size for info in entries if info.file_size > 0)
+    if total > 0:
+        if compressed <= 0:
+            raise ParseError("压缩文档压缩比异常，已拒绝解析")
+        ratio = total / compressed
+        if ratio > config.MAX_ARCHIVE_COMPRESSION_RATIO:
+            raise ParseError(
+                f"压缩文档压缩比异常（{ratio:.0f}:1，"
+                f"上限 {config.MAX_ARCHIVE_COMPRESSION_RATIO:.0f}:1），已拒绝解析"
+            )
 
 
 _UNSAFE_XML = re.compile(rb"<!\s*(?:doctype|entity)", re.IGNORECASE)
@@ -581,13 +610,30 @@ def parse_doc(path: Path) -> dict:
     with tempfile.TemporaryDirectory(prefix="yanxin-doc-") as raw_tmp:
         tmp = Path(raw_tmp)
         output = tmp / "converted.docx"
+        deadline = time.monotonic() + config.DOC_PARSE_TIMEOUT_SECONDS
+
+        def run_tool(command: list[str]) -> subprocess.CompletedProcess:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ParseError(
+                    f"旧版 DOC 本地转换超过 {config.DOC_PARSE_TIMEOUT_SECONDS:g} 秒，已终止"
+                )
+            try:
+                return subprocess.run(
+                    command,
+                    capture_output=True,
+                    timeout=remaining,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ParseError(
+                    f"旧版 DOC 本地转换超过 {config.DOC_PARSE_TIMEOUT_SECONDS:g} 秒，已终止"
+                ) from exc
+
         textutil = shutil.which("textutil")
         if textutil:
-            proc = subprocess.run(
-                [textutil, "-convert", "docx", "-output", str(output), str(path)],
-                capture_output=True,
-                timeout=120,
-                check=False,
+            proc = run_tool(
+                [textutil, "-convert", "docx", "-output", str(output), str(path)]
             )
             if proc.returncode == 0 and output.exists():
                 parsed = parse_docx(output)
@@ -598,11 +644,8 @@ def parse_doc(path: Path) -> dict:
         if qlmanage:
             preview_dir = tmp / "quicklook"
             preview_dir.mkdir()
-            subprocess.run(
-                [qlmanage, "-p", "-o", str(preview_dir), str(path)],
-                capture_output=True,
-                timeout=120,
-                check=False,
+            run_tool(
+                [qlmanage, "-p", "-o", str(preview_dir), str(path)]
             )
             previews = sorted(preview_dir.glob("*.qlpreview/Preview.html"))
             if previews:
@@ -614,11 +657,8 @@ def parse_doc(path: Path) -> dict:
             command = shutil.which(converter)
             if not command:
                 continue
-            proc = subprocess.run(
-                [command, "--headless", "--convert-to", "docx", "--outdir", str(tmp), str(path)],
-                capture_output=True,
-                timeout=120,
-                check=False,
+            proc = run_tool(
+                [command, "--headless", "--convert-to", "docx", "--outdir", str(tmp), str(path)]
             )
             converted = tmp / f"{path.stem}.docx"
             if proc.returncode == 0 and converted.exists():
@@ -628,7 +668,7 @@ def parse_doc(path: Path) -> dict:
 
         antiword = shutil.which("antiword")
         if antiword:
-            proc = subprocess.run([antiword, str(path)], capture_output=True, timeout=120, check=False)
+            proc = run_tool([antiword, str(path)])
             if proc.returncode == 0:
                 text = proc.stdout.decode("gb18030", errors="ignore")
                 text = normalize_text(text)

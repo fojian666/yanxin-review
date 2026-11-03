@@ -346,6 +346,33 @@ def test_upload_removes_file_when_chunking_fails(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_save_upload_cleans_up_on_disconnect_and_uses_private_permissions(
+    tmp_path,
+):
+    class DisconnectingUpload:
+        def __init__(self):
+            self.reads = 0
+
+        async def read(self, _size):
+            self.reads += 1
+            if self.reads == 1:
+                return b"partial"
+            raise asyncio.CancelledError
+
+        async def close(self):
+            return None
+
+    target = tmp_path / "partial.txt"
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(app_module._save_upload(DisconnectingUpload(), target))
+    assert not target.exists()
+
+    upload = UploadFile(file=io.BytesIO(b"complete"), filename="complete.txt")
+    asyncio.run(app_module._save_upload(upload, target))
+    assert target.read_bytes() == b"complete"
+    assert target.stat().st_mode & 0o777 == 0o600
+
+
 def test_upload_ignores_out_of_range_year(tmp_path, monkeypatch):
     """显式传入的越界年份（如 123/9999）必须被忽略并回退自动抽取，而不是入库。"""
     monkeypatch.setattr(config, "UPLOAD_DIR", tmp_path)
@@ -623,6 +650,58 @@ def test_docx_rejects_oversized_uncompressed_content(tmp_path, monkeypatch):
     with pytest.raises(parsers.ParseError) as exc:
         parsers.parse_docx(path)
     assert "体积过大" in str(exc.value)
+
+
+def test_zip_rejects_too_many_entries(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "MAX_ARCHIVE_ENTRIES", 2)
+    path = tmp_path / "many.docx"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+        for index in range(3):
+            z.writestr(f"part-{index}.xml", "x")
+    with pytest.raises(parsers.ParseError, match="条目过多"):
+        parsers.parse_docx(path)
+
+
+def test_zip_rejects_oversized_single_entry(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "MAX_ARCHIVE_ENTRY_BYTES", 32)
+    monkeypatch.setattr(config, "MAX_DOCX_UNCOMPRESSED_BYTES", 1024)
+    path = tmp_path / "entry.docx"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("word/document.xml", "x" * 64)
+    with pytest.raises(parsers.ParseError, match="单条目过大"):
+        parsers.parse_docx(path)
+
+
+def test_zip_rejects_extreme_compression_ratio(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "MAX_ARCHIVE_COMPRESSION_RATIO", 2)
+    monkeypatch.setattr(config, "MAX_DOCX_UNCOMPRESSED_BYTES", 1024 * 1024)
+    path = tmp_path / "ratio.docx"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("word/document.xml", "A" * 100_000)
+    with pytest.raises(parsers.ParseError, match="压缩比异常"):
+        parsers.parse_docx(path)
+
+
+def test_doc_converter_uses_shared_deadline(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DOC_PARSE_TIMEOUT_SECONDS", 3.0)
+    monkeypatch.setattr(
+        parsers.shutil,
+        "which",
+        lambda name: name if name in {"textutil", "qlmanage"} else None,
+    )
+    calls = []
+    clock = iter([0.0, 0.2, 3.2])
+    monkeypatch.setattr(parsers.time, "monotonic", lambda: next(clock))
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs["timeout"]))
+        return subprocess.CompletedProcess(command, 1, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(parsers.subprocess, "run", fake_run)
+    with pytest.raises(parsers.ParseError, match="超过 3 秒"):
+        parsers.parse_doc(tmp_path / "legacy.doc")
+    assert len(calls) == 1
+    assert calls[0][1] == pytest.approx(2.8)
 
 
 def test_docx_rejects_entity_declarations(tmp_path):
