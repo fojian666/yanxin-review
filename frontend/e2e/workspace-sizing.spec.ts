@@ -20,12 +20,17 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
           const rect = element.getBoundingClientRect();
           return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
         };
+        const requiredBox = (selector: string) => {
+          const value = box(selector);
+          if (!value) throw new Error(`缺少必需工作区元素：${selector}`);
+          return value;
+        };
         return {
           path,
           task: path !== '/welcome',
-          topbar: box('.topbar'),
+          topbar: requiredBox('.topbar'),
           ledger: box('.workspace-ledger'),
-          stage: box('.workspace-stage'),
+          stage: requiredBox('.workspace-stage'),
         };
       }, path));
     }
