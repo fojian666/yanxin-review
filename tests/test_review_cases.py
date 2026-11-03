@@ -139,6 +139,12 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
 
     reviewer_case = review_cases.get_case(case["id"], reviewer)
     assert len(reviewer_case["tasks"]) == 1
+    assert "final_decision" not in reviewer_case
+    assert "final_decision_label" not in reviewer_case
+    assert "final_comment" not in reviewer_case
+    reviewer_list = review_cases.list_cases(reviewer)
+    assert reviewer_list
+    assert all("final_decision" not in item and "final_comment" not in item for item in reviewer_list)
     assert {item["artifact_type"] for item in reviewer_case["artifacts"]} == {
         "pre_review",
         "tool_check",
@@ -179,6 +185,12 @@ def test_review_case_expert_conflict_and_access_boundary(tmp_path, monkeypatch):
         "manager-case",
     )
     task_id = case["tasks"][0]["id"]
+    with pytest.raises(ValueError, match="均已指派"):
+        review_cases.assign_tasks(
+            case["id"],
+            [{"expert_id": expert_id, "username": "reviewer-case"}],
+            "manager-case",
+        )
 
     assert review_cases.list_cases({"username": "other-reviewer", "role": "reviewer"}) == []
     with pytest.raises(PermissionError):

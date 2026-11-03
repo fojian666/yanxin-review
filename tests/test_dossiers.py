@@ -4,7 +4,7 @@ import pytest
 
 import app as app_module
 from rag import auth, config
-from rag import db, dossiers
+from rag import db, dossiers, review_cases
 
 
 def _setup(tmp_path, monkeypatch):
@@ -264,6 +264,21 @@ def test_deleting_dossier_keeps_document_and_removes_association(tmp_path, monke
     assert db.get_dossier(dossier["id"]) is None
     assert db.get_document("doc") is not None
     assert db.list_dossier_documents(dossier["id"]) == []
+
+
+def test_linked_review_case_blocks_dossier_deletion(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    dossier = _dossier()
+    _document("linked-doc", "申报书", "立项背景 研究内容 技术路线 考核指标 科研诚信")
+    db.attach_dossier_document(dossier["id"], "linked-doc", "proposal_text")
+    review_cases.create_case(
+        title="关联案卷",
+        doc_id="linked-doc",
+        dossier_id=dossier["id"],
+        actor="manager",
+    )
+    with pytest.raises(ValueError, match="已关联评审案卷"):
+        db.delete_dossier(dossier["id"])
 
 
 def test_invalid_plan_phase_and_role_are_rejected():

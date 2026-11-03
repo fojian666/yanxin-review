@@ -69,23 +69,23 @@ def run(k: int) -> int:
 
     embedding_available = retriever.uses_embedding
     modes = ["TF-IDF"] + (["向量"] if embedding_available else [])
-    saved = retriever.embed_matrix
 
     ranks: dict[str, list[int | None]] = {}
-    try:
-        for mode in modes:
-            retriever.embed_matrix = None if mode == "TF-IDF" else saved
-            found: list[int | None] = []
-            for (question, _), gold in zip(CASES, gold_keys):
-                hits = retriever.search(question, scope=list(policy_ids), top_k=max(k, 3))
-                rank = next(
-                    (pos for pos, hit in enumerate(hits, start=1) if hit["chunk_id"] in gold),
-                    None,
-                )
-                found.append(rank)
-            ranks[mode] = found
-    finally:
-        retriever.embed_matrix = saved  # 中途异常也不能把全局检索留在降级状态
+    for mode in modes:
+        found: list[int | None] = []
+        for (question, _), gold in zip(CASES, gold_keys):
+            hits = retriever.search(
+                question,
+                scope=list(policy_ids),
+                top_k=max(k, 3),
+                use_embedding=mode == "向量",
+            )
+            rank = next(
+                (pos for pos, hit in enumerate(hits, start=1) if hit["chunk_id"] in gold),
+                None,
+            )
+            found.append(rank)
+        ranks[mode] = found
 
     width = max(len(q) for q, _ in CASES) + 2
     header = f"{'问题':<{width}}" + "".join(f"{m + ' 名次':>12}" for m in modes)

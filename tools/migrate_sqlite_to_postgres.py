@@ -13,6 +13,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -44,6 +45,11 @@ def migrate(
     *,
     clear: bool = False,
 ) -> dict[str, int]:
+    if not sqlite_path.is_file():
+        raise ValueError(f"SQLite 源库不存在：{sqlite_path}")
+    target_name = urlparse(database_url).path.lstrip("/") or "postgres"
+    if clear and not target_name.endswith("_test"):
+        raise ValueError("拒绝清空非 *_test 数据库；--clear 仅允许测试库")
     os.environ["DATABASE_BACKEND"] = "postgresql"
     os.environ["DATABASE_URL"] = database_url
     from rag import config, db
@@ -65,17 +71,18 @@ def migrate(
                     copied[table] = 0
                     continue
                 rows = source.execute(f"SELECT * FROM {table}").fetchall()
+                inserted = 0
                 if rows:
                     marks = ", ".join("?" for _ in columns)
-                    target.executemany(
+                    inserted = int(target.executemany(
                         f"""
                         INSERT INTO {table} ({", ".join(columns)})
                         VALUES ({marks})
                         ON CONFLICT DO NOTHING
                         """,
                         [tuple(row[column] for column in columns) for row in rows],
-                    )
-                copied[table] = len(rows)
+                    ) or 0)
+                copied[table] = inserted
             for table in IDENTITY_TABLES:
                 target.execute(
                     f"""

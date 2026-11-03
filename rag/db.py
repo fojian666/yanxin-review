@@ -199,6 +199,8 @@ CREATE INDEX IF NOT EXISTS idx_review_tasks_assignee
     ON review_tasks(assignee_username, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_review_tasks_case
     ON review_tasks(case_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_tasks_case_expert
+    ON review_tasks(case_id, expert_id) WHERE expert_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_review_artifacts_case
     ON review_artifacts(case_id, created_at DESC);
 """
@@ -390,6 +392,8 @@ CREATE INDEX IF NOT EXISTS idx_review_tasks_assignee
     ON review_tasks(assignee_username, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_review_tasks_case
     ON review_tasks(case_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_tasks_case_expert
+    ON review_tasks(case_id, expert_id) WHERE expert_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_review_artifacts_case
     ON review_artifacts(case_id, created_at DESC);
 """
@@ -755,6 +759,12 @@ def delete_dossier(dossier_id: str) -> dict[str, Any] | None:
     if not dossier:
         return None
     with connect() as conn:
+        linked = conn.execute(
+            "SELECT id FROM review_cases WHERE dossier_id = ? LIMIT 1",
+            (dossier_id,),
+        ).fetchone()
+        if linked:
+            raise ValueError("历史课题已关联评审案卷，不能删除")
         conn.execute("DELETE FROM dossiers WHERE id = ?", (dossier_id,))
     return dossier
 

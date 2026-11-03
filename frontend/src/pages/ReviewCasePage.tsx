@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   ClipboardCheck,
@@ -174,6 +175,12 @@ export function ReviewCasePage() {
       return;
     }
     let active = true;
+    setCurrent(null);
+    setSelectedExperts([]);
+    setDecision("approved");
+    setFinalComment("");
+    setStage("pre_review");
+    setProcessStep(0);
     setLoading(true);
     void api.reviewCase(caseId)
       .then((result) => {
@@ -285,6 +292,7 @@ export function ReviewCasePage() {
 
   const submitFinal = async () => {
     if (!current) return;
+    if (!confirm("终审决定签署后将归档且不可覆盖，确认继续？")) return;
     setBusy("final");
     try {
       const result = await api.finalizeReviewCase(current.id, decision, finalComment);
@@ -435,7 +443,22 @@ export function ReviewCasePage() {
                     <article className="review-stage-card">
                       <h3>预审结论</h3>
                       <p>{preReview.overall.summary}</p>
-                      <small>{preReview.disclaimer}</small>
+                      <div className="review-case-boundaries scroll-area">
+                        {toolResult?.match.applicant_warning && (
+                          <div className="review-case-boundary-warning" role="status">
+                            <AlertTriangle size={15} aria-hidden="true" />
+                            <span>{toolResult.match.applicant_warning}</span>
+                          </div>
+                        )}
+                        {toolResult?.match.institution_match_note && (
+                          <p><strong>单位比对口径：</strong>{toolResult.match.institution_match_note}</p>
+                        )}
+                        {(preReview.limitations?.length ?? 0) > 0 && (
+                          <p><strong>能力边界：</strong>{preReview.limitations?.join("；")}</p>
+                        )}
+                        <small>{preReview.disclaimer}</small>
+                        {toolResult?.disclaimer && <small>{toolResult.disclaimer}</small>}
+                      </div>
                     </article>
                     <article className="review-stage-card review-stage-questions">
                       <h3>待核实问题</h3>
@@ -507,7 +530,11 @@ export function ReviewCasePage() {
                       {tasks.map((task) => (
                         <div className="review-task-row" key={task.id}>
                           <span className={`status-pill ${taskStatusClass(task.status)}`}>{task.status_label}</span>
-                          <div><strong>{task.expert_name}</strong><small>{task.expert_institution} · 审核账号 {task.assignee_username}</small></div>
+                          <div>
+                            <strong>{task.expert_name}</strong>
+                            <small>{task.expert_institution} · 审核账号 {task.assignee_username}</small>
+                            {task.admin_debug && <small className="review-admin-debug">管理员 {task.submitted_by} 调试代提交</small>}
+                          </div>
                           {task.recommendation_label && <em>{task.recommendation_label}</em>}
                         </div>
                       ))}
@@ -538,6 +565,7 @@ export function ReviewCasePage() {
                       <div key={task.id} className="review-opinion-item">
                         <div><strong>{task.expert_name}</strong><span>{task.recommendation_label}</span></div>
                         <p>{task.opinion}</p>
+                        {task.admin_debug && <small className="review-admin-debug">管理员 {task.submitted_by} 调试代提交</small>}
                       </div>
                     ))}
                     {current.conflict_count > 0 && <p className="review-conflict-note">另有 {current.conflict_count} 位专家已声明回避，原因已留痕。</p>}

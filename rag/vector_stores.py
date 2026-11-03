@@ -210,13 +210,24 @@ class MilvusVectorStore:
     def _get_client(self):
         if self._client is not None:
             return self._client
+        uri = config.MILVUS_URI
+        from urllib.parse import urlparse
+
+        parsed = urlparse(uri)
+        if parsed.scheme in {"http", "https"} and config._is_public_host(uri):
+            if not config.ALLOW_EXTERNAL_MILVUS:
+                raise RuntimeError(
+                    "Milvus 公网端点已阻止（需 ALLOW_EXTERNAL_MILVUS=1 并完成数据出域审批）"
+                )
+        elif parsed.scheme not in {"", "unix", "file"}:
+            raise RuntimeError(f"不支持的 Milvus URI：{uri}")
         try:
             from pymilvus import MilvusClient
         except ImportError as exc:
             raise RuntimeError(
                 "Milvus 后端需要安装 pymilvus：python3 -m pip install 'pymilvus>=2.4,<3'"
             ) from exc
-        kwargs: dict[str, Any] = {"uri": config.MILVUS_URI}
+        kwargs: dict[str, Any] = {"uri": uri}
         if config.MILVUS_TOKEN:
             kwargs["token"] = config.MILVUS_TOKEN
         self._client = MilvusClient(**kwargs)

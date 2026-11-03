@@ -26,6 +26,8 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.getByRole('button', { name: '重新运行需新建轮次' })).toBeVisible();
   await expect(page.getByRole('tab', { name: '预审' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.review-case-kpis')).toBeVisible();
+  await expect(page.getByText('单位比对口径：')).toBeVisible();
+  await expect(page.getByText(/查重相似度不等于抄袭/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('review-case-pre-complete.png') });
   await page.unroute('**/api/review-cases/*/run');
   await page.getByRole('tab', { name: '专家审核' }).click();
@@ -55,6 +57,7 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.getByRole('heading', { name: 'E2E 全过程评审' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '审核意见已提交' })).toBeVisible();
   await expect(page.getByText('项目材料完整，技术路线清晰，建议通过并补充年度监测计划。')).toBeVisible();
+  await expect(page.getByText(/管理员 admin 调试代提交/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('expert-review-submitted.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
@@ -68,6 +71,7 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.getByRole('tab', { name: '专家审核' }).click();
   await page.getByRole('button', { name: '刷新专家任务' }).click();
   await expect(page.locator('.review-task-row')).toContainText('已提交');
+  await expect(page.getByText(/管理员 admin 调试代提交/)).toBeVisible();
   await page.getByRole('button', { name: '进入终审' }).click();
   await expect(page.getByRole('tab', { name: '终审' })).toHaveAttribute('aria-selected', 'true');
   await page.getByPlaceholder('填写终审理由、修改要求或通过条件（至少 10 字）').fill('专家意见已核对，同意通过并按要求补充年度监测计划。');
@@ -75,11 +79,13 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
     await new Promise(resolve => setTimeout(resolve, 450));
     await route.continue();
   });
+  page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '签署并归档' }).click();
   await expect(page.locator('.review-process-progress')).toContainText('终审签署中');
   await page.screenshot({ path: testInfo.outputPath('review-case-final-progress.png') });
   await expect(page.getByText('终审决定', { exact: true })).toBeVisible();
   await expect(page.getByText('通过', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText(/管理员 admin 调试代提交/)).toBeVisible();
   await expect(page.getByText(/归档哈希|^SHA /)).toHaveCount(0);
   const passAlignment = await page.locator('.review-stage-heading .status-pass').evaluate(element => {
     const icon = element.querySelector('svg')!.getBoundingClientRect();

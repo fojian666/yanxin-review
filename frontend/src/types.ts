@@ -438,6 +438,8 @@ export interface ReviewTask {
   doc_kind?: string;
   doc_warning?: string | null;
   round?: number;
+  admin_debug?: boolean;
+  submitted_by?: string;
   pre_review?: ReviewArtifact | null;
   tool_check?: ReviewArtifact | null;
 }

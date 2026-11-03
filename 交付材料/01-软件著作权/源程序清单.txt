@@ -1,12 +1,12 @@
 源程序清单（首期原型 V2.0）
 
 后端（Python）
-   1306 app.py
+   1309 app.py
       1 rag/__init__.py
     220 rag/auth.py
-    319 rag/config.py
+    321 rag/config.py
     272 rag/corpus.py
-   1183 rag/db.py
+   1193 rag/db.py
     293 rag/demo_proposals.py
     446 rag/dossiers.py
     362 rag/embeddings.py
@@ -14,17 +14,17 @@
      33 rag/ingest.py
     145 rag/keyword_graph.py
     294 rag/llm.py
-    712 rag/parsers.py
+    727 rag/parsers.py
     193 rag/qa.py
-    280 rag/retrieval.py
+    285 rag/retrieval.py
     499 rag/review.py
-    887 rag/review_cases.py
+    945 rag/review_cases.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
-    342 rag/vector_stores.py
-   9223 total
+    353 rag/vector_stores.py
+   9327 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     358 frontend/src/AppContext.tsx
@@ -59,42 +59,42 @@
      57 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
     584 frontend/src/pages/ChatPage.tsx
-    225 frontend/src/pages/ExpertReviewPage.tsx
+    226 frontend/src/pages/ExpertReviewPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
     596 frontend/src/pages/LibraryPage.tsx
     302 frontend/src/pages/LoginPage.tsx
     422 frontend/src/pages/MatchPage.tsx
-    580 frontend/src/pages/ReviewCasePage.tsx
+    608 frontend/src/pages/ReviewCasePage.tsx
     622 frontend/src/pages/ReviewPage.tsx
     232 frontend/src/pages/TrendPage.tsx
     238 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   7993 frontend/src/styles.css
+   8015 frontend/src/styles.css
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
-    494 frontend/src/types.ts
-  18508 total
+    496 frontend/src/types.ts
+  18561 total
 测试（Python）
-     34 tests/conftest.py
+     35 tests/conftest.py
     292 tests/test_corpus.py
      42 tests/test_docs.py
-    369 tests/test_dossiers.py
+    384 tests/test_dossiers.py
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
     470 tests/test_llm_provider.py
     417 tests/test_retrieval_embedding.py
-    196 tests/test_review_cases.py
-   1294 tests/test_robustness.py
-    131 tests/test_vector_stores.py
-   3402 total
+    208 tests/test_review_cases.py
+   1328 tests/test_robustness.py
+    138 tests/test_vector_stores.py
+   3471 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
     506 tools/fetch_corpus.py
-    118 tools/migrate_sqlite_to_postgres.py
-    145 tools/smoke_postgres.py
+    125 tools/migrate_sqlite_to_postgres.py
+    195 tools/smoke_postgres.py
     174 tools/soft_copyright.py
-   1372 total
+   1429 total
 浏览器回归（TypeScript/Python）
     130 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
@@ -105,18 +105,18 @@
     259 frontend/e2e/knowledge-document.spec.ts
     231 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
-    109 frontend/e2e/review-case.spec.ts
+    115 frontend/e2e/review-case.spec.ts
     363 frontend/e2e/review-match.spec.ts
     165 frontend/e2e/route-arrival.spec.ts
-     51 frontend/e2e/server.py
+     52 frontend/e2e/server.py
     322 frontend/e2e/themes.spec.ts
      89 frontend/e2e/trend-zoom.spec.ts
     160 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3154 total
+   3161 total
 合计
-  35659 total（105 个文件）
+  35949 total（105 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

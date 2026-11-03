@@ -3,16 +3,21 @@ from __future__ import annotations
 
 import argparse
 import os
+import threading
 import uuid
+from urllib.parse import urlparse
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="PostgreSQL 后端写链路冒烟")
     parser.add_argument(
         "--database-url",
-        default=os.getenv("DATABASE_URL", "postgresql:///yanxin_review_test"),
+        default="postgresql:///yanxin_review_test",
     )
     args = parser.parse_args()
+    database_name = urlparse(args.database_url).path.lstrip("/") or "postgres"
+    if not database_name.endswith("_test"):
+        raise SystemExit("冒烟工具只允许连接名称以 _test 结尾的 PostgreSQL 数据库")
     os.environ["DATABASE_BACKEND"] = "postgresql"
     os.environ["DATABASE_URL"] = args.database_url
     os.environ["VECTOR_STORE_BACKEND"] = "pgvector"
@@ -103,22 +108,67 @@ def main() -> int:
             "smoke-manager",
         )
         task_id = case["tasks"][0]["id"]
-        review_cases.submit_task(
-            task_id,
-            {"username": f"smoke-reviewer-{suffix}", "role": "reviewer"},
-            recommendation="approve",
-            opinion="冒烟测试意见完整，可以提交。",
-            conflict_declared=False,
-            conflict_reason="",
-        )
+        barrier = threading.Barrier(2)
+        submit_results: list[str] = []
+
+        def submit(recommendation: str) -> None:
+            barrier.wait()
+            try:
+                review_cases.submit_task(
+                    task_id,
+                    {"username": f"smoke-reviewer-{suffix}", "role": "reviewer"},
+                    recommendation=recommendation,
+                    opinion=f"并发冒烟测试意见-{recommendation}-完整内容。",
+                    conflict_declared=False,
+                    conflict_reason="",
+                )
+                submit_results.append("ok")
+            except ValueError:
+                submit_results.append("rejected")
+
+        threads = [
+            threading.Thread(target=submit, args=("approve",)),
+            threading.Thread(target=submit, args=("reject",)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+        assert sorted(submit_results) == ["ok", "rejected"]
         review_cases.advance_to_final(case_id, "smoke-manager")
-        completed = review_cases.finalize_case(
-            case_id,
-            "smoke-manager",
-            decision="approved",
-            comment="冒烟终审意见完整，状态机通过。",
+        barrier = threading.Barrier(2)
+        final_results: list[str] = []
+
+        def finalize(decision: str) -> None:
+            barrier.wait()
+            try:
+                review_cases.finalize_case(
+                    case_id,
+                    "smoke-manager",
+                    decision=decision,
+                    comment=f"并发终审冒烟意见-{decision}-完整内容。",
+                )
+                final_results.append("ok")
+            except ValueError:
+                final_results.append("rejected")
+
+        threads = [
+            threading.Thread(target=finalize, args=("approved",)),
+            threading.Thread(target=finalize, args=("rejected",)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+        assert sorted(final_results) == ["ok", "rejected"]
+        completed = review_cases.get_case(
+            case_id, {"username": "smoke-manager", "role": "manager"}
         )
         assert completed["stage"] == "completed"
+        final_artifacts = [
+            item for item in completed["artifacts"] if item["artifact_type"] == "final_decision"
+        ]
+        assert len(final_artifacts) == 1
         assert db.stats()["documents"] >= 1
         print("PostgreSQL 写链路冒烟通过")
     finally:

@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
@@ -34,6 +35,8 @@ def _check_zip_size(z: zipfile.ZipFile) -> None:
 
 
 _UNSAFE_XML = re.compile(rb"<!\s*(?:doctype|entity)", re.IGNORECASE)
+_UNSAFE_XML_TEXT = re.compile(r"<!\s*(?:doctype|entity)\b", re.IGNORECASE)
+_RTF_CONTROL = re.compile(r"\\([a-zA-Z]+)(-?\d+)? ?")
 
 
 def _reject_unsafe_xml(xml: bytes) -> None:
@@ -43,6 +46,15 @@ def _reject_unsafe_xml(xml: bytes) -> None:
     """
     if _UNSAFE_XML.search(xml):
         raise ParseError("DOCX 包含不安全的 XML 实体声明，已拒绝解析")
+    # XML 也允许 UTF-16/UTF-32。字节级 ASCII 正则看不到被 NUL 分隔的
+    # DOCTYPE/ENTITY，因此必须按常见 XML 编码解码后再扫描一次。
+    for encoding in ("utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "utf-32"):
+        try:
+            text = xml.decode(encoding)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+        if _UNSAFE_XML_TEXT.search(text):
+            raise ParseError("DOCX 包含不安全的 XML 实体声明，已拒绝解析")
 
 
 def apply_content_limit(parsed: dict, max_chars: int | None = None) -> dict:
@@ -296,6 +308,7 @@ def parse_rtf(path: Path) -> dict:
     depth = 0
     skip_depth: int | None = None
     i = 0
+    deadline = time.monotonic() + config.RTF_PARSE_TIMEOUT_SECONDS
 
     def flush_bytes() -> None:
         if byte_buffer:
@@ -303,6 +316,8 @@ def parse_rtf(path: Path) -> dict:
             byte_buffer.clear()
 
     while i < len(source):
+        if i & 0x3FFF == 0 and time.monotonic() > deadline:
+            raise ParseError("RTF 解析超时，请压缩或转换文件后重试")
         char = source[i]
         if char == "{":
             depth += 1
@@ -343,7 +358,7 @@ def parse_rtf(path: Path) -> dict:
             i += 2
             continue
 
-        match = re.match(r"\\([a-zA-Z]+)(-?\d+)? ?", source[i:])
+        match = _RTF_CONTROL.match(source, i)
         if not match:
             i += 1
             continue

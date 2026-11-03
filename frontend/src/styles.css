@@ -6940,6 +6940,28 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   border-bottom: 1px solid var(--line);
 }
 .review-stage-questions p:last-child { border-bottom: 0; }
+.review-case-boundaries {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.review-case-boundaries p { margin: 0; }
+.review-case-boundary-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--gold);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.review-case-boundary-warning svg { flex: 0 0 auto; margin-top: 2px; }
+.review-admin-debug { display: block; margin-top: 3px; color: var(--warning); font-weight: 650; }
 
 .review-process-progress {
   min-height: 0;

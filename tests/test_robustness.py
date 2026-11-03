@@ -3,6 +3,7 @@ import io
 import os
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -149,6 +150,25 @@ def test_text_based_formats_are_parsed(tmp_path):
     assert "课题申报" in parsed_html["pages"][0]["text"]
     assert "科研诚信审查" in parsed_html["pages"][0]["text"]
     assert ".x{}" not in parsed_html["pages"][0]["text"]
+
+
+def test_large_rtf_parser_stays_linear(tmp_path):
+    rtf = tmp_path / "large.rtf"
+    rtf.write_text(r"{\rtf1\ansi " + ("plain text " * 80_000) + r"\par}", encoding="ascii")
+    started = time.perf_counter()
+    result = parsers.parse_rtf(rtf)
+    assert "plain text" in result["pages"][0]["text"]
+    assert time.perf_counter() - started < 3
+
+
+def test_rtf_parser_timeout_is_enforced(tmp_path, monkeypatch):
+    rtf = tmp_path / "timeout.rtf"
+    rtf.write_text(r"{\rtf1\ansi text\par}", encoding="ascii")
+    ticks = iter((0.0, 10.0))
+    monkeypatch.setattr(parsers.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(config, "RTF_PARSE_TIMEOUT_SECONDS", 1.0)
+    with pytest.raises(parsers.ParseError, match="解析超时"):
+        parsers.parse_rtf(rtf)
 
 
 def test_odt_ofd_and_pptx_are_parsed(tmp_path):
@@ -619,6 +639,20 @@ def test_docx_rejects_entity_declarations(tmp_path):
     with pytest.raises(parsers.ParseError) as exc:
         parsers.parse_docx(path)
     assert "实体" in str(exc.value)
+
+
+def test_docx_rejects_utf16_entity_declarations(tmp_path):
+    path = tmp_path / "utf16-entity.docx"
+    xml = (
+        '<?xml version="1.0" encoding="UTF-16"?>'
+        '<!DOCTYPE foo [<!ENTITY xxe "boom">]>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        "<w:body/></w:document>"
+    ).encode("utf-16")
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("word/document.xml", xml)
+    with pytest.raises(parsers.ParseError, match="实体"):
+        parsers.parse_docx(path)
 
 
 def test_docx_rejects_entity_declaration_hidden_behind_long_content(tmp_path):

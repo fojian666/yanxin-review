@@ -129,3 +129,10 @@ def test_vector_store_factory_honors_backend(monkeypatch):
     ):
         monkeypatch.setattr(config, "VECTOR_STORE_BACKEND", backend)
         assert isinstance(create_vector_store(), expected)
+
+
+def test_milvus_public_uri_requires_explicit_permission(monkeypatch):
+    monkeypatch.setattr(config, "MILVUS_URI", "https://milvus.example.com:19530")
+    monkeypatch.setattr(config, "ALLOW_EXTERNAL_MILVUS", False)
+    with pytest.raises(RuntimeError, match="ALLOW_EXTERNAL_MILVUS"):
+        MilvusVectorStore()._get_client()

@@ -23,6 +23,7 @@ os.environ.update({
     "DATA_DIR": str(data), "DB_PATH": str(data / "app.db"), "HOST": "127.0.0.1",
     "DATABASE_BACKEND": "sqlite", "DATABASE_URL": "", "VECTOR_STORE_BACKEND": "numpy",
     "EMBED_BACKEND": "none", "ALLOW_EXTERNAL_EMBED": "0", "ALLOW_EXTERNAL_LLM": "0",
+    "ALLOW_EXTERNAL_MILVUS": "0",
     "SEED_SAMPLE_DOC": "0", "SEED_DEMO_USERS": "1", "SEED_DEMO_PAPERS": "1",
     "SEED_DEMO_PROPOSALS": "1", "DEMO_USER_PASSWORD": "yanxin2026",
     "COOKIE_SECURE": "0", "INGEST_TOKEN": "e2e-only-token",

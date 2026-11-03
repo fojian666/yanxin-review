@@ -186,6 +186,7 @@ class Retriever:
         query: str,
         scope: list[str] | None = None,
         top_k: int = 7,
+        use_embedding: bool = True,
     ) -> list[dict]:
         query = (query or "").strip()
         if not query:
@@ -193,7 +194,11 @@ class Retriever:
         with self._lock:
             if not self.ready:
                 return []
-            scores = self._score_embedding(query, scope) if self.uses_embedding else None
+            scores = (
+                self._score_embedding(query, scope)
+                if use_embedding and self.uses_embedding
+                else None
+            )
             if scores is None:
                 scores = self._score_tfidf(query)
             terms = extract_terms(query, max_terms=8)

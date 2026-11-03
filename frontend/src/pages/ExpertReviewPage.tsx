@@ -215,6 +215,7 @@ export function ExpertReviewPage() {
                 <h3>{task.status === "conflict" ? "已提交回避声明" : "审核意见已提交"}</h3>
                 <p>{task.status === "conflict" ? task.conflict_reason : task.opinion}</p>
                 <small>提交时间：{task.submitted_at?.replace("T", " ")}</small>
+                {task.admin_debug && <small className="review-admin-debug">管理员 {task.submitted_by} 调试代提交</small>}
               </div>
             )}
           </section>

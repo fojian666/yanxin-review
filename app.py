@@ -617,7 +617,10 @@ def update_dossier(dossier_id: str, payload: DossierUpdateRequest):
     dependencies=[Depends(require_role("manager", "admin"))],
 )
 def remove_dossier(dossier_id: str):
-    removed = db.delete_dossier(dossier_id)
+    try:
+        removed = db.delete_dossier(dossier_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not removed:
         raise HTTPException(status_code=404, detail="卷宗不存在")
     return {"ok": True, "removed": removed}

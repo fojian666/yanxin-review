@@ -9,6 +9,7 @@ import os
 os.environ["EMBED_BACKEND"] = "none"
 os.environ["ALLOW_EXTERNAL_EMBED"] = "0"
 os.environ["ALLOW_EXTERNAL_LLM"] = "0"
+os.environ["ALLOW_EXTERNAL_MILVUS"] = "0"
 os.environ["DATABASE_BACKEND"] = "sqlite"
 os.environ["DATABASE_URL"] = ""
 os.environ["VECTOR_STORE_BACKEND"] = "numpy"

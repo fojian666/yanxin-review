@@ -131,6 +131,21 @@ def _case_summary(row) -> dict[str, Any]:
     return data
 
 
+def _decorate_task_audit(
+    tasks: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]],
+) -> None:
+    debug_by_task: dict[str, str] = {}
+    for artifact in artifacts:
+        payload = artifact.get("payload") or {}
+        if payload.get("admin_debug") and payload.get("task_id"):
+            debug_by_task[str(payload["task_id"])] = artifact.get("created_by", "")
+    for task in tasks:
+        submitter = debug_by_task.get(str(task.get("id") or ""), "")
+        task["admin_debug"] = bool(submitter)
+        task["submitted_by"] = submitter
+
+
 def list_cases(user: dict) -> list[dict[str, Any]]:
     role = user.get("role")
     params: tuple[Any, ...] = ()
@@ -158,7 +173,13 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
             """,
             params,
         ).fetchall()
-    return [_case_summary(row) for row in rows]
+    result = [_case_summary(row) for row in rows]
+    if role == "reviewer":
+        for item in result:
+            item.pop("final_decision", None)
+            item.pop("final_decision_label", None)
+            item.pop("final_comment", None)
+    return result
 
 
 def create_case(
@@ -255,8 +276,13 @@ def get_case(case_id: str, user: dict) -> dict[str, Any]:
                 (case_id,),
             ).fetchall()
     data = _row(row) or {}
+    if user.get("role") == "reviewer":
+        data.pop("final_decision", None)
+        data.pop("final_decision_label", None)
+        data.pop("final_comment", None)
     data["tasks"] = [_row(task) for task in tasks]
     data["artifacts"] = [_row(artifact) for artifact in artifacts]
+    _decorate_task_audit(data["tasks"], data["artifacts"])
     data["actions"] = [_row(action) for action in actions]
     data["task_total"] = len(tasks)
     data["submitted_count"] = sum(task["status"] == "submitted" for task in tasks)
@@ -478,7 +504,7 @@ def assign_tasks(
             if exists:
                 continue
             task_id = db.new_id()
-            conn.execute(
+            inserted = conn.execute(
                 """
                 INSERT INTO review_tasks
                 (id, case_id, assignee_username, expert_id, expert_name,
@@ -486,6 +512,7 @@ def assign_tasks(
                  conflict_reason, recommendation, opinion, submitted_at,
                  created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned', 0, '', NULL, NULL, NULL, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (
                     task_id,
@@ -499,6 +526,8 @@ def assign_tasks(
                     stamp,
                 ),
             )
+            if not inserted.rowcount:
+                continue
             stamp_text = stamp
             artifact_id = _artifact(
                 conn,
@@ -568,7 +597,21 @@ def list_tasks(user: dict, case_id: str | None = None) -> list[dict[str, Any]]:
             """,
             tuple(params),
         ).fetchall()
-    return [_row(row) for row in rows]
+    result = [_row(row) for row in rows]
+    if result:
+        case_ids = sorted({str(item["case_id"]) for item in result})
+        with db.connect() as conn:
+            artifacts = conn.execute(
+                f"""
+                SELECT case_id, payload_json, created_by
+                FROM review_artifacts
+                WHERE artifact_type IN ('expert_opinion', 'expert_conflict')
+                  AND case_id IN ({','.join('?' for _ in case_ids)})
+                """,
+                tuple(case_ids),
+            ).fetchall()
+        _decorate_task_audit(result, [_row(item) for item in artifacts])
+    return result
 
 
 def get_task(task_id: str, user: dict) -> dict[str, Any]:
@@ -599,7 +642,15 @@ def get_task(task_id: str, user: dict) -> dict[str, Any]:
             """,
             (row["case_id"],),
         ).fetchall()
+        audit_artifacts = conn.execute(
+            """
+            SELECT payload_json, created_by FROM review_artifacts
+            WHERE case_id = ? AND artifact_type IN ('expert_opinion', 'expert_conflict')
+            """,
+            (row["case_id"],),
+        ).fetchall()
     data = _row(row) or {}
+    _decorate_task_audit([data], [_row(item) for item in audit_artifacts])
     latest: dict[str, dict[str, Any]] = {}
     for artifact in artifacts:
         parsed = _row(artifact) or {}
@@ -685,12 +736,13 @@ def submit_task(
             payload = {"recommendation": recommendation, "opinion": opinion}
         if admin_debug:
             payload.update({"admin_debug": True, "assignee_username": row["assignee_username"]})
-        conn.execute(
+        payload["task_id"] = task_id
+        updated = conn.execute(
             """
             UPDATE review_tasks
             SET status = ?, conflict_declared = ?, conflict_reason = ?,
                 recommendation = ?, opinion = ?, submitted_at = ?, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND status = 'assigned'
             """,
             (
                 status,
@@ -703,6 +755,8 @@ def submit_task(
                 task_id,
             ),
         )
+        if not updated.rowcount:
+            raise ValueError("该任务已提交，不能覆盖")
         artifact_id = _artifact(
             conn,
             case_id=row["case_id"],
@@ -751,15 +805,17 @@ def advance_to_final(case_id: str, actor: str) -> dict[str, Any]:
         if not submitted:
             raise ValueError("至少需要一份已提交的专家意见")
         stamp = db.now()
-        conn.execute(
+        updated = conn.execute(
             """
             UPDATE review_cases
             SET stage = 'final_review', status = 'in_review',
                 updated_by = ?, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND stage = 'expert_review'
             """,
             (actor, stamp, case_id),
         )
+        if not updated.rowcount:
+            raise ValueError("案卷已进入其他阶段，请刷新后重试")
         _action(conn, case_id, actor, "expert_review_completed", {"submitted": submitted})
     return get_case(case_id, {"username": actor, "role": "manager"})
 
@@ -818,15 +874,17 @@ def finalize_case(
             source_doc_id=case["doc_id"],
             actor=actor,
         )
-        conn.execute(
+        updated = conn.execute(
             """
             UPDATE review_cases
             SET stage = 'completed', status = ?, final_decision = ?,
                 final_comment = ?, updated_by = ?, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND stage = 'final_review'
             """,
             (decision, decision, comment, actor, stamp, case_id),
         )
+        if not updated.rowcount:
+            raise ValueError("案卷已完成终审或状态已变化，请刷新后重试")
         _action(
             conn,
             case_id,

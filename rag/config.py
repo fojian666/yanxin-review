@@ -49,6 +49,7 @@ MAX_DOCX_UNCOMPRESSED_BYTES = int(
     os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(256 * 1024 * 1024))
 )
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
+RTF_PARSE_TIMEOUT_SECONDS = max(0.1, float(os.getenv("RTF_PARSE_TIMEOUT_SECONDS", "20")))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 TOP_K = int(os.getenv("TOP_K", "7"))
@@ -144,6 +145,7 @@ if not PGVECTOR_TABLE.replace("_", "").isalnum():
 MILVUS_URI = (os.getenv("MILVUS_URI") or "http://127.0.0.1:19530").strip()
 MILVUS_TOKEN = (os.getenv("MILVUS_TOKEN") or "").strip()
 MILVUS_COLLECTION = (os.getenv("MILVUS_COLLECTION") or "yanxin_chunks").strip()
+ALLOW_EXTERNAL_MILVUS = _env_flag("ALLOW_EXTERNAL_MILVUS", False)
 
 DOCUMENT_UPLOAD_TYPES = (
     (".docx", "DOCX"),
