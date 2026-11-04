@@ -6,7 +6,7 @@ import {
   Send,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
@@ -34,17 +34,15 @@ export function ExpertReviewPage() {
   const [conflictReason, setConflictReason] = useState("");
   const [recommendation, setRecommendation] = useState<ExpertRecommendation>("approve");
   const [opinion, setOpinion] = useState("");
+  const active = useRef(true);
+
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
 
   const pendingCount = useMemo(() => tasks.filter((item) => item.status === "assigned").length, [tasks]);
   const duplicate = (task?.tool_check?.payload as unknown as ToolCheckResult | undefined)?.duplicate;
-
-  const loadTasks = async (preferred = "") => {
-    const result = await api.reviewTasks();
-    setTasks(result.tasks);
-    const next = preferred || selectedId || result.tasks[0]?.id || "";
-    setSelectedId(next);
-    return next;
-  };
 
   useEffect(() => {
     let active = true;
@@ -92,20 +90,30 @@ export function ExpertReviewPage() {
     if (!task) return;
     setBusy(true);
     try {
-      await api.submitReviewTask(task.id, {
+      const result = await api.submitReviewTask(task.id, {
         recommendation,
         opinion,
         conflict_declared: conflict,
         conflict_reason: conflictReason,
       });
-      await loadTasks(task.id);
-      const refreshed = await api.reviewTask(task.id);
-      setTask(refreshed.task);
+      if (!active.current) return;
+      const submitted = result.case.tasks?.find((item) => item.id === task.id);
+      // 提交响应是服务端已保存的快照，无需依赖第二次读取才确认成功。
+      if (submitted) {
+        setTask({ ...task, ...submitted });
+        setTasks((current) => current.map((item) => item.id === submitted.id ? { ...item, ...submitted } : item));
+      } else {
+        // 不保留可重复提交的旧表单；缺少快照时明确提示重新读取。
+        setTask(null);
+        setSelectedId("");
+        toast("提交已保存，请重新打开任务查看最新状态", "info");
+        return;
+      }
       toast(conflict ? "回避声明已提交并留痕" : "审核意见已提交并留痕");
     } catch (error) {
-      toast(`提交失败：${(error as Error).message}`, "error");
+      if (active.current) toast(`提交失败：${(error as Error).message}`, "error");
     } finally {
-      setBusy(false);
+      if (active.current) setBusy(false);
     }
   };
 

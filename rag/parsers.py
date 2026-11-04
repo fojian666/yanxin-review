@@ -508,6 +508,28 @@ def parse_pptx(path: Path) -> dict:
                 ),
                 key=_natural_key,
             )
+            # 幻灯片可在 PowerPoint 内重排，文件名并不代表播放顺序。
+            if "ppt/presentation.xml" in z.namelist():
+                rels = _zip_xml(z, "ppt/_rels/presentation.xml.rels")
+                targets = {}
+                for rel in rels:
+                    if rel.attrib.get("TargetMode") == "External":
+                        continue
+                    target = rel.attrib.get("Target", "")
+                    member = target.lstrip("/") if target.startswith("/") else f"ppt/{target}"
+                    targets[rel.attrib.get("Id")] = posixpath.normpath(member)
+                root = _zip_xml(z, "ppt/presentation.xml")
+                ordered = []
+                available = set(slide_members)
+                for node in root.iter():
+                    if node.tag.split("}")[-1] != "sldId":
+                        continue
+                    rel_id = next((value for key, value in node.attrib.items() if key.endswith("}id")), "")
+                    member = targets.get(rel_id)
+                    if member not in available:
+                        raise ParseError("PPTX 幻灯片目录引用无效，无法确认页序")
+                    ordered.append(member)
+                slide_members = ordered
             if not slide_members:
                 raise ParseError("PPTX 中未找到幻灯片")
             pages: list[dict] = []
@@ -589,8 +611,9 @@ def parse_xlsx(path: Path) -> dict:
                             cells.append((col, value.strip()))
                     if cells:
                         rows.append(" | ".join(value for _col, value in sorted(cells)))
-                text = normalize_text("\n".join([sheet_name, *rows]))
-                if text:
+                # 工作表名称不是正文，空表不能仅凭名称被视为可读材料。
+                if rows:
+                    text = normalize_text("\n".join([sheet_name, *rows]))
                     pages.append({"page": index, "text": text})
     except ParseError:
         raise
@@ -599,7 +622,7 @@ def parse_xlsx(path: Path) -> dict:
     text_len = sum(len(page["text"]) for page in pages)
     return {
         "pages": pages,
-        "page_count": len(pages),
+        "page_count": len(sheets),
         "warning": "" if text_len else "XLSX 中未提取到可用单元格文本。",
         "text_len": text_len,
     }

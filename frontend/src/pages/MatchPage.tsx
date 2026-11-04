@@ -270,14 +270,15 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
                 </div>
               </div>
               {!expertLibraryOnly && <Link className="expert-library-link" to="/experts">进入独立专家库</Link>}
-              {expertLibraryOnly && can("review-case") && <details className="expert-account-management">
-                <summary>专家账号绑定管理</summary>
+              {expertLibraryOnly && can("review-case") && <details className="expert-account-management" open>
+                <summary>专家账号绑定管理 <span>已绑定 {reviewers.filter((reviewer) => reviewer.expert_id != null).length} / {reviewers.length} 个账号</span></summary>
                 <div className="expert-account-controls">
                   <label className="field"><span>评审账号</span><select aria-label="绑定管理评审账号" value={bindingAccount} onChange={(event) => setBindingAccount(event.target.value)}><option value="">请选择账号</option>{reviewers.map((reviewer) => <option key={reviewer.username} value={reviewer.username}>{reviewer.display_name}（{reviewer.username}）{reviewer.expert_id != null ? ` · ${reviewer.expert_name} / ${reviewer.expert_institution}` : " · 未绑定"}</option>)}</select></label>
                   <label className="field"><span>专家库人员</span><select aria-label="绑定管理专家" value={bindingExpert} onChange={(event) => setBindingExpert(event.target.value)}><option value="">请选择专家</option>{experts.map((expert) => <option key={expert.id} value={expert.id}>{expert.name} · {expert.institution}</option>)}</select></label>
                   <button className="btn btn-ghost" type="button" disabled={bindingBusy || !bindingAccount || !bindingExpert || reviewers.find((item) => item.username === bindingAccount)?.expert_id != null} onClick={() => void changeExpertBinding()}>绑定专家账号</button>
                   <button className="btn btn-ghost" type="button" disabled={bindingBusy || reviewers.find((item) => item.username === bindingAccount)?.expert_id == null} onClick={() => void changeExpertBinding(true)}>解除绑定</button>
                 </div>
+                {bindingAccount && <p className="expert-binding-status" role="status">{reviewers.find((item) => item.username === bindingAccount)?.expert_id != null ? `当前绑定：${reviewers.find((item) => item.username === bindingAccount)?.expert_name} · ${reviewers.find((item) => item.username === bindingAccount)?.expert_institution}` : "该账号尚未绑定专家"}</p>}
               </details>}
               <div className="table-wrap match-expert-table">
                 {experts.length === 0 ? (

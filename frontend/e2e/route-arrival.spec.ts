@@ -1,7 +1,7 @@
 import { test, expect, navigate } from './fixtures';
 
 test('桌面步骤栏随高度均匀展开并保持可操作', async ({ app: page }, testInfo) => {
-  for (const [width, height] of [[1440, 900], [1920, 1080], [1280, 720]] as const) {
+  for (const [width, height] of [[1440, 900], [1920, 1080], [1280, 720], [1440, 780], [1440, 800], [1440, 801], [901, 720], [900, 720], [1280, 550], [1280, 551]] as const) {
     await page.setViewportSize({ width, height });
     await page.goto('/review');
     const rail = page.locator('.review-deck .work-deck-rail');
@@ -13,16 +13,17 @@ test('桌面步骤栏随高度均匀展开并保持可操作', async ({ app: pag
       const copy = element.querySelector('.work-deck-copy')!.getBoundingClientRect();
       return { top: rect.top, bottom: rect.bottom, height: rect.height, centerDifference: Math.abs((number.top + number.bottom - copy.top - copy.bottom) / 2) };
     }));
-    expect(boxes.every(box => box.height >= 36 && box.centerDifference < 3)).toBeTruthy();
+    expect(boxes.every(box => box.height >= 44 && (height <= 550 || box.centerDifference < 3)), `${width}x${height}: ${JSON.stringify(boxes)}`).toBeTruthy();
     const stepTypography = await tabs.evaluateAll(elements => elements.map(element => ({
       label: Number.parseFloat(getComputedStyle(element.querySelector<HTMLElement>('.work-deck-copy strong')!).fontSize),
       number: Number.parseFloat(getComputedStyle(element.querySelector<HTMLElement>('.work-deck-number')!).fontSize),
     })));
-    expect(stepTypography.every(item => item.label >= (height > 800 ? 15 : 11.5))).toBeTruthy();
+    expect(stepTypography.every(item => item.label >= (height > 800 ? 15 : height <= 550 ? 10.5 : 11.5)), `${width}x${height}: ${JSON.stringify(stepTypography)}`).toBeTruthy();
     expect(stepTypography.every(item => item.number >= (height > 800 ? 11 : 9))).toBeTruthy();
-    if (height > 800) {
+    if (width > 900 && height > 550) {
       for (let i = 1; i < boxes.length; i++) expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom);
-      expect(boxes[0].height).toBeGreaterThan(44);
+    } else {
+      expect(boxes[1].top).toBe(boxes[0].top);
     }
     await tabs.last().click();
     await expect(tabs.last()).toHaveAttribute('aria-selected', 'true');

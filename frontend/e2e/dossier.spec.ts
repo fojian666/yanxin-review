@@ -194,6 +194,8 @@ test('@smoke 历史课题建立、材料归入与人工确认形成体检结果'
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole('tab', { name: '课题概况', exact: true }).click();
+  await expect(page.locator('.dossier-overall .status-pill')).toHaveCSS('display', 'flex');
+  await expect(page.locator('.dossier-overall .status-pill')).toHaveCSS('align-items', 'center');
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator('.toast')).toHaveCount(0, { timeout: 5_000 });
   await page.screenshot({ path: testInfo.outputPath('dossier-workbench-desktop.png'), fullPage: true });

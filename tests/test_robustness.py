@@ -201,6 +201,30 @@ def test_odt_ofd_and_pptx_are_parsed(tmp_path):
     parsed_pptx = parsers.parse_pptx(pptx)
     assert parsed_pptx["page_count"] == 1
     assert "汇报材料" in parsed_pptx["pages"][0]["text"]
+    # 实际播放顺序由关系目录决定；空页仍占页码，未被引用的旧页面不读入。
+    with zipfile.ZipFile(pptx, "a") as z:
+        z.writestr("ppt/presentation.xml", '<p:presentation xmlns:p="urn:p" '
+                   'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                   '<p:sldIdLst><p:sldId id="10" r:id="last"/><p:sldId id="2" r:id="blank"/>'
+                   '<p:sldId id="1" r:id="first"/></p:sldIdLst></p:presentation>')
+        z.writestr("ppt/_rels/presentation.xml.rels", '<Relationships>'
+                   '<Relationship Id="first" Target="slides/slide1.xml"/>'
+                   '<Relationship Id="blank" Target="/ppt/slides/slide2.xml"/>'
+                   '<Relationship Id="last" Target="slides/slide10.xml"/></Relationships>')
+        z.writestr("ppt/slides/slide2.xml", '<sld/>')
+        z.writestr("ppt/slides/slide10.xml", '<sld><t>首先播放</t></sld>')
+        z.writestr("ppt/slides/slide3.xml", '<sld><t>已移除的页面</t></sld>')
+    parsed_pptx = parsers.parse_upload(pptx)
+    assert parsed_pptx["page_count"] == 3
+    assert parsed_pptx["pages"] == [{"page": 1, "text": "首先播放"}, {"page": 3, "text": "汇报材料"}]
+    strict = tmp_path / "strict.pptx"
+    with zipfile.ZipFile(pptx) as source, zipfile.ZipFile(strict, "w") as target:
+        for name in source.namelist():
+            target.writestr(name, source.read(name).replace(
+                b"http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                b"http://purl.oclc.org/ooxml/officeDocument/relationships",
+            ))
+    assert parsers.parse_upload(strict) == parsed_pptx
 
 
 def test_xlsx_uses_sheet_names_and_shared_strings(tmp_path):
@@ -233,6 +257,14 @@ def test_xlsx_uses_sheet_names_and_shared_strings(tmp_path):
     assert "预算表" in parsed["pages"][0]["text"]
     assert "设备费" in parsed["pages"][0]["text"]
     assert "10万元" in parsed["pages"][0]["text"]
+    empty = tmp_path / "empty.xlsx"
+    with zipfile.ZipFile(empty, "w") as z:
+        z.writestr("xl/worksheets/sheet1.xml", '<worksheet><sheetData/></worksheet>')
+    parsed_empty = parsers.parse_upload(empty)
+    assert parsed_empty["page_count"] == 1
+    assert parsed_empty["pages"] == []
+    assert parsed_empty["text_len"] == 0
+    assert "未提取到" in parsed_empty["warning"]
 
 
 def test_document_upload_extension_whitelist_covers_office_formats():

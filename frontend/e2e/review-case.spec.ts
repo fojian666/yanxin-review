@@ -45,13 +45,15 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.getByRole('link', { name: '专家库管理绑定' }).click();
   await expect(page).toHaveURL(/\/experts$/);
   await expect(page.getByRole('heading', { name: '专家库' })).toBeVisible();
-  await page.getByText('专家账号绑定管理').click();
+  await expect(page.locator('.expert-account-management')).toHaveAttribute('open', '');
   await page.getByLabel('绑定管理评审账号').selectOption('reviewer');
+  await expect(page.getByRole('status').filter({ hasText: '该账号尚未绑定专家' })).toBeVisible();
   await page.getByLabel('绑定管理专家').selectOption(String(expertId));
   await page.screenshot({ path: testInfo.outputPath('review-case-binding-mobile.png') });
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '绑定专家账号' }).click();
   await expect(page.getByText('专家账号已绑定')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: `当前绑定：${expertName}` })).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goBack();
   await page.getByRole('tab', { name: '专家审核' }).click();
@@ -90,12 +92,39 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
       return element.scrollWidth <= element.clientWidth + 1 && rect.left >= parent.left - 1 && rect.right <= parent.right + 1 && rect.height >= 44;
     })).toBeTruthy();
     if (width === 390) await page.screenshot({ path: testInfo.outputPath('expert-long-title-mobile.png') });
+    if (width <= 900) {
+      const reportHeading = page.locator('.expert-review-markdown > p > strong').filter({ hasText: '预审报告' }).first();
+      await reportHeading.scrollIntoViewIfNeeded();
+      expect(await reportHeading.evaluate(element => {
+        const text = element.getBoundingClientRect();
+        const panel = element.closest('.expert-review-evidence')!.getBoundingClientRect();
+        return text.top >= panel.top && text.bottom <= panel.bottom;
+      })).toBeTruthy();
+      if (width === 390) await page.screenshot({ path: testInfo.outputPath('expert-long-title-evidence-mobile.png') });
+    }
   }
   await page.unroute('**/api/review-tasks/*');
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByLabel('独立审核意见').fill('项目材料完整，技术路线清晰，建议通过并补充年度监测计划。');
+  // 写入成功后即使读取接口故障，也不能误报提交失败、留下可重复提交的表单。
+  let readsAfterSubmit = 0;
+  let submissions = 0;
+  await page.route('**/api/review-tasks**', async route => {
+    if (route.request().method() === 'GET') {
+      readsAfterSubmit += 1;
+      return route.fulfill({ status: 503, json: { detail: '受控刷新故障' } });
+    }
+    submissions += 1;
+    await route.continue();
+  });
   await page.getByRole('button', { name: '提交审核意见' }).click();
   await expect(page.getByRole('heading', { name: '审核意见已提交' })).toBeVisible();
+  await expect(page.locator('.expert-task-summary')).toContainText('0 项待办');
+  await expect(page.getByRole('button', { name: '提交审核意见' })).toHaveCount(0);
+  await expect(page.getByText(/提交失败/)).toHaveCount(0);
+  expect(submissions).toBe(1);
+  expect(readsAfterSubmit).toBe(0);
+  await page.unroute('**/api/review-tasks**');
   await page.screenshot({ path: testInfo.outputPath('expert-review-admin-debug-submitted.png') });
 
   await context.request.post('/api/auth/logout');
@@ -154,9 +183,16 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
     const response = await route.fetch();
     const body = await response.json();
     const pre = body.artifacts.find((item: { artifact_type: string }) => item.artifact_type === 'pre_review');
-    pre.content = '# 历史预审报告\n\n原始归档正文';
+    pre.content = '# 历史预审报告\n\n原始归档正文\n\n归档正文已含的完整证据';
     pre.payload.limitations = ['历史能力边界测试'];
-    pre.payload.sections = [{ items: [{ label: '历史证据', evidence_full: '历史完整证据测试', source_doc_id: source.id }] }];
+    pre.payload.sections = [{ items: [
+      { label: '历史证据', evidence_full: '历史完整证据测试', source_doc_id: source.id },
+      { label: '正文已有证据', evidence_full: '归档正文已含的完整证据', source_doc_id: documents[1].id },
+    ] }];
+    const tool = body.artifacts.find((item: { artifact_type: string }) => item.artifact_type === 'tool_check');
+    tool.content = '# 查重归档\n\n本文完整片段\n\n比对完整片段';
+    tool.payload.duplicate.matches = [{ matched_doc_id: documents[1].id, matched_doc_name: documents[1].name,
+      source_snippet: '本文完整片段', matched_snippet: '比对完整片段', similarity: 0.6 }];
     await route.fulfill({ response, json: body });
   });
   await navigate(page, '文档中心');
@@ -171,8 +207,22 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.locator('.document-case-artifact-reader')).toContainText('原始归档正文');
   await expect(page.locator('.document-case-artifact-reader')).toContainText('历史能力边界测试');
   await expect(page.locator('.document-case-artifact-reader')).toContainText('历史完整证据测试');
-  await expect(page.getByRole('link', { name: '查看证据原文' })).toHaveAttribute('href', `/library?doc=${source.id}`);
+  await expect(page.getByRole('link', { name: '查看证据原文' }).first()).toHaveAttribute('href', `/library?doc=${source.id}`);
+  const existingEvidence = page.locator('[aria-label="归档补充依据"] > div').filter({ hasText: '正文已有证据' });
+  await expect(existingEvidence).not.toContainText('归档正文已含的完整证据');
+  await existingEvidence.getByRole('link', { name: '查看证据原文' }).click();
+  await expect(page).toHaveURL(new RegExp(`/library\\?doc=${documents[1].id}$`));
+  await expect(page.locator('.document-reader-head h2')).toHaveText(documents[1].name);
+  await page.goBack();
+  await expect(page.locator('.document-case-artifact-reader')).toContainText('历史完整证据测试');
   await page.screenshot({ path: testInfo.outputPath('library-legacy-evidence.png') });
+  await page.locator('.document-case-artifact-list button').filter({ hasText: '查重与专家匹配' }).first().click();
+  const compareLink = page.getByRole('link', { name: '查看比对文档' });
+  await expect(compareLink).toHaveAttribute('href', `/library?doc=${documents[1].id}`);
+  await expect(page.locator('[aria-label="归档补充依据"]')).not.toContainText('本文完整片段');
+  await compareLink.click();
+  await expect(page.locator('.document-reader-head h2')).toHaveText(documents[1].name);
+  await page.goBack();
   await page.locator('.document-case-artifact-list button').filter({ hasText: '终审决定' }).click();
   await expect(page.locator('.document-case-artifact-reader')).toContainText('终审意见');
   await expect(page.locator('.document-case-artifact-reader')).toContainText('同意通过');
