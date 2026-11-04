@@ -11,6 +11,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
+import { ArtifactEvidence } from "../components/ArtifactEvidence";
 import { Markdown } from "../components/Markdown";
 import type { ExpertRecommendation, ReviewTask, ToolCheckResult } from "../types";
 
@@ -166,7 +167,10 @@ export function ExpertReviewPage() {
                 <span>候选人：{task.expert_name} · {task.expert_institution}</span>
               </div>
               {task.pre_review?.content ? (
-                <Markdown content={task.pre_review.content} className="expert-review-markdown" />
+                <>
+                  <Markdown content={task.pre_review.content} className="expert-review-markdown" />
+                  <ArtifactEvidence artifact={task.pre_review} />
+                </>
               ) : (
                 <EmptyState icon={<AlertTriangle size={32} />} description="该案卷尚未生成预审报告，请联系管理人员。" />
               )}

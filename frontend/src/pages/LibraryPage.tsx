@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { DocumentDirectory } from "../components/DocumentDirectory";
+import { ArtifactEvidence } from "../components/ArtifactEvidence";
 import { DocumentReader } from "../components/DocumentReader";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
@@ -581,6 +582,7 @@ export function LibraryPage() {
                 </header>
                 <div className="document-case-artifact-body scroll-area">
                   <Markdown content={selectedArtifact.content} />
+                  <ArtifactEvidence artifact={selectedArtifact} />
                 </div>
               </>
             ) : (

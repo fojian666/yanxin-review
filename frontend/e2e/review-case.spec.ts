@@ -95,6 +95,15 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   expect(passAlignment).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('review-case-finalized.png') });
 
+  await page.route('**/api/review-artifacts', async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const pre = body.artifacts.find((item: { artifact_type: string }) => item.artifact_type === 'pre_review');
+    pre.content = '# 历史预审报告\n\n原始归档正文';
+    pre.payload.limitations = ['历史能力边界测试'];
+    pre.payload.sections = [{ items: [{ label: '历史证据', evidence_full: '历史完整证据测试', source_doc_id: source.id }] }];
+    await route.fulfill({ response, json: body });
+  });
   await navigate(page, '文档中心');
   const caseDataButton = page.getByRole('button', { name: /案卷数据/ });
   await expect(caseDataButton).toContainText('5');
@@ -103,6 +112,12 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.locator('.document-case-group')).toHaveCount(1);
   await expect(page.locator('.document-case-group > summary')).toContainText('E2E 全过程评审');
   await expect(page.locator('.document-case-artifact-list button')).toHaveCount(5);
+  await page.locator('.document-case-artifact-list button').filter({ hasText: '预审报告' }).click();
+  await expect(page.locator('.document-case-artifact-reader')).toContainText('原始归档正文');
+  await expect(page.locator('.document-case-artifact-reader')).toContainText('历史能力边界测试');
+  await expect(page.locator('.document-case-artifact-reader')).toContainText('历史完整证据测试');
+  await expect(page.getByRole('link', { name: '查看证据原文' })).toHaveAttribute('href', `/library?doc=${source.id}`);
+  await page.screenshot({ path: testInfo.outputPath('library-legacy-evidence.png') });
   await page.locator('.document-case-artifact-list button').filter({ hasText: '终审决定' }).click();
   await expect(page.locator('.document-case-artifact-reader')).toContainText('终审意见');
   await expect(page.locator('.document-case-artifact-reader')).toContainText('同意通过');
