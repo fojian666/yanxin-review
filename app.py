@@ -23,7 +23,7 @@ from starlette.concurrency import run_in_threadpool
 from rag import auth, config, db, dossiers as dossier_service, qa, review, review_cases, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
-from rag import keyword_graph
+from rag import keyword_graph, document_access
 from rag.llm import LLMError, chat_options, generation_info, llm, resolve_chat_client
 from rag.experts import parse_experts_csv
 from rag.parsers import ParseError, parse_papers_csv, parse_upload
@@ -216,6 +216,21 @@ def require_role(*roles: str):
         return user
 
     return dependency
+
+
+def document_reader(request: Request) -> document_access.Access:
+    return document_access.Access(request.state.user)
+
+
+@app.exception_handler(document_access.DocumentAccessDenied)
+async def document_permission_error(_request: Request, exc: document_access.DocumentAccessDenied):
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+class DocumentAccessRequest(BaseModel):
+    owner_username: str = Field(default="", max_length=100)
+    visibility: Literal["restricted", "public"] = "restricted"
+    readers: list[str] = Field(default_factory=list, max_length=100)
 
 
 class ChatRequest(BaseModel):
@@ -566,13 +581,17 @@ def create_user(payload: CreateUserRequest):
 
 
 @app.get("/api/knowledge/keywords")
-def knowledge_keywords(limit: int = Query(100, ge=1, le=500), dossier_id: str | None = None):
-    doc_ids = None
+def knowledge_keywords(limit: int = Query(100, ge=1, le=500), dossier_id: str | None = None, access: document_access.Access = Depends(document_reader)):
+    doc_ids = access.readable
     if dossier_id is not None:
-        if not db.get_dossier(dossier_id):
+        if access.manager and not db.get_dossier(dossier_id):
             raise HTTPException(status_code=404, detail="卷宗不存在")
-        doc_ids = {item["doc_id"] for item in db.list_dossier_documents(dossier_id)}
-    return keyword_graph.build_keyword_graph(limit, doc_ids)
+        if not access.can_dossier(dossier_id):
+            raise document_access.DocumentAccessDenied("未找到该卷宗或无权读取")
+        doc_ids = doc_ids & {item["doc_id"] for item in db.list_dossier_documents(dossier_id)}
+    result = keyword_graph.build_keyword_graph(limit, doc_ids)
+    access.audit([source["doc_id"] for node in result.get("nodes") or [] for source in node.get("sources") or []], "keyword-evidence")
+    return result
 
 
 @app.get("/api/dossiers/options")
@@ -581,11 +600,12 @@ def dossier_options():
 
 
 @app.get("/api/dossiers")
-def dossiers():
+def dossiers(access: document_access.Access = Depends(document_reader)):
     return {
         "dossiers": [
-            dossier_service.dossier_summary(dossier)
+            dossier_service.dossier_summary(dossier, access.readable)
             for dossier in db.list_dossiers()
+            if access.can_dossier(dossier["id"])
         ]
     }
 
@@ -602,11 +622,15 @@ def create_dossier(payload: DossierCreateRequest):
 
 
 @app.get("/api/dossiers/{dossier_id}")
-def dossier_detail(dossier_id: str):
+def dossier_detail(dossier_id: str, access: document_access.Access = Depends(document_reader)):
+    if not access.can_dossier(dossier_id):
+        raise document_access.DocumentAccessDenied("未找到该卷宗或无权读取")
     dossier = db.get_dossier(dossier_id)
     if not dossier:
         raise HTTPException(status_code=404, detail="卷宗不存在")
-    return {"dossier": dossier_service.dossier_summary(dossier)}
+    summary = dossier_service.dossier_summary(dossier, access.readable)
+    access.audit([item["doc_id"] for item in summary["materials"]], "dossier-materials")
+    return {"dossier": summary}
 
 
 @app.patch(
@@ -652,10 +676,13 @@ def remove_dossier(dossier_id: str):
 
 
 @app.get("/api/dossiers/{dossier_id}/checklist")
-def dossier_checklist(dossier_id: str):
-    result = dossier_service.checklist(dossier_id)
+def dossier_checklist(dossier_id: str, access: document_access.Access = Depends(document_reader)):
+    if not access.can_dossier(dossier_id):
+        raise document_access.DocumentAccessDenied("未找到该卷宗或无权读取")
+    result = dossier_service.checklist(dossier_id, access.readable)
     if not result:
         raise HTTPException(status_code=404, detail="卷宗不存在")
+    access.audit([item["doc_id"] for section in result["sections"] for item in section["items"] if item.get("doc_id")], "dossier-checklist")
     return result
 
 
@@ -723,13 +750,42 @@ def detach_dossier_document(dossier_id: str, doc_id: str):
 
 
 @app.get("/api/documents")
-def documents():
-    return {"documents": db.list_documents()}
+def documents(access: document_access.Access = Depends(document_reader)):
+    return {"documents": access.documents()}
+
+
+@app.get("/api/documents/access/users")
+def document_access_users(_user: dict = Depends(require_role("manager", "admin"))):
+    return {"users": [{key: user[key] for key in ("username", "display_name", "role")} for user in auth.list_users()]}
+
+
+@app.get("/api/documents/{doc_id}/access")
+def document_policy(doc_id: str, user: dict = Depends(require_role("manager", "admin"))):
+    access = document_access.Access(user)
+    access.require(doc_id)
+    with db.connect() as conn:
+        events = [dict(row) for row in conn.execute(
+            "SELECT actor, action, detail_json, created_at FROM document_access_events WHERE doc_id = ? ORDER BY created_at DESC, id DESC LIMIT 100",
+            (doc_id,),
+        ).fetchall()]
+    return {"access": access.policy(doc_id), "events": events}
+
+
+@app.put("/api/documents/{doc_id}/access")
+def update_document_policy(doc_id: str, payload: DocumentAccessRequest, user: dict = Depends(require_role("manager", "admin"))):
+    try:
+        return {"access": document_access.set_policy(doc_id, user["username"], payload.owner_username, payload.visibility, payload.readers)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/documents/{doc_id}/content")
-def document_content(doc_id: str):
+def document_content(doc_id: str, access: document_access.Access = Depends(document_reader)):
     document = db.get_document(doc_id)
+    if not document and access.manager:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    access.require(doc_id)
+    access.audit([doc_id], "document-content")
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
     chunks = db.get_chunks(doc_id)
@@ -822,6 +878,7 @@ async def upload_document(
         "warning": warning,
         "status": "ready" if chunks else "needs_review",
         "meta": {"original_name": file.filename, "suffix": suffix},
+        "owner_username": _user["username"],
     }
     try:
         db.insert_document(doc, chunks)
@@ -890,22 +947,24 @@ def _selected_chat_client(payload: ChatRequest):
 
 
 @app.post("/api/chat")
-def chat(payload: ChatRequest):
+def chat(payload: ChatRequest, access: document_access.Access = Depends(document_reader)):
     question = payload.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="问题不能为空")
-    result = qa.answer(question, payload.history, payload.scope or None, client=_selected_chat_client(payload))
+    result = qa.answer(question, payload.history, access.scope(payload.scope), client=_selected_chat_client(payload))
+    access.audit([c["doc_id"] for c in result.get("citations") or []], "chat-evidence")
     result["citations"] = _cite_payload(result.get("citations") or [])
     return result
 
 
 @app.post("/api/chat/stream")
-def chat_stream(payload: ChatRequest):
+def chat_stream(payload: ChatRequest, access: document_access.Access = Depends(document_reader)):
     question = payload.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="问题不能为空")
     client = _selected_chat_client(payload)
-    prepared = qa.prepare(question, payload.history, payload.scope or None)
+    prepared = qa.prepare(question, payload.history, access.scope(payload.scope))
+    access.audit([c["doc_id"] for c in prepared["citations"]], "chat-evidence")
     citations = _cite_payload(prepared["citations"])
     use_model = client.configured and bool(prepared["messages"])
     model_generation = generation_info(client, used_model=True)
@@ -959,25 +1018,33 @@ def chat_stream(payload: ChatRequest):
 
 
 @app.post("/api/review")
-def review_doc(payload: ReviewRequest, _user: dict = Depends(require_role("reviewer", "manager", "admin"))):
+def review_doc(payload: ReviewRequest, _user: dict = Depends(require_role("viewer", "reviewer", "manager", "admin"))):
     doc_id = payload.doc_id.strip()
     if not doc_id:
         raise HTTPException(status_code=400, detail="请选择文档")
     try:
-        return review.review_document(doc_id)
+        access = document_access.Access(_user)
+        if not access.can_check(doc_id):
+            raise document_access.DocumentAccessDenied("无权对该材料发起预审")
+        access.audit([doc_id], "review")
+        return access.report(review.review_document(doc_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/trends")
-def trend_analysis(payload: TrendRequest):
+def trend_analysis(payload: TrendRequest, access: document_access.Access = Depends(document_reader)):
     query = (payload.query or "科研诚信").strip()
-    return trends.analyze_trends(query, payload.start_year, payload.end_year)
+    result = trends.analyze_trends(query, payload.start_year, payload.end_year, access.readable)
+    returned_ids = {paper["id"] for paper in result.get("papers") or []}
+    access.audit([paper["doc_id"] for paper in db.list_papers() if paper["id"] in returned_ids and paper.get("doc_id")], "trend-evidence")
+    return result
 
 
 @app.get("/api/papers")
-def papers():
-    items = db.list_papers(limit=500)
+def papers(access: document_access.Access = Depends(document_reader)):
+    items = [p for p in db.list_papers(limit=500) if not p.get("doc_id") or access.can_read(p["doc_id"])]
+    access.audit([paper["doc_id"] for paper in items if paper.get("doc_id")], "paper-evidence")
     return {"papers": items, "count": len(items)}
 
 
@@ -1050,7 +1117,10 @@ def tool_check(payload: ToolCheckRequest, _user: dict = Depends(require_role("re
     if not doc_id:
         raise HTTPException(status_code=400, detail="请选择文档")
     try:
-        return expert_service.run_tool_check(doc_id, top_k=payload.top_k)
+        access = document_access.Access(_user)
+        access.require(doc_id)
+        access.audit([doc_id], "duplicate-check")
+        return access.tool(expert_service.run_tool_check(doc_id, top_k=payload.top_k))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1110,7 +1180,7 @@ def get_review_case(
     user: dict = Depends(require_role("reviewer", "manager", "admin")),
 ):
     try:
-        return {"case": review_cases.get_case(case_id, user)}
+        return {"case": document_access.Access(user).case(review_cases.get_case(case_id, user))}
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -1208,7 +1278,7 @@ def review_task_detail(
     user: dict = Depends(require_role("reviewer", "manager", "admin")),
 ):
     try:
-        return {"task": review_cases.get_task(task_id, user)}
+        return {"task": document_access.Access(user).task(review_cases.get_task(task_id, user))}
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -1222,14 +1292,15 @@ def submit_review_task(
     user: dict = Depends(require_role("reviewer", "admin")),
 ):
     try:
-        return {"case": review_cases.submit_task(
+        case = review_cases.submit_task(
             task_id,
             user,
             recommendation=payload.recommendation,
             opinion=payload.opinion,
             conflict_declared=payload.conflict_declared,
             conflict_reason=payload.conflict_reason,
-        )}
+        )
+        return {"case": document_access.Access(user).case(case)}
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -1242,7 +1313,8 @@ def review_artifacts_list(
     user: dict = Depends(require_role("reviewer", "manager", "admin")),
 ):
     try:
-        return {"artifacts": review_cases.list_artifacts(user, case_id.strip() or None)}
+        access = document_access.Access(user)
+        return {"artifacts": [access.artifact(a) for a in review_cases.list_artifacts(user, case_id.strip() or None)]}
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
@@ -1253,7 +1325,7 @@ def review_artifact_detail(
     user: dict = Depends(require_role("reviewer", "manager", "admin")),
 ):
     try:
-        return {"artifact": review_cases.get_artifact(artifact_id, user)}
+        return {"artifact": document_access.Access(user).artifact(review_cases.get_artifact(artifact_id, user))}
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:

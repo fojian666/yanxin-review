@@ -44,6 +44,7 @@ export interface Health {
 }
 
 export interface DocItem {
+  can_check?: boolean;
   id: string;
   name: string;
   kind: string;
@@ -68,6 +69,18 @@ export interface DocumentChunk {
 export interface DocumentContent {
   document: DocItem;
   chunks: DocumentChunk[];
+}
+
+export interface DocumentAccessPolicy {
+  owner_username: string;
+  visibility: "restricted" | "public";
+  readers: string[];
+}
+
+export interface DocumentAccessEvent {
+  actor: string;
+  action: string;
+  created_at: string;
 }
 
 export interface Citation {
@@ -261,9 +274,12 @@ export interface ReviewMatch {
   similarity: number;
   source_snippet: string;
   matched_snippet: string;
+  restricted?: boolean;
+  reference_id?: string;
 }
 
 export interface ReviewReport {
+  access_note?: string;
   doc: {
     id: string;
     name: string;
@@ -371,9 +387,12 @@ export interface DuplicateMatch {
   similarity: number;
   source_snippet: string;
   matched_snippet: string;
+  restricted?: boolean;
+  reference_id?: string;
 }
 
 export interface DuplicateResult {
+  access_note?: string;
   matches: DuplicateMatch[];
   highest: number;
   high_count: number;
@@ -395,6 +414,8 @@ export type ReviewDecision = "approved" | "returned" | "deferred" | "rejected";
 export type ExpertRecommendation = "approve" | "revise" | "reject";
 
 export interface ReviewArtifact {
+  redacted?: boolean;
+  original_sha256?: string;
   id: string;
   case_id: string;
   flow_id?: string;

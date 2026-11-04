@@ -189,7 +189,7 @@ class Retriever:
         use_embedding: bool = True,
     ) -> list[dict]:
         query = (query or "").strip()
-        if not query:
+        if not query or scope == []:
             return []
         with self._lock:
             if not self.ready:
@@ -209,7 +209,7 @@ class Retriever:
                 section = chunk.get("section") or ""
                 if section and any(t and t in section for t in terms):
                     scores[i] += 0.06
-            if scope and not self.uses_embedding:
+            if scope is not None:
                 scope_set = set(scope)
                 mask = np.array([c["doc_id"] in scope_set for c in self.chunks])
                 scores = np.where(mask, scores, -1.0)

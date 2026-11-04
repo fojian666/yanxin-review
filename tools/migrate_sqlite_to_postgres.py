@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parent.parent
 TABLES = [
     "users",
     "documents",
+    "document_access",
+    "document_access_events",
     "chunks",
     "papers",
     "experts",

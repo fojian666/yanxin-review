@@ -283,8 +283,8 @@ def _build_llm_prompt(doc: dict, text: str, chunks: list[dict], duplicate_matche
         for i, c in enumerate(selected, 1)
     )
     dup_text = "；".join(
-        f"与《{m.get('matched_doc_name','')}》相似度 {m.get('similarity',0):.2f}"
-        for m in duplicate_matches[:3]
+        f"比对来源{i}：相似度 {m.get('similarity',0):.2f}"
+        for i, m in enumerate(duplicate_matches[:3], 1)
         if float(m.get("similarity") or 0) >= 0.25
     ) or "未发现高相似文档"
     policy_text = "\n".join(
@@ -394,12 +394,16 @@ def review_document(doc_id: str) -> dict:
     mode = "offline"
     warning = ""
     rule_state = (sections, questions, summary, risk)
+    narrative_source_ids: list[str] = []
 
     model_generation = generation_info(llm, used_model=True)
     if llm.configured:
         try:
+            from .document_access import public_ids
+            public_doc_ids = public_ids()
+            public_policies = [c for c in policy_cites if c.get("doc_id") in public_doc_ids]
             raw = llm.chat(
-                _build_llm_prompt(doc, text, chunks, duplicate_matches, policy_cites),
+                _build_llm_prompt(doc, text, chunks, duplicate_matches, public_policies),
                 temperature=0.1,
                 max_tokens=1800,
             )
@@ -446,6 +450,8 @@ def review_document(doc_id: str) -> dict:
                     if llm_questions:
                         questions = llm_questions[:8]
                     mode = "qwen"
+                    # 保存实际送入模型的政策来源；后续撤销阅读权时不能继续泄漏叙述。
+                    narrative_source_ids = list(dict.fromkeys(c["doc_id"] for c in public_policies[:3]))
         except LLMError as exc:
             sections, questions, summary, risk = rule_state
             mode = "offline"
@@ -456,6 +462,8 @@ def review_document(doc_id: str) -> dict:
             warning = f"大模型结果解析失败，已使用规则预审：{exc}"
 
     return {
+        "privacy_version": 1,
+        "narrative_source_ids": narrative_source_ids,
         "doc": {
             "id": doc["id"],
             "name": doc["name"],

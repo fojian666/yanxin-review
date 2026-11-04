@@ -12,6 +12,7 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
 import { ArtifactEvidence } from "../components/ArtifactEvidence";
+import { DuplicateSource, DuplicateComparison } from "../components/DuplicateSource";
 import { Markdown } from "../components/Markdown";
 import type { ExpertRecommendation, ReviewTask, ToolCheckResult } from "../types";
 
@@ -188,8 +189,8 @@ export function ExpertReviewPage() {
                   <p>{duplicate.summary}</p>
                   {duplicate.matches?.map((match, index) => (
                     <div key={`${match.matched_doc_id}-${index}`}>
-                      <Link to={`/library?doc=${encodeURIComponent(match.matched_doc_id)}`}>{match.matched_doc_name}</Link>
-                      <p>本文：{match.source_snippet}</p><p>比对：{match.matched_snippet}</p>
+                      <DuplicateSource match={match} />
+                      <p>本文：{match.source_snippet}</p><DuplicateComparison match={match} />
                     </div>
                   ))}
                 </section>

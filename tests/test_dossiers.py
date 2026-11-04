@@ -370,6 +370,9 @@ def test_dossier_api_permissions_and_contract(tmp_path, monkeypatch):
             f"/api/dossiers/{dossier_id}/documents",
             json={"doc_id": "pledge-api", "role": "integrity_pledge"},
         ).status_code == 200
+        assert client.put(f"/api/documents/graph-in/access", json={
+            "owner_username": "viewer1", "visibility": "restricted", "readers": []
+        }).status_code == 200
         client.post("/api/auth/logout")
         assert client.post(
             "/api/auth/login",
@@ -378,6 +381,7 @@ def test_dossier_api_permissions_and_contract(tmp_path, monkeypatch):
         assert client.get("/api/dossiers").status_code == 200
         assert client.get(f"/api/dossiers/{dossier_id}").status_code == 200
         assert client.get(f"/api/dossiers/{dossier_id}/checklist").status_code == 200
+        assert "pledge-api" not in client.get(f"/api/dossiers/{dossier_id}/checklist").text
         assert client.post(
             f"/api/dossiers/{dossier_id}/documents",
             json={"doc_id": "graph-out", "role": "other"},

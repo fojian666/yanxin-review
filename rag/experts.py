@@ -356,6 +356,7 @@ def duplicate_check(doc_id: str, top_k: int = 5) -> dict[str, Any]:
 def run_tool_check(doc_id: str, top_k: int = 8) -> dict[str, Any]:
     doc, _text = _doc_text(doc_id)
     return {
+        "privacy_version": 1,
         "doc": {"id": doc["id"], "name": doc["name"], "kind": doc.get("kind"), "year": doc.get("year")},
         "duplicate": duplicate_check(doc_id),
         "match": match_experts(doc_id, top_k=top_k),

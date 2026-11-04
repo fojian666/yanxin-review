@@ -1,5 +1,7 @@
 import type {
   AuthUser,
+  DocumentAccessPolicy,
+  DocumentAccessEvent,
   KeywordGraphData,
   ChatHistoryItem,
   ChatSelection,
@@ -29,6 +31,14 @@ import type {
 const API = "/api";
 // 后端 LLM 默认预算为 90s，客户端应留出网络和响应解析余量。
 const DEFAULT_TIMEOUT_MS = 100_000;
+let sessionGeneration = 0;
+
+export const getApiSessionGeneration = () => sessionGeneration;
+export const invalidateApiSession = () => { sessionGeneration += 1; };
+
+function expireCurrentSession(generation: number) {
+  if (generation === sessionGeneration) window.dispatchEvent(new CustomEvent("auth:expired"));
+}
 
 function errorMessage(data: unknown, status: number): string {
   if (data && typeof data === "object") {
@@ -45,6 +55,7 @@ async function request<T>(
   options: RequestInit = {},
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
+  const generation = sessionGeneration;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
@@ -63,7 +74,7 @@ async function request<T>(
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith("/auth/login")) {
       // 会话失效：广播给全局状态切回登录页
-      window.dispatchEvent(new CustomEvent("auth:expired"));
+      expireCurrentSession(generation);
     }
     throw new Error(errorMessage(data, res.status));
   }
@@ -85,6 +96,7 @@ function requestFormData<T>(
   onProgress?: (pct: number) => void,
   timeoutMs = 180000
 ): Promise<T> {
+  const generation = sessionGeneration;
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API}${path}`);
@@ -112,7 +124,7 @@ function requestFormData<T>(
       }
       if (xhr.status === 401) {
         // 与 request() 一致：会话失效广播，切回登录页
-        window.dispatchEvent(new CustomEvent("auth:expired"));
+        expireCurrentSession(generation);
       }
       reject(new Error(errorMessage(data, xhr.status)));
     };
@@ -143,6 +155,9 @@ export const api = {
     return request<KeywordGraphData>(`/knowledge/keywords?${params}`);
   },
   documents: () => request<{ documents: DocItem[] }>("/documents"),
+  documentAccessUsers: () => request<{ users: AuthUser[] }>("/documents/access/users"),
+  documentAccess: (docId: string) => request<{ access: DocumentAccessPolicy; events: DocumentAccessEvent[] }>(`/documents/${encodeURIComponent(docId)}/access`),
+  setDocumentAccess: (docId: string, policy: DocumentAccessPolicy) => request<{ access: DocumentAccessPolicy }>(`/documents/${encodeURIComponent(docId)}/access`, { ...jsonOptions(policy), method: "PUT" }),
   documentContent: (docId: string) =>
     request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
@@ -305,6 +320,7 @@ export async function streamChat(
   handlers: StreamHandlers,
   signal?: AbortSignal
 ): Promise<void> {
+  const generation = sessionGeneration;
   let res: Response;
   try {
     res = await fetch(`${API}/chat/stream`, { ...jsonOptions(payload), signal });
@@ -314,7 +330,7 @@ export async function streamChat(
   }
   if (!res.ok) {
     if (res.status === 401) {
-      window.dispatchEvent(new CustomEvent("auth:expired"));
+      expireCurrentSession(generation);
     }
     let data: unknown = null;
     try {

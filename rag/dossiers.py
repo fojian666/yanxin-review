@@ -157,8 +157,10 @@ def validate_attachment(role: str, document_kind: str) -> None:
         raise ValueError("文档类型与材料角色不匹配")
 
 
-def dossier_summary(dossier: dict[str, Any]) -> dict[str, Any]:
+def dossier_summary(dossier: dict[str, Any], readable_ids: set[str] | None = None) -> dict[str, Any]:
     materials = db.list_dossier_documents(dossier["id"])
+    if readable_ids is not None:
+        materials = [item for item in materials if item["doc_id"] in readable_ids]
     current = [item for item in materials if item["is_current"]]
     return {
         **dossier,
@@ -334,11 +336,13 @@ def _indicator_check(dossier: dict[str, Any], materials: list[dict[str, Any]]) -
     }
 
 
-def checklist(dossier_id: str) -> dict[str, Any] | None:
+def checklist(dossier_id: str, readable_ids: set[str] | None = None) -> dict[str, Any] | None:
     dossier = db.get_dossier(dossier_id)
     if not dossier:
         return None
     materials = db.list_dossier_documents(dossier_id)
+    if readable_ids is not None:
+        materials = [item for item in materials if item["doc_id"] in readable_ids]
 
     base_items = [
         _field(dossier, "year", "申报年度", severity="warn"),
@@ -430,7 +434,7 @@ def checklist(dossier_id: str) -> dict[str, Any] | None:
     passed = sum(item["status"] == "pass" for item in items)
     overall_status = _status(items)
     return {
-        "dossier": dossier_summary(dossier),
+        "dossier": dossier_summary(dossier, readable_ids),
         "overall": {
             "status": overall_status,
             "summary": (

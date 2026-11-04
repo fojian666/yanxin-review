@@ -172,8 +172,10 @@ def _llm_summary(query: str, years: list[int], counts: list[int], series: list[d
     return "", ""
 
 
-def analyze_trends(query: str = "科研诚信", start_year: int | None = None, end_year: int | None = None) -> dict[str, Any]:
+def analyze_trends(query: str = "科研诚信", start_year: int | None = None, end_year: int | None = None, readable_ids: set[str] | None = None) -> dict[str, Any]:
     all_papers = db.list_papers()
+    if readable_ids is not None:
+        all_papers = [p for p in all_papers if not p.get("doc_id") or p["doc_id"] in readable_ids]
     if start_year is None:
         start_year = min([p["year"] for p in all_papers if p.get("year")], default=2019)
     if end_year is None:

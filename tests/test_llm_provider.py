@@ -321,7 +321,7 @@ def test_stream_records_actual_source_after_fallback_or_interruption(monkeypatch
     monkeypatch.setattr(application.qa, "prepare", lambda *a, **k: prepared)
     monkeypatch.setattr(application, "llm", client)
     async def events():
-        response = application.chat_stream(application.ChatRequest(question="测试"))
+        response = application.chat_stream(application.ChatRequest(question="测试"), SimpleNamespace(scope=lambda _: [], audit=lambda *_: None))
         return [json.loads(chunk.removeprefix("data: ").strip()) async for chunk in response.body_iterator]
     for outcome in ("success", "fallback", "interrupted"):
         def stream(*args):
@@ -459,7 +459,7 @@ def test_selected_stream_sends_actual_model_and_thinking(monkeypatch):
         return Response()
     monkeypatch.setattr(llm_module.requests, "post", fake_post)
     async def collect():
-        response = application.chat_stream(application.ChatRequest(question="测试", model="qwen-plus", strength="low"))
+        response = application.chat_stream(application.ChatRequest(question="测试", model="qwen-plus", strength="low"), SimpleNamespace(scope=lambda _: [], audit=lambda *_: None))
         return [json.loads(chunk.removeprefix("data: ").strip()) async for chunk in response.body_iterator]
     frames = asyncio.run(collect())
     assert calls[0][0] == config.DASHSCOPE_BASE_URL + "/chat/completions"

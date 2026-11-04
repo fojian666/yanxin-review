@@ -192,3 +192,86 @@ test('登录页在桌面和手机可用，演示入口遵循后台开关', async
   await expect.poll(() => page.locator('.access-page').evaluate((element) => getComputedStyle(element, '::before').display)).toBe('none');
   await expect(page.getByRole('button', { name: '显示密码' }).locator('svg')).toBeVisible();
 });
+
+for (const phase of ['初始化', '资料刷新'] as const) {
+  test(`旧管理会话的${phase}响应不能回填新登录账号`, async ({ app: page, context, documents }) => {
+    const secret = documents[0];
+    expect((await context.request.put(`/api/documents/${secret.id}/access`, { data: {
+      owner_username: 'manager', visibility: 'restricted', readers: [],
+    } })).ok()).toBeTruthy();
+    if (phase === '资料刷新') {
+      await page.goto('/library');
+      await expect(page.locator('.document-reader-head h2')).toBeVisible();
+    }
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let markCaptured!: () => void;
+    const captured = new Promise<void>(resolve => { markCaptured = resolve; });
+    let first = true;
+    await page.route('**/api/documents', async route => {
+      if (route.request().method() !== 'GET' || !first) return route.continue();
+      first = false;
+      const response = await route.fetch();
+      const body = await response.json();
+      expect(body.documents.some((doc: { id: string }) => doc.id === secret.id)).toBeTruthy();
+      markCaptured();
+      await held;
+      await route.fulfill({ response, json: body });
+    });
+    if (phase === '初始化') await page.reload();
+    else {
+      page.once('dialog', dialog => void dialog.accept());
+      await page.getByRole('button', { name: '移除演示本子', exact: true }).click();
+    }
+    await captured;
+    await page.locator('.user-trigger').click();
+    await page.getByRole('menuitem', { name: '退出登录' }).click();
+    await expect(page.getByPlaceholder('请输入用户名')).toBeVisible();
+    // 不做整页导航：保留旧请求，真实模拟同一前端运行期换账号。
+    await page.getByPlaceholder('请输入用户名').fill('viewer');
+    await page.getByPlaceholder('请输入密码', { exact: true }).fill(password);
+    await page.getByRole('button', { name: '登 录', exact: true }).click();
+    await expect(page.locator('.user-trigger')).toContainText('viewer');
+    await navigate(page, '文档中心');
+    const responseReturned = page.waitForResponse(response => new URL(response.url()).pathname === '/api/documents');
+    release();
+    await responseReturned;
+    // 等待响应解析及 React 提交，防止仅在旧响应落地前断言“不可见”。
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(page.locator('.nav').getByRole('link', { name: '项目预审', exact: true })).toHaveCount(0);
+    await expect(page.locator('.document-directory-shell')).not.toContainText(secret.name);
+    await expect(page.locator('#workspace-document option').filter({ hasText: secret.name })).toHaveCount(0);
+    expect((await context.request.get(`/api/documents/${secret.id}/content`)).status()).toBe(403);
+  });
+}
+
+test('旧管理请求的迟到401不能退出新登录的查看者会话', async ({ app: page, context }) => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let markCaptured!: () => void;
+  const captured = new Promise<void>(resolve => { markCaptured = resolve; });
+  let first = true;
+  await page.route('**/api/documents', async route => {
+    if (route.request().method() !== 'GET' || !first) return route.continue();
+    first = false;
+    markCaptured();
+    await held;
+    await route.fulfill({ status: 401, json: { detail: '旧会话已失效' } });
+  });
+  await page.reload();
+  await captured;
+  await page.locator('.user-trigger').click();
+  await page.getByRole('menuitem', { name: '退出登录' }).click();
+  await page.getByPlaceholder('请输入用户名').fill('viewer');
+  await page.getByPlaceholder('请输入密码', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '登 录', exact: true }).click();
+  await expect(page.locator('.user-trigger')).toContainText('viewer');
+  await navigate(page, '文档中心');
+  const expiredResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/documents' && response.status() === 401);
+  release();
+  await expiredResponse;
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(page.locator('.user-trigger')).toContainText('viewer');
+  await expect(page.getByPlaceholder('请输入用户名')).toHaveCount(0);
+  expect((await context.request.get('/api/auth/me')).status()).toBe(200);
+});

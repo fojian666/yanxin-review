@@ -108,7 +108,12 @@ export const test = base.extend<{ server: Server; app: Page; documents: Doc[] }>
         title: name, kind: 'proposal', year: '2025',
       } });
       expect(response.ok()).toBeTruthy();
-      docs.push((await response.json()).document);
+      const document = (await response.json()).document;
+      // 通用流程夹具明确公开；权限隔离用例另建受控材料，不依赖默认共享。
+      expect((await context.request.put(`/api/documents/${document.id}/access`, { data: {
+        owner_username: 'manager', visibility: 'public', readers: [],
+      } })).ok()).toBeTruthy();
+      docs.push(document);
     }
     await _app.reload();
     await expect(_app.getByRole('heading', { level: 1 })).toHaveText('工作台');

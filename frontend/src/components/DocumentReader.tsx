@@ -30,6 +30,7 @@ interface DocumentReaderProps {
   onReview: (doc: DocItem) => void;
   onDelete: (doc: DocItem) => void;
   onRetry: () => void;
+  onAccess?: () => void;
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -61,6 +62,7 @@ export function DocumentReader({
   onReview,
   onDelete,
   onRetry,
+  onAccess,
 }: DocumentReaderProps) {
   const reduce = useMotionPreference();
   const waiting = loading || (!content && !error);
@@ -92,6 +94,7 @@ export function DocumentReader({
       </header>
 
       <div className="document-reader-actions">
+        {onAccess && <button type="button" className="btn btn-ghost btn-sm" onClick={onAccess}>阅读权限</button>}
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAsk(selected)}>
           <MessageSquareText size={14} />文档问答
         </button>

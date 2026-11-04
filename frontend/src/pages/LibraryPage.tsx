@@ -15,6 +15,7 @@ import { useApp } from "../AppContext";
 import { DocumentDirectory } from "../components/DocumentDirectory";
 import { ArtifactEvidence } from "../components/ArtifactEvidence";
 import { DocumentReader } from "../components/DocumentReader";
+import { DocumentAccessDialog } from "../components/DocumentAccessDialog";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
 import { EASE } from "../motion";
@@ -70,6 +71,7 @@ export function LibraryPage() {
   );
   const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [accessDocument, setAccessDocument] = useState<DocItem | null>(null);
   const [content, setContent] = useState<DocumentContent | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
   const [contentError, setContentError] = useState("");
@@ -423,7 +425,7 @@ export function LibraryPage() {
           total={orderedDocs.length}
           previous={previous}
           next={next}
-          canReview={can("review")}
+          canReview={can("precheck") && selected?.can_check !== false}
           canDelete={can("delete-doc")}
           deleting={deletingId === selected?.id}
           missingMessage={requestedMissing ? "未找到该文档，可能已被删除或无权访问。" : undefined}
@@ -432,6 +434,7 @@ export function LibraryPage() {
           onAsk={openForChat}
           onReview={openForReview}
           onDelete={(doc) => void deleteDocument(doc)}
+          onAccess={can("delete-doc") && selected ? () => setAccessDocument(selected) : undefined}
           onRetry={() => {
             if (!selected) return;
             const requestId = ++contentRequest.current;
@@ -594,6 +597,7 @@ export function LibraryPage() {
       </section>
 
       {dragging && <div className="document-drop-overlay" aria-hidden="true"><UploadCloud size={28} />松开以上传文档</div>}
+      {accessDocument && <DocumentAccessDialog document={accessDocument} onClose={() => setAccessDocument(null)} />}
     </div>
   );
 }

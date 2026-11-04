@@ -12,7 +12,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { api } from "./api";
+import { api, getApiSessionGeneration, invalidateApiSession } from "./api";
 import { EASE } from "./motion";
 import type {
   AuthUser,
@@ -132,6 +132,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // 会话切换时统一清理，避免上一位用户的问答/引用/上传态残留
   const resetSession = useCallback(() => {
+    invalidateApiSession();
     setDocs([]);
     setDossiers([]);
     setDossierOptions(null);
@@ -148,8 +149,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoading(true);
   }, []);
 
+  const sessionGuard = useCallback(() => {
+    const generation = getApiSessionGeneration();
+    const username = authRef.current?.username;
+    return () => Boolean(username && getApiSessionGeneration() === generation && authRef.current?.username === username);
+  }, []);
+
   const refreshDocs = useCallback(async () => {
-    const data = await api.documents();
+    const current = sessionGuard();
+    const data = await api.documents().catch(error => { if (current()) throw error; return null; });
+    if (!current() || !data) return;
     setDocs(data.documents);
     setActiveDocId((current) => {
       if (data.documents.some((d) => d.id === current)) return current;
@@ -157,21 +166,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return data.documents.find((doc) => doc.kind === "proposal" || doc.kind === "other")?.id ?? "";
     });
     setSelectedDocs((current) => current.filter((id) => data.documents.some((d) => d.id === id)));
-  }, [activeDossierId]);
+  }, [activeDossierId, sessionGuard]);
 
   const refreshDossiers = useCallback(async () => {
-    const data = await api.dossiers();
+    const current = sessionGuard();
+    const data = await api.dossiers().catch(error => { if (current()) throw error; return null; });
+    if (!current() || !data) return;
     setDossiers(data.dossiers);
     setActiveDossierId((current) => {
       if (data.dossiers.some((dossier) => dossier.id === current)) return current;
       return "";
     });
-  }, []);
+  }, [sessionGuard]);
 
   const refreshPapers = useCallback(async () => {
-    const data = await api.papers();
+    const current = sessionGuard();
+    const data = await api.papers().catch(error => { if (current()) throw error; return null; });
+    if (!current() || !data) return;
     setPapers(data.papers);
-  }, []);
+  }, [sessionGuard]);
 
   // 启动时验证会话；失效回到登录页
   useEffect(() => {
@@ -179,7 +192,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const user = await api.me();
-        if (!cancelled) setAuth(user);
+        if (!cancelled) { authRef.current = user; setAuth(user); }
       } catch {
         // 401：未登录
       } finally {
@@ -206,6 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [resetSession, toast]);
 
   const loadInitial = useCallback(async () => {
+    const current = sessionGuard();
     try {
       const [h, d, ds, options, p] = await Promise.all([
         api.health(),
@@ -214,6 +228,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         api.dossierOptions(),
         api.papers(),
       ]);
+      if (!current()) return;
       setHealth(h);
       setDocs(d.documents);
       setDossiers(ds.dossiers);
@@ -230,11 +245,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       setPapers(p.papers);
     } catch (err) {
-      toast(`初始化失败：${(err as Error).message}`, "error");
+      if (current()) toast(`初始化失败：${(err as Error).message}`, "error");
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [toast]);
+  }, [sessionGuard, toast]);
 
   useEffect(() => {
     if (!authReady || !auth) return;
@@ -257,6 +272,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [resetSession]);
 
   const logout = useCallback(async () => {
+    // 退出请求尚在途中时，也不能再提交旧会话的读取结果。
+    invalidateApiSession();
     let message = "已退出登录";
     let type: "info" | "error" = "info";
     try {
@@ -272,8 +289,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [resetSession, toast]);
 
   const can = useCallback(
-    (action: string) => Boolean(auth && (PERMISSIONS[action] || []).includes(auth.role)),
-    [auth]
+    (action: string) => Boolean(auth && (action === "precheck"
+      ? PERMISSIONS.review.includes(auth.role) || docs.some(doc => doc.can_check)
+      : (PERMISSIONS[action] || []).includes(auth.role))),
+    [auth, docs]
   );
 
   const toggleSidebar = useCallback(() => {

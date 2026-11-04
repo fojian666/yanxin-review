@@ -472,7 +472,7 @@ def _tool_markdown(result: dict[str, Any]) -> str:
         lines.extend([
             f"- 比对文档：{item.get('matched_doc_name', '')}；相似度：{item.get('similarity', '')}",
             f"  - 本文：{item.get('source_snippet', '')}",
-            f"  - 比对：{item.get('matched_snippet', '')}",
+            "  - 对方原文受保护，须经授权核验。" if item.get("restricted") else f"  - 比对：{item.get('matched_snippet', '')}",
         ])
     lines.extend(["", "## 专家匹配", match.get("summary", "未执行"), ""])
     for key in ("applicant_warning", "institution_match_note"):

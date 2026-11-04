@@ -623,9 +623,29 @@ def _init_pgvector() -> None:
         )
 
 
+DOCUMENT_ACCESS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS document_access (
+    doc_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+    owner_username TEXT NOT NULL DEFAULT '',
+    visibility TEXT NOT NULL DEFAULT 'restricted' CHECK (visibility IN ('restricted', 'public')),
+    readers_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS document_access_events (
+    id TEXT PRIMARY KEY,
+    doc_id TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    action TEXT NOT NULL,
+    detail_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_document_access_events_doc ON document_access_events(doc_id, created_at);
+"""
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(POSTGRES_SCHEMA if backend() == "postgresql" else SQLITE_SCHEMA)
+        conn.executescript(DOCUMENT_ACCESS_SCHEMA)
         if backend() == "postgresql":
             for column in ("expert_name", "expert_institution"):
                 conn.execute(f"ALTER TABLE expert_account_history ADD COLUMN IF NOT EXISTS {column} TEXT NOT NULL DEFAULT ''")
@@ -692,6 +712,11 @@ def insert_document(doc: dict[str, Any], chunks: list[dict[str, Any]]) -> None:
                 for c in chunks
             ],
         )
+        if doc.get("owner_username"):
+            conn.execute(
+                "INSERT INTO document_access (doc_id, owner_username) VALUES (?, ?)",
+                (doc["id"], doc["owner_username"]),
+            )
 
 
 def list_documents() -> list[dict[str, Any]]:

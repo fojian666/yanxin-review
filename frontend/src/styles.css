@@ -8039,3 +8039,28 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .data-table .doc-title,
 .dossier-material-copy strong { font-weight: 650; }
 .kpi-label { font-weight: 600; }
+
+.document-access-dialog {
+  width: min(620px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.document-access-dialog::backdrop { background: rgb(9 25 40 / .45); }
+.document-access-dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 26px); }
+.document-access-dialog .modal-head,
+.document-access-dialog .modal-actions { flex: 0 0 auto; margin: 0; padding: 12px 18px; }
+.document-access-dialog .modal-head { position: static; align-items: center; border-bottom: 1px solid var(--line); }
+.document-access-dialog .modal-head h2 { font-size: 22px; }
+.document-access-dialog .modal-actions { border-top: 1px solid var(--line); }
+.document-access-body { min-height: 0; overflow-y: auto; padding: 0 18px 16px; overflow-wrap: anywhere; }
+.document-access-body > strong { display: block; padding-top: 14px; }
+.document-access-body .field { margin: 12px 0; }
+.document-access-body select { width: 100%; min-width: 0; min-height: 44px; }
+.document-access-readers { margin: 12px 0; border: 1px solid var(--line); border-radius: 6px; max-height: 160px; overflow-y: auto; }
+.document-access-readers label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.document-access-body .warning-banner { margin-block: 12px; }

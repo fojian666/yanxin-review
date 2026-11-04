@@ -327,7 +327,7 @@ def test_document_content_api_returns_ordered_chunks_without_local_path(tmp_path
         ],
     )
 
-    result = app_module.document_content("readable")
+    result = app_module.document_content("readable", app_module.document_access.Access({"username": "admin", "role": "admin"}))
 
     assert result["document"]["name"] == "可阅读文档"
     assert "path" not in result["document"]
@@ -339,7 +339,7 @@ def test_document_content_api_returns_ordered_chunks_without_local_path(tmp_path
 def test_document_content_api_returns_404_for_unknown_document(tmp_path, monkeypatch):
     _tmp_db(tmp_path, monkeypatch)
     with pytest.raises(HTTPException) as exc:
-        app_module.document_content("missing")
+        app_module.document_content("missing", app_module.document_access.Access({"username": "admin", "role": "admin"}))
     assert exc.value.status_code == 404
 
 
@@ -1153,7 +1153,7 @@ def test_auth_matrix_via_asgi(tmp_path, monkeypatch):
             "/api/auth/login", json={"username": "reviewer1", "password": "secret1"}
         ).status_code == 200
         assert client.get("/api/experts").status_code == 200
-        assert client.post("/api/tool/check", json={"doc_id": "missing"}).status_code == 400
+        assert client.post("/api/tool/check", json={"doc_id": "missing"}).status_code == 403
         assert client.post(
             "/api/auth/users",
             json={"username": "x", "password": "secret1", "role": "viewer"},

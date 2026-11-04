@@ -11,6 +11,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { AdaptivePager } from "../components/AdaptivePager";
+import { DuplicateSource, DuplicateComparison } from "../components/DuplicateSource";
 import { generationLabel } from "../generation";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
@@ -76,6 +77,8 @@ export function ReviewPage() {
     const rank: Record<string, number> = { proposal: 0, other: 1, policy: 2, paper: 3 };
     return [...docs].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9));
   }, [docs]);
+  const selectedDocument = sortedDocs.find((doc) => doc.id === docId);
+  const canCheckSelected = Boolean(selectedDocument && selectedDocument.can_check !== false && ["proposal", "other"].includes(selectedDocument.kind));
   const activeDocExists = useMemo(
     () => Boolean(activeDocId) && sortedDocs.some((doc) => doc.id === activeDocId),
     [activeDocId, sortedDocs],
@@ -186,6 +189,10 @@ export function ReviewPage() {
       toast("请先选择一份文档", "error");
       return;
     }
+    if (!canCheckSelected) {
+      toast("请选择本人或获准预审的申报材料", "error");
+      return;
+    }
     if (runningRef.current) return;
     runningRef.current = true;
     runFocusRef.current = document.activeElement;
@@ -244,7 +251,7 @@ export function ReviewPage() {
       report.duplicate.matches.forEach((match) => {
         lines.push(`- 与《${match.matched_doc_name}》相似度 ${match.similarity.toFixed(2)}`);
         lines.push(`  - 本子：${match.source_snippet}`);
-        lines.push(`  - 比对：${match.matched_snippet}`);
+        lines.push(match.restricted ? "  - 对方原文受保护，须经授权核验。" : `  - 比对：${match.matched_snippet}`);
       });
       lines.push("");
     }
@@ -295,7 +302,8 @@ export function ReviewPage() {
                 <h2>项目预审</h2>
                 <p className="review-run-doc">{docId ? `准备检查：${sortedDocs.find((doc) => doc.id === docId)?.name ?? "已选文档"}` : "请先从上方选择申报书。"}</p>
                 {selectionError && <div className="panel error-panel" role="alert">{selectionError}</div>}
-                <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !docId}>
+                {docId && !canCheckSelected && <p role="status">该材料不可发起预审，请选择本人或获准预审的申报材料。</p>}
+                <button className="btn btn-primary btn-block" onClick={() => void run()} disabled={busy || !canCheckSelected}>
                   {busy ? <><Loader2 size={16} className="spin" />预审中…</> : <><ShieldCheck size={16} />开始预审</>}
                 </button>
                 {reportReady && <div className="review-ready" role="status">预审已完成 <button type="button" className="btn btn-ghost btn-sm" onClick={focusReport}>查看报告</button></div>}
@@ -417,8 +425,9 @@ export function ReviewPage() {
                           <span className="muted">相似度不等于抄袭，需人工判断</span>
                         </div>
                         <div className="review-evidence-body review-finding-body">
-                          <div className="check-label"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(entry.match.matched_doc_id)}`} aria-label={`打开《${entry.match.matched_doc_name}》原文`}>{entry.match.matched_doc_name}</Link> · 相似度 {entry.match.similarity.toFixed(2)}</div>
-                          <div className="check-evidence">本子：{entry.match.source_snippet}<br />比对：{entry.match.matched_snippet}</div>
+                          <div className="check-label"><DuplicateSource match={entry.match} /> · 相似度 {entry.match.similarity.toFixed(2)}</div>
+                          <div className="check-evidence">本子：{entry.match.source_snippet}</div>
+                          <DuplicateComparison match={entry.match} />
                         </div>
                       </section>
                     ) : (
@@ -523,7 +532,7 @@ function ReviewPrintReport({ report }: { report: ReviewReport }) {
             <div className="print-check-item" key={`${match.matched_doc_name}-${index}`}>
               <h3>{match.matched_doc_name} · 相似度 {match.similarity.toFixed(2)}</h3>
               <p>本子：{match.source_snippet}</p>
-              <p>比对：{match.matched_snippet}</p>
+              <DuplicateComparison match={match} />
             </div>
           ))}
         </section>

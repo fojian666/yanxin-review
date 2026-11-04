@@ -90,7 +90,7 @@ export function WelcomePage() {
         ? "/review"
         : "/chat";
   const requested = entries.find((item) => item.path === location.pathname);
-  if (location.pathname !== "/welcome" && !requested) {
+  if (!loading && location.pathname !== "/welcome" && !requested) {
     return <Navigate to={can("review") ? "/chat" : defaultPath} replace />;
   }
   const active = requested ?? entries.find((item) => item.path === defaultPath) ?? entries[0];

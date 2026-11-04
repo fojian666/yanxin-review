@@ -18,6 +18,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { AdaptivePager } from "../components/AdaptivePager";
+import { DuplicateSource, DuplicateComparison } from "../components/DuplicateSource";
 import { EmptyState } from "../components/EmptyState";
 import { KpiCard } from "../components/KpiCard";
 import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
@@ -54,8 +55,8 @@ function expertStatus(expert: Expert) {
 export function ExpertLibraryPage() { return <MatchPage expertLibraryOnly />; }
 
 export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: boolean } = {}) {
-  const { docs, toast, can, activeDocId } = useApp();
-  const [params] = useSearchParams();
+  const { docs, toast, can, loading: docsLoading, activeDocId, setActiveDocId, setActiveDossierId } = useApp();
+  const [params, setParams] = useSearchParams();
   const [docId, setDocId] = useState(activeDocId);
   const [result, setResult] = useState<ToolCheckResult | null>(null);
   const [experts, setExperts] = useState<Expert[]>([]);
@@ -65,6 +66,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
   const [bindingBusy, setBindingBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectionError, setSelectionError] = useState("");
   const [section, setSection] = useState<MatchSection>(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
   const loadingRef = useRef(false);
   const checkIdRef = useRef(0);
@@ -78,6 +80,31 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
     () => Boolean(activeDocId) && sortedDocs.some((doc) => doc.id === activeDocId),
     [activeDocId, sortedDocs],
   );
+
+  useEffect(() => {
+    const requestedId = params.get("doc");
+    if (!requestedId || docsLoading || expertLibraryOnly) return;
+    const requested = docs.find(doc => doc.id === requestedId);
+    setActiveDossierId("");
+    checkIdRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
+    setResult(null);
+    setSection("run");
+    if (requested && ["proposal", "other"].includes(requested.kind)) {
+      setActiveDocId(requested.id);
+      setDocId(requested.id);
+      setSelectionError("");
+      setError("");
+    } else {
+      setActiveDocId("");
+      setDocId("");
+      setSelectionError("未找到该申报材料或无权读取，请重新选择。");
+    }
+    const next = new URLSearchParams(params);
+    next.delete("doc");
+    setParams(next, { replace: true });
+  }, [params, docs, docsLoading, expertLibraryOnly, setActiveDocId, setActiveDossierId, setParams]);
 
   const loadExperts = async () => {
     try {
@@ -134,6 +161,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
       return;
     }
     if (!activeDocExists) return;
+    if (!params.get("doc")) setSelectionError("");
     checkIdRef.current += 1;
     loadingRef.current = false;
     setLoading(false);
@@ -217,7 +245,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
       result.duplicate.matches.forEach((match) => {
         lines.push(`- 与《${match.matched_doc_name}》相似度 ${match.similarity.toFixed(2)}`);
         lines.push(`  - 本子：${match.source_snippet}`);
-        lines.push(`  - 比对：${match.matched_snippet}`);
+        lines.push(match.restricted ? "  - 对方原文受保护，须经授权核验。" : `  - 比对：${match.matched_snippet}`);
       });
     } else {
       lines.push("当前已入库文档范围内未发现相似文档。");
@@ -332,15 +360,16 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
                 </div>
               </div>
               <AnimatePresence initial={false}>
-                {error && (
+                {(selectionError || error) && (
                   <motion.div
                     className="panel error-panel"
+                    role="alert"
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22, ease: EASE }}
                   >
-                    <AlertTriangle size={18} />{error}
+                    <AlertTriangle size={18} />{selectionError || error}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -368,16 +397,16 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
                     label="查重结果"
                     items={duplicateMatches}
                     resetKey={result?.generated_at}
-                    getKey={(item) => item.matched_doc_id}
+                    getKey={(item) => item.matched_doc_id || item.reference_id || item.matched_doc_name}
                     renderItem={(item) => (
                       <article className="duplicate-card">
                         <div className="duplicate-head">
-                          <div><div className="duplicate-title"><Link className="evidence-doc-link" to={`/library?doc=${encodeURIComponent(item.matched_doc_id)}`} aria-label={`打开《${item.matched_doc_name}》原文`}>{item.matched_doc_name}</Link></div><div className="muted">最高段落相似度 {item.similarity.toFixed(2)}</div></div>
+                          <div><div className="duplicate-title"><DuplicateSource match={item} /></div><div className="muted">最高段落相似度 {item.similarity.toFixed(2)}</div></div>
                           <span className={`status-pill ${scoreClass(item.similarity)}`}>{item.similarity >= 0.55 ? "高相似" : item.similarity >= 0.3 ? "关注" : "低相似"}</span>
                         </div>
                         <div className="duplicate-body">
                           <div className="check-evidence">本子：{item.source_snippet}</div>
-                          <div className="check-evidence">比对：{item.matched_snippet}</div>
+                          <DuplicateComparison match={item} />
                         </div>
                       </article>
                     )}
