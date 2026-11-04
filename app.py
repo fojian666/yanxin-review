@@ -247,6 +247,10 @@ class ReviewCaseCreateRequest(BaseModel):
     dossier_id: str = Field(default="", max_length=64)
 
 
+class ReviewCaseResubmitRequest(BaseModel):
+    doc_id: str = Field(..., min_length=1, max_length=64)
+
+
 class ReviewTaskAssignment(BaseModel):
     expert_id: int = Field(..., ge=1)
     username: str = Field(..., min_length=1, max_length=32)
@@ -254,6 +258,15 @@ class ReviewTaskAssignment(BaseModel):
 
 class ReviewCaseAssignRequest(BaseModel):
     assignments: list[ReviewTaskAssignment] = Field(default_factory=list, max_length=20)
+
+
+class ExpertAccountBindingRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=32)
+    expert_id: int = Field(..., ge=1)
+
+
+class ExpertAccountUnbindingRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=32)
 
 
 class ExpertReviewSubmitRequest(BaseModel):
@@ -1020,7 +1033,10 @@ async def import_experts(file: UploadFile = File(...), _user: dict = Depends(req
 
 @app.delete("/api/experts/sample")
 def remove_sample_experts(_user: dict = Depends(require_role("manager", "admin"))):
-    count = db.delete_sample_experts()
+    try:
+        count = db.delete_sample_experts()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"ok": True, "removed": count}
 
 
@@ -1049,6 +1065,23 @@ def list_review_cases(user: dict = Depends(require_role("reviewer", "manager", "
 @app.get("/api/review-cases/reviewers")
 def list_review_case_reviewers(_user: dict = Depends(require_role("manager", "admin"))):
     return {"reviewers": review_cases.reviewer_options()}
+
+
+@app.post("/api/review-cases/reviewers/bind")
+def bind_review_case_reviewer(payload: ExpertAccountBindingRequest, user: dict = Depends(require_role("manager", "admin"))):
+    try:
+        return {"binding": review_cases.bind_expert_account(payload.username, payload.expert_id, str(user.get("username", "")))}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/review-cases/reviewers/unbind")
+def unbind_review_case_reviewer(payload: ExpertAccountUnbindingRequest, user: dict = Depends(require_role("manager", "admin"))):
+    try:
+        review_cases.unbind_expert_account(payload.username, str(user.get("username", "")))
+        return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/review-cases")
@@ -1096,6 +1129,14 @@ def run_review_case(
             tool_result=tool_result,
         )}
     except (ValueError, PermissionError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/review-cases/{case_id}/resubmit")
+def resubmit_review_case(case_id: str, payload: ReviewCaseResubmitRequest, user: dict = Depends(require_role("manager", "admin"))):
+    try:
+        return {"case": review_cases.create_resubmission(case_id, payload.doc_id, str(user.get("username", "")))}
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

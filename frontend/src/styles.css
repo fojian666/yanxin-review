@@ -7475,6 +7475,9 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .review-stage-grid,
   .review-expert-stage-grid,
   .review-final-grid { grid-template-columns: 1fr; overflow-y: auto; }
+  .review-expert-stage-grid { grid-template-rows: minmax(330px, auto) minmax(180px, auto); }
+  .review-candidate-list { min-height: 150px; }
+  .review-assign-row .select { min-height: 44px; }
   .review-stage-card { min-height: 150px; }
   .expert-review-layout { grid-template-columns: 1fr; overflow-y: auto; }
   .expert-review-evidence,

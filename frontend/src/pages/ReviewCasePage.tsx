@@ -106,6 +106,7 @@ export function ReviewCasePage() {
   const [assignee, setAssignee] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("approved");
   const [finalComment, setFinalComment] = useState("");
+  const [resubmitDocId, setResubmitDocId] = useState("");
 
   const [processStep, setProcessStep] = useState(0);
 
@@ -182,6 +183,7 @@ export function ReviewCasePage() {
     setSelectedExperts([]);
     setDecision("approved");
     setFinalComment("");
+    setResubmitDocId("");
     setStage("pre_review");
     setProcessStep(0);
     setLoading(true);
@@ -255,9 +257,41 @@ export function ReviewCasePage() {
   };
 
   const toggleExpert = (id: number) => {
-    setSelectedExperts((items) =>
-      items.includes(id) ? items.filter((item) => item !== id) : [...items, id]
-    );
+    setSelectedExperts((items) => items.includes(id) ? [] : [id]);
+  };
+
+  const bindExpert = async () => {
+    if (selectedExperts.length !== 1 || !assignee) return;
+    const expert = candidates.find((item) => item.expert.id === selectedExperts[0]);
+    const reviewer = reviewers.find((item) => item.username === assignee);
+    if (!expert || !reviewer || !confirm(`确认将专家“${expert.expert.name}”绑定到账号“${reviewer.display_name}（${assignee}）”？`)) return;
+    setBusy("bind");
+    try {
+      await api.bindReviewExpert(assignee, expert.expert.id);
+      const result = await api.reviewCaseReviewers();
+      setReviewers(result.reviewers);
+      toast("专家账号已绑定");
+    } catch (error) {
+      toast(`绑定失败：${(error as Error).message}`, "error");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const unbindExpert = async () => {
+    const reviewer = reviewers.find((item) => item.username === assignee);
+    if (!reviewer || reviewer.expert_id == null || !confirm(`确认解除账号“${reviewer.display_name}（${assignee}）”的专家绑定？该操作将留痕。`)) return;
+    setBusy("unbind");
+    try {
+      await api.unbindReviewExpert(assignee);
+      const result = await api.reviewCaseReviewers();
+      setReviewers(result.reviewers);
+      toast("专家账号已解除绑定");
+    } catch (error) {
+      toast(`解除绑定失败：${(error as Error).message}`, "error");
+    } finally {
+      setBusy("");
+    }
   };
 
   const assignExperts = async () => {
@@ -305,6 +339,20 @@ export function ReviewCasePage() {
       toast("终审决定已签署并归档");
     } catch (error) {
       toast(`终审提交失败：${(error as Error).message}`, "error");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const resubmit = async () => {
+    if (!current || !resubmitDocId || !confirm("确认用所选补正材料创建新一轮评审？原轮次及专家意见会保留，新一轮需重新指派专家。")) return;
+    setBusy("resubmit");
+    try {
+      const result = await api.resubmitReviewCase(current.id, resubmitDocId);
+      await applyCase(result.case, "pre_review", true);
+      toast("已建立新一轮评审");
+    } catch (error) {
+      toast(`创建重审失败：${(error as Error).message}`, "error");
     } finally {
       setBusy("");
     }
@@ -403,7 +451,7 @@ export function ReviewCasePage() {
         </div>
         <div className="review-case-bar-actions">
           <select className="select" value={current.id} onChange={(event) => { selectedCaseRef.current = event.target.value; setCaseId(event.target.value); }} aria-label="切换评审案卷">
-            {cases.map((item) => <option key={item.id} value={item.id}>{item.title} · {item.stage_label}</option>)}
+            {cases.map((item) => <option key={item.id} value={item.id}>{item.title} · 第 {item.round} 轮 · {item.stage_label}</option>)}
           </select>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCreating(true)}><Plus size={14} />新建案卷</button>
         </div>
@@ -496,7 +544,7 @@ export function ReviewCasePage() {
               <div className="review-expert-stage-grid">
                 <article className="review-stage-card review-candidate-pool">
                   <div className="review-stage-card-head">
-                    <div><h3>候选专家</h3><small>选择专家后指派给一个审核账号</small></div>
+                    <div><h3>候选专家</h3><small>每位专家须绑定本人审核账号</small></div>
                     <Users size={18} />
                   </div>
                   <div className="review-candidate-list">
@@ -518,9 +566,11 @@ export function ReviewCasePage() {
                   </div>
                   <div className="review-assign-row">
                     <select className="select" value={assignee} onChange={(event) => setAssignee(event.target.value)} aria-label="选择专家审核账号">
-                      {reviewers.map((reviewer) => <option key={reviewer.username} value={reviewer.username}>{reviewer.display_name}</option>)}
+                      {reviewers.map((reviewer) => <option key={reviewer.username} value={reviewer.username}>{reviewer.display_name}（{reviewer.username}）{reviewer.expert_name ? ` · ${reviewer.expert_name} / ${reviewer.expert_institution}` : " · 未绑定"}</option>)}
                     </select>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => void assignExperts()} disabled={busy === "assign" || current.stage !== "expert_review" || !selectedExperts.length || !assignee}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => void bindExpert()} disabled={!!busy || current.stage !== "expert_review" || selectedExperts.length !== 1 || !assignee || reviewers.find((item) => item.username === assignee)?.expert_id != null}>绑定专家账号</button>
+                    {reviewers.find((item) => item.username === assignee)?.expert_id != null && <button type="button" className="btn btn-ghost btn-sm" onClick={() => void unbindExpert()} disabled={!!busy || current.stage !== "expert_review"}>解除绑定</button>}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => void assignExperts()} disabled={!!busy || current.stage !== "expert_review" || selectedExperts.length !== 1 || reviewers.find((item) => item.username === assignee)?.expert_id !== selectedExperts[0]}>
                       {busy === "assign" ? <Loader2 className="spin" size={14} /> : <UserPlus size={14} />}指派审核
                     </button>
                   </div>
@@ -582,6 +632,17 @@ export function ReviewCasePage() {
                       <h3>终审决定</h3>
                       <strong className="review-final-decision">{current.final_decision_label}</strong>
                       <p>{current.final_comment}</p>
+                      {current.final_decision === "returned" && (
+                        <>
+                          <label className="field"><span>补正材料</span>
+                            <select value={resubmitDocId} onChange={(event) => setResubmitDocId(event.target.value)}>
+                              <option value="">选择新版本材料</option>
+                              {availableDocs.filter((doc) => doc.id !== current.doc_id && (!current.dossier_id || dossiers.find((item) => item.id === current.dossier_id)?.materials.some((material) => material.doc_id === doc.id && material.is_current))).map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+                            </select>
+                          </label>
+                          <button type="button" className="btn btn-primary" disabled={!!busy || !resubmitDocId} onClick={() => void resubmit()}>创建补正重审</button>
+                        </>
+                      )}
                     </>
                   ) : current.stage === "final_review" ? (
                     <>

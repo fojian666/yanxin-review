@@ -69,6 +69,7 @@ def main() -> int:
                 "source": "smoke",
             }
         )
+        review_cases.bind_expert_account(f"smoke-reviewer-{suffix}", expert_id, "smoke-manager")
         case = review_cases.create_case(
             title=f"冒烟案卷-{suffix}",
             doc_id=doc_id,
@@ -183,6 +184,8 @@ def main() -> int:
                 conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
                 conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
                 conn.execute("DELETE FROM dossiers WHERE name = ?", (f"冒烟课题-{suffix}",))
+                conn.execute("DELETE FROM expert_accounts WHERE username = ?", (f"smoke-reviewer-{suffix}",))
+                conn.execute("DELETE FROM expert_account_history WHERE username = ?", (f"smoke-reviewer-{suffix}",))
                 conn.execute("DELETE FROM experts WHERE name = ?", (f"冒烟专家-{suffix}",))
                 conn.execute("DELETE FROM users WHERE username = ?", (f"smoke-reviewer-{suffix}",))
         except Exception:

@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 81 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（183 个测试函数，参数化展开 202 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（185 个测试函数，参数化展开 204 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -29,7 +29,7 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：52 条 API 路由（含认证、卷宗、项目评审案卷、专家任务、归档、数据接入）、SSE、文档读取、上传、SPA 托管
+app.py                 FastAPI：55 条 API 路由（含认证、卷宗、项目评审案卷、专家任务、归档、数据接入）、SSE、文档读取、上传、SPA 托管
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、128MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   db.py                SQLite/PostgreSQL 双适配：documents/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
@@ -168,3 +168,5 @@ One Page 工作区：所有受保护路由共享同一历史课题上下文，�
 紧凑高度不得因隐藏 `work-deck-head` 丢失操作：高度≤420px 时，显式启用 `compactStatus` 的页面把状态节点移动到固定可见的紧凑页脚，查重“导出结果”等操作必须继续可用；页脚只占 36px，不恢复完整标题说明。普通统计状态不得启用该页脚，避免挤压趋势缩放工作面。对应 `review-match.spec.ts` 在 640×400 检查。
 
 自适应子页：材料、历史版本、体检项、流程、检查边界、预审证据、查重匹配、专家候选和回避理由统一使用 `AdaptivePager`。按容器实际可用高度测量每项自然高度，在当前页尽量排入更多完整项目，触底才进入下一页；不得先压扁卡片再裁字。容器尺寸、缩放、主题或数据批次变化时重算，展开证据等用户操作不得触发突然跳页。分页按钮统一使用“上一页 / 下一页”，并保留页内滚动作为单项超过容器高度时的兜底。
+
+- 专家账号须与专家库一对一显式绑定后才能指派；待审核任务存在时不能解绑，绑定和解绑留痕；已有其他专家历史任务的账号不能改绑。终审退回后可使用新材料建立下一轮并重新指派专家，原轮次材料、决定、任务与归档保持不变；关联历史课题时新材料须为当前版本；文档中心按同一评审流程合并各轮归档。

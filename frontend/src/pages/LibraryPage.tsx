@@ -114,13 +114,14 @@ export function LibraryPage() {
   const artifactGroups = useMemo(() => {
     const groups = new Map<string, { id: string; title: string; items: ReviewArtifact[] }>();
     for (const artifact of visibleArtifacts) {
-      const group = groups.get(artifact.case_id) || {
-        id: artifact.case_id,
+      const groupId = artifact.flow_id || artifact.case_id;
+      const group = groups.get(groupId) || {
+        id: groupId,
         title: artifact.case_title || "未命名评审案卷",
         items: [],
       };
       group.items.push(artifact);
-      groups.set(artifact.case_id, group);
+      groups.set(groupId, group);
     }
     return [...groups.values()];
   }, [visibleArtifacts]);
@@ -535,9 +536,9 @@ export function LibraryPage() {
             <div className="document-case-artifact-list scroll-area">
               {artifactGroups.map((group) => (
                 <details
-                  key={`${group.id}-${artifactQuery}-${selectedArtifact?.case_id === group.id}`}
+                  key={`${group.id}-${artifactQuery}-${(selectedArtifact?.flow_id || selectedArtifact?.case_id) === group.id}`}
                   className="document-case-group"
-                  open={Boolean(artifactQuery) || selectedArtifact?.case_id === group.id}
+                  open={Boolean(artifactQuery) || (selectedArtifact?.flow_id || selectedArtifact?.case_id) === group.id}
                 >
                   <summary>
                     <ChevronRight size={14} aria-hidden="true" />
@@ -553,7 +554,7 @@ export function LibraryPage() {
                         aria-pressed={artifact.id === selectedArtifactId}
                         onClick={() => chooseArtifact(artifact)}
                       >
-                        <span>{artifact.stage_label}</span>
+                        <span>{artifact.round != null ? `第 ${artifact.round} 轮 · ` : ""}{artifact.stage_label}</span>
                         <strong>{artifact.title}</strong>
                         <small>{artifact.created_at.replace("T", " ")}</small>
                       </button>

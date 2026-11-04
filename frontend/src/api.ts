@@ -243,8 +243,14 @@ export const api = {
       jsonOptions({}),
       200_000
     ),
+  resubmitReviewCase: (caseId: string, docId: string) =>
+    request<{ case: ReviewCase }>(`/review-cases/${encodeURIComponent(caseId)}/resubmit`, jsonOptions({ doc_id: docId })),
   reviewCaseReviewers: () =>
     request<{ reviewers: ReviewerOption[] }>("/review-cases/reviewers"),
+  bindReviewExpert: (username: string, expertId: number) =>
+    request<{ binding: { username: string; expert_id: number } }>("/review-cases/reviewers/bind", jsonOptions({ username, expert_id: expertId })),
+  unbindReviewExpert: (username: string) =>
+    request<{ ok: boolean }>("/review-cases/reviewers/unbind", jsonOptions({ username })),
   assignReviewCaseExperts: (
     caseId: string,
     assignments: { expert_id: number; username: string }[]

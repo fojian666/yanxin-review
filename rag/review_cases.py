@@ -158,17 +158,19 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
     with db.connect() as conn:
         rows = conn.execute(
             f"""
-            SELECT c.*, d.name AS doc_name, d.kind AS doc_kind,
+            SELECT c.*, COALESCE(r.root_case_id, c.id) AS flow_id, r.previous_case_id,
+                   d.name AS doc_name, d.kind AS doc_kind,
                    COUNT(DISTINCT t.id) AS task_total,
                    SUM(CASE WHEN t.status = 'submitted' THEN 1 ELSE 0 END) AS submitted_count,
                    SUM(CASE WHEN t.status = 'conflict' THEN 1 ELSE 0 END) AS conflict_count,
                    SUM(CASE WHEN t.status = 'assigned' THEN 1 ELSE 0 END) AS assigned_count,
                    (SELECT COUNT(*) FROM review_artifacts a WHERE a.case_id = c.id) AS artifact_count
             FROM review_cases c
+            LEFT JOIN review_case_rounds r ON r.case_id = c.id
             JOIN documents d ON d.id = c.doc_id
             LEFT JOIN review_tasks t ON t.case_id = c.id
             {where}
-            GROUP BY c.id, d.name, d.kind
+            GROUP BY c.id, r.root_case_id, r.previous_case_id, d.name, d.kind
             ORDER BY c.updated_at DESC, c.created_at DESC
             """,
             params,
@@ -181,6 +183,8 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
             item.pop("final_decision", None)
             item.pop("final_decision_label", None)
             item.pop("final_comment", None)
+            for key in ("round", "flow_id", "previous_case_id"):
+                item.pop(key, None)
     return result
 
 
@@ -226,9 +230,11 @@ def get_case(case_id: str, user: dict) -> dict[str, Any]:
     with db.connect() as conn:
         row = conn.execute(
             """
-            SELECT c.*, d.name AS doc_name, d.kind AS doc_kind, d.year AS doc_year,
+            SELECT c.*, COALESCE(r.root_case_id, c.id) AS flow_id, r.previous_case_id,
+                   d.name AS doc_name, d.kind AS doc_kind, d.year AS doc_year,
                    d.text_len AS doc_text_len, d.chunk_count AS doc_chunk_count
             FROM review_cases c
+            LEFT JOIN review_case_rounds r ON r.case_id = c.id
             JOIN documents d ON d.id = c.doc_id
             WHERE c.id = ?
             """,
@@ -284,8 +290,14 @@ def get_case(case_id: str, user: dict) -> dict[str, Any]:
         data.pop("final_decision", None)
         data.pop("final_decision_label", None)
         data.pop("final_comment", None)
+        for key in ("round", "flow_id", "previous_case_id"):
+            data.pop(key, None)
     data["tasks"] = [_row(task) for task in tasks]
     data["artifacts"] = [_row(artifact) for artifact in artifacts]
+    if user.get("role") == "reviewer":
+        for artifact in data["artifacts"]:
+            artifact.pop("round", None)
+            artifact.pop("flow_id", None)
     _decorate_task_audit(data["tasks"], data["artifacts"])
     data["actions"] = [_row(action) for action in actions]
     data["task_total"] = len(tasks)
@@ -296,15 +308,76 @@ def get_case(case_id: str, user: dict) -> dict[str, Any]:
     return data
 
 
-def reviewer_options() -> list[dict[str, str]]:
+def reviewer_options() -> list[dict[str, Any]]:
+    with db.connect() as conn:
+        bindings = {row["username"]: dict(row) for row in conn.execute("SELECT a.username, a.expert_id, e.name AS expert_name, e.institution AS expert_institution FROM expert_accounts a JOIN experts e ON e.id = a.expert_id").fetchall()}
     return [
         {
             "username": item["username"],
             "display_name": item.get("display_name") or item["username"],
+            "expert_id": bindings.get(item["username"], {}).get("expert_id"),
+            "expert_name": bindings.get(item["username"], {}).get("expert_name", ""),
+            "expert_institution": bindings.get(item["username"], {}).get("expert_institution", ""),
         }
         for item in auth.list_users()
         if item.get("role") == "reviewer"
     ]
+
+
+def bind_expert_account(username: str, expert_id: int, actor: str) -> dict[str, Any]:
+    """Explicit, one-to-one binding; never infer identities from historical tasks."""
+    username = username.strip()
+    with db.connect() as conn:
+        user = conn.execute("SELECT role FROM users WHERE username = ?", (username,)).fetchone()
+        if not user or user["role"] != "reviewer":
+            raise ValueError("审核账号必须是评审专家角色")
+        expert = conn.execute("SELECT id, name, institution FROM experts WHERE id = ?", (expert_id,)).fetchone()
+        if not expert:
+            raise ValueError("专家不存在")
+        if conn.execute(
+            """SELECT 1 FROM review_tasks WHERE
+               assignee_username = ? AND (expert_id IS NULL OR expert_id <> ?) LIMIT 1""",
+            (username, expert_id),
+        ).fetchone():
+            raise ValueError("账号已有其他专家的历史审核任务，不能重新绑定")
+        existing = conn.execute(
+            "SELECT username, expert_id, bound_by, created_at FROM expert_accounts WHERE username = ? OR expert_id = ?",
+            (username, expert_id),
+        ).fetchone()
+        if existing:
+            if existing["username"] == username and existing["expert_id"] == expert_id:
+                return dict(existing)
+            raise ValueError("账号或专家已绑定其他身份")
+        created_at = db.now()
+        result = conn.execute(
+            "INSERT INTO expert_accounts (username, expert_id, bound_by, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
+            (username, expert_id, actor, created_at),
+        )
+        if not result.rowcount:
+            raise ValueError("账号或专家已绑定其他身份，请刷新后重试")
+        conn.execute(
+            "INSERT INTO expert_account_history (id, username, expert_id, expert_name, expert_institution, action, actor, created_at) VALUES (?, ?, ?, ?, ?, 'bound', ?, ?)",
+            (db.new_id(), username, expert_id, expert["name"], expert["institution"] or "", actor, created_at),
+        )
+    return {"username": username, "expert_id": expert_id, "bound_by": actor, "created_at": created_at}
+
+
+def unbind_expert_account(username: str, actor: str) -> None:
+    with db.connect() as conn:
+        if db.backend() == "sqlite":
+            conn.execute("BEGIN IMMEDIATE")
+        suffix = " FOR UPDATE" if db.backend() == "postgresql" else ""
+        binding = conn.execute("SELECT expert_id FROM expert_accounts WHERE username = ?" + suffix, (username,)).fetchone()
+        if not binding:
+            raise ValueError("该账号未绑定专家")
+        if conn.execute("SELECT 1 FROM review_tasks WHERE assignee_username = ? AND status = 'assigned' LIMIT 1", (username,)).fetchone():
+            raise ValueError("该账号仍有待审核任务，不能解除绑定")
+        expert = conn.execute("SELECT name, institution FROM experts WHERE id = ?", (binding["expert_id"],)).fetchone()
+        conn.execute("DELETE FROM expert_accounts WHERE username = ?", (username,))
+        conn.execute(
+            "INSERT INTO expert_account_history (id, username, expert_id, expert_name, expert_institution, action, actor, created_at) VALUES (?, ?, ?, ?, ?, 'unbound', ?, ?)",
+            (db.new_id(), username, binding["expert_id"], expert["name"], expert["institution"] or "", actor, db.now()),
+        )
 
 
 def _artifact(
@@ -425,6 +498,45 @@ def _locked_case(conn, case_id: str):
     return conn.execute("SELECT * FROM review_cases WHERE id = ?", (case_id,)).fetchone()
 
 
+def create_resubmission(case_id: str, doc_id: str, actor: str) -> dict[str, Any]:
+    """Create a new case for the next round without changing the signed round."""
+    with db.connect() as conn:
+        previous = _locked_case(conn, case_id)
+        if not previous:
+            raise ValueError("评审案卷不存在")
+        if previous["stage"] != "completed" or previous["final_decision"] != "returned":
+            raise ValueError("仅已签署退回修改的案卷可以补正重审")
+        if conn.execute("SELECT 1 FROM review_case_rounds WHERE previous_case_id = ?", (case_id,)).fetchone():
+            raise ValueError("该轮次已创建补正重审案卷")
+        doc = conn.execute("SELECT id, kind FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if not doc or doc["kind"] not in {"proposal", "other"} or doc_id == previous["doc_id"]:
+            raise ValueError("请选择不同于原材料的新申报书或项目材料")
+        if previous["dossier_id"] and not conn.execute(
+            "SELECT 1 FROM dossier_documents WHERE dossier_id = ? AND doc_id = ? AND is_current = 1",
+            (previous["dossier_id"], doc_id),
+        ).fetchone():
+            raise ValueError("补正材料须先归入原历史课题并设为当前版本")
+        previous_link = conn.execute("SELECT root_case_id FROM review_case_rounds WHERE case_id = ?", (case_id,)).fetchone()
+        root_id = previous_link["root_case_id"] if previous_link else case_id
+        if conn.execute(
+            """SELECT 1 FROM review_cases c LEFT JOIN review_case_rounds r ON r.case_id = c.id
+               WHERE COALESCE(r.root_case_id, c.id) = ? AND c.doc_id = ? LIMIT 1""",
+            (root_id, doc_id),
+        ).fetchone():
+            raise ValueError("补正材料不能使用本流程之前评审过的版本")
+        new_id = db.new_id()
+        stamp = db.now()
+        conn.execute(
+            """INSERT INTO review_cases (id, title, dossier_id, doc_id, stage, status, round, created_by, updated_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, 'pre_review', 'draft', ?, ?, ?, ?, ?)""",
+            (new_id, previous["title"], previous["dossier_id"], doc_id, int(previous["round"]) + 1, actor, actor, stamp, stamp),
+        )
+        conn.execute("INSERT INTO review_case_rounds (case_id, root_case_id, previous_case_id) VALUES (?, ?, ?)", (new_id, root_id, case_id))
+        _action(conn, case_id, actor, "resubmission_created", {"next_case_id": new_id, "doc_id": doc_id})
+        _action(conn, new_id, actor, "resubmission_started", {"previous_case_id": case_id, "doc_id": doc_id})
+    return get_case(new_id, {"username": actor, "role": "manager"})
+
+
 def save_pre_results(
     case_id: str,
     *,
@@ -525,6 +637,12 @@ def assign_tasks(
                 raise ValueError("审核账号必须是评审专家角色")
             if expert_id not in allowed_experts:
                 raise ValueError("只能指派通过回避、负载和可用性过滤的候选专家")
+            binding_sql = "SELECT expert_id FROM expert_accounts WHERE username = ?"
+            if db.backend() == "postgresql":
+                binding_sql += " FOR UPDATE"
+            binding = conn.execute(binding_sql, (username,)).fetchone()
+            if not binding or binding["expert_id"] != expert_id:
+                raise ValueError("审核账号与候选专家尚未一对一绑定")
             expert = conn.execute(
                 "SELECT id, name, institution, title FROM experts WHERE id = ?",
                 (expert_id,),
@@ -693,10 +811,15 @@ def get_task(task_id: str, user: dict) -> dict[str, Any]:
     data = _row(row) or {}
     if user.get("role") == "reviewer" and data.get("case_stage") == "completed":
         data["case_status"] = "completed"
+    if user.get("role") == "reviewer":
+        data.pop("round", None)
     _decorate_task_audit([data], [_row(item) for item in audit_artifacts])
     latest: dict[str, dict[str, Any]] = {}
     for artifact in artifacts:
         parsed = _row(artifact) or {}
+        if user.get("role") == "reviewer":
+            parsed.pop("round", None)
+            parsed.pop("flow_id", None)
         latest.setdefault(parsed["artifact_type"], parsed)
     data["pre_review"] = latest.get("pre_review")
     data["tool_check"] = latest.get("tool_check")
@@ -962,9 +1085,10 @@ def list_artifacts(user: dict, case_id: str | None = None) -> list[dict[str, Any
     with db.connect() as conn:
         rows = conn.execute(
             f"""
-            SELECT a.*, c.title AS case_title, d.name AS doc_name
+            SELECT a.*, c.title AS case_title, d.name AS doc_name, COALESCE(r.root_case_id, c.id) AS flow_id
             FROM review_artifacts a
             JOIN review_cases c ON c.id = a.case_id
+            LEFT JOIN review_case_rounds r ON r.case_id = c.id
             JOIN documents d ON d.id = a.source_doc_id
             {where}
             ORDER BY a.created_at DESC, a.id DESC
@@ -972,16 +1096,22 @@ def list_artifacts(user: dict, case_id: str | None = None) -> list[dict[str, Any
             tuple(params),
         ).fetchall()
     visible = (row for row in rows if _artifact_visible(row, user))
-    return [_row(row) for row in visible]
+    result = [_row(row) for row in visible]
+    if user.get("role") == "reviewer":
+        for artifact in result:
+            artifact.pop("round", None)
+            artifact.pop("flow_id", None)
+    return result
 
 
 def get_artifact(artifact_id: str, user: dict) -> dict[str, Any]:
     with db.connect() as conn:
         row = conn.execute(
             """
-            SELECT a.*, c.title AS case_title, d.name AS doc_name
+            SELECT a.*, c.title AS case_title, d.name AS doc_name, COALESCE(r.root_case_id, c.id) AS flow_id
             FROM review_artifacts a
             JOIN review_cases c ON c.id = a.case_id
+            LEFT JOIN review_case_rounds r ON r.case_id = c.id
             JOIN documents d ON d.id = a.source_doc_id
             WHERE a.id = ?
             """,
@@ -992,4 +1122,8 @@ def get_artifact(artifact_id: str, user: dict) -> dict[str, Any]:
         _require_access(conn, row["case_id"], user)
         if not _artifact_visible(row, user):
             raise PermissionError("无权访问其他专家的审核记录")
-    return _row(row) or {}
+    result = _row(row) or {}
+    if user.get("role") == "reviewer":
+        result.pop("round", None)
+        result.pop("flow_id", None)
+    return result

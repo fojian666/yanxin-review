@@ -396,11 +396,12 @@ export type ExpertRecommendation = "approve" | "revise" | "reject";
 export interface ReviewArtifact {
   id: string;
   case_id: string;
+  flow_id?: string;
   stage: ReviewCaseStage;
   stage_label: string;
   artifact_type: "pre_review" | "tool_check" | "expert_assignment" | "expert_opinion" | "expert_conflict" | "final_decision";
   title: string;
-  round: number;
+  round?: number;
   format: "markdown";
   content: string;
   payload: Record<string, unknown>;
@@ -488,6 +489,9 @@ export interface ReviewCase {
 export interface ReviewerOption {
   username: string;
   display_name: string;
+  expert_id: number | null;
+  expert_name: string;
+  expert_institution: string;
 }
 
 export interface KeywordGraphSource { doc_id: string; doc_name: string; chunk_idx: number; section: string; page: number | null; excerpt: string; }

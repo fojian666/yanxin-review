@@ -37,6 +37,7 @@ def _seed(tmp_path, monkeypatch):
             "source": "test",
         }
     )
+    review_cases.bind_expert_account("reviewer-case", 1, "manager-case")
 
 
 def _pre_payloads():
@@ -97,6 +98,8 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
         "manager-case",
     )
     assert case["task_total"] == 1
+    with pytest.raises(ValueError, match="待审核任务"):
+        review_cases.unbind_expert_account("reviewer-case", "manager-case")
     task_id = case["tasks"][0]["id"]
 
     reviewer = {"username": "reviewer-case", "role": "reviewer"}
@@ -143,6 +146,17 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
         "final_decision",
     }
     assert all(item["sha256"] for item in artifacts)
+    review_cases.unbind_expert_account("reviewer-case", "manager-case")
+    replacement = db.insert_expert({"name": "不能接管历史任务的专家", "institution": "测试机构"})
+    with pytest.raises(ValueError, match="历史审核任务"):
+        review_cases.bind_expert_account("reviewer-case", replacement, "manager-case")
+    assert auth.create_user("reviewer-new", "reviewer123", "reviewer", "专家新账号")
+    review_cases.bind_expert_account("reviewer-new", 1, "manager-case")
+    with pytest.raises(PermissionError):
+        review_cases.get_task(task_id, {"username": "reviewer-new", "role": "reviewer"})
+    with db.connect() as conn:
+        events = conn.execute("SELECT action FROM expert_account_history WHERE username = ? ORDER BY created_at, id", ("reviewer-case",)).fetchall()
+    assert {event["action"] for event in events} == {"bound", "unbound"}
     assert len(case["actions"]) >= 5
 
     assert review_cases.get_task(task_id, reviewer)["case_status"] == "completed"
@@ -151,6 +165,12 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
     reviewer_case = review_cases.get_case(case["id"], reviewer)
     assert len(reviewer_case["tasks"]) == 1
     assert reviewer_case["status"] == "completed"
+    assert all(key not in reviewer_case for key in ("round", "flow_id", "previous_case_id"))
+    assert all("round" not in item and "flow_id" not in item for item in reviewer_case["artifacts"])
+    assert "round" not in review_cases.get_task(task_id, reviewer)
+    visible_artifacts = review_cases.list_artifacts(reviewer)
+    assert all("round" not in item and "flow_id" not in item for item in visible_artifacts)
+    assert "round" not in review_cases.get_artifact(visible_artifacts[0]["id"], reviewer)
     assert "final_decision" not in reviewer_case
     assert "final_decision_label" not in reviewer_case
     assert "final_comment" not in reviewer_case
@@ -191,6 +211,12 @@ def test_review_case_expert_conflict_and_access_boundary(tmp_path, monkeypatch):
         review_cases.assign_tasks(
             case["id"],
             [{"expert_id": expert_id + 999, "username": "reviewer-case"}],
+            "manager-case",
+        )
+    with pytest.raises(ValueError, match="尚未一对一绑定"):
+        review_cases.assign_tasks(
+            case["id"],
+            [{"expert_id": expert_id, "username": "other-reviewer"}],
             "manager-case",
         )
     case = review_cases.assign_tasks(
@@ -252,6 +278,8 @@ def test_concurrent_assignment_and_advance_cannot_leave_pending_final_task(tmp_p
 
     _seed(tmp_path, monkeypatch)
     second = db.insert_expert({"name": "第二位测试专家", "institution": "测试机构", "available": True})
+    assert auth.create_user("reviewer-second", "reviewer123", "reviewer", "第二位专家")
+    review_cases.bind_expert_account("reviewer-second", second, "manager-case")
     case = review_cases.create_case(title="并发阶段", doc_id="doc-case", dossier_id="", actor="manager-case")
     report, tool = _pre_payloads()
     tool["match"]["candidates"].append({"expert": {"id": second}})
@@ -270,9 +298,70 @@ def test_concurrent_assignment_and_advance_cannot_leave_pending_final_task(tmp_p
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(execute, [
-            lambda: review_cases.assign_tasks(case["id"], [{"expert_id": second, "username": "reviewer-case"}], "manager-case"),
+            lambda: review_cases.assign_tasks(case["id"], [{"expert_id": second, "username": "reviewer-second"}], "manager-case"),
             lambda: review_cases.advance_to_final(case["id"], "manager-case"),
         ]))
     assert sorted(results) == ["rejected", "success"]
     result = review_cases.get_case(case["id"], {"username": "manager-case", "role": "manager"})
     assert result["stage"] == "expert_review" or result["assigned_count"] == 0
+
+
+def test_expert_account_binding_is_explicit_unique_and_idempotent(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    assert auth.create_user("reviewer-other", "reviewer123", "reviewer", "另一位专家")
+    other_expert = db.insert_expert({"name": "另一位测试专家", "institution": "测试机构"})
+    first = review_cases.bind_expert_account("reviewer-case", 1, "manager-case")
+    assert review_cases.bind_expert_account("reviewer-case", 1, "manager-case") == first
+    with pytest.raises(ValueError, match="已绑定"):
+        review_cases.bind_expert_account("reviewer-other", 1, "manager-case")
+    with pytest.raises(ValueError, match="已绑定"):
+        review_cases.bind_expert_account("reviewer-case", other_expert, "manager-case")
+    with pytest.raises(ValueError, match="评审专家角色"):
+        review_cases.bind_expert_account("manager-case", other_expert, "manager-case")
+    with pytest.raises(ValueError, match="专家不存在"):
+        review_cases.bind_expert_account("reviewer-other", 999999, "manager-case")
+
+
+def test_returned_case_creates_distinct_round_and_preserves_history(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+
+    _seed(tmp_path, monkeypatch)
+    case = review_cases.create_case(title="重审测试", doc_id="doc-case", dossier_id="", actor="manager-case")
+    with pytest.raises(ValueError, match="退回修改"):
+        review_cases.create_resubmission(case["id"], "doc-case", "manager-case")
+    report, tool = _pre_payloads()
+    case = review_cases.save_pre_results(case["id"], actor="manager-case", report=report, tool_result=tool)
+    case = review_cases.assign_tasks(case["id"], [{"expert_id": 1, "username": "reviewer-case"}], "manager-case")
+    review_cases.submit_task(case["tasks"][0]["id"], {"username": "reviewer-case", "role": "reviewer"}, recommendation="revise", opinion="需要补充研究内容和完整的技术方案", conflict_declared=False, conflict_reason="")
+    review_cases.advance_to_final(case["id"], "manager-case")
+    previous = review_cases.finalize_case(case["id"], "manager-case", decision="returned", comment="请按照专家意见补充完整的申报材料")
+    with pytest.raises(ValueError, match="不同于原材料"):
+        review_cases.create_resubmission(case["id"], "doc-case", "manager-case")
+    db.insert_document({"id": "doc-revised", "name": "补正版本", "kind": "proposal", "source": "test", "path": str(tmp_path / "revised.txt")}, [])
+    barrier = threading.Barrier(2)
+
+    def create_round():
+        barrier.wait(timeout=5)
+        try:
+            return review_cases.create_resubmission(case["id"], "doc-revised", "manager-case")
+        except ValueError as exc:
+            return str(exc)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: create_round(), range(2)))
+    created = [value for value in results if isinstance(value, dict)]
+    assert len(created) == 1 and any(isinstance(value, str) and "已创建" in value for value in results)
+    new_case = created[0]
+    assert new_case["round"] == 2 and new_case["stage"] == "pre_review"
+    assert new_case["doc_id"] == "doc-revised" and new_case["tasks"] == []
+    assert new_case["flow_id"] == case["id"] and new_case["previous_case_id"] == case["id"]
+    with pytest.raises(ValueError, match="已创建"):
+        review_cases.create_resubmission(case["id"], "doc-revised", "manager-case")
+    current_previous = review_cases.get_case(case["id"], {"username": "manager-case", "role": "manager"})
+    assert current_previous["final_decision"] == "returned"
+    assert [(x["id"], x["sha256"]) for x in current_previous["artifacts"]] == [(x["id"], x["sha256"]) for x in previous["artifacts"]]
+    report, tool = _pre_payloads()
+    new_case = review_cases.save_pre_results(new_case["id"], actor="manager-case", report=report, tool_result=tool)
+    artifacts = review_cases.list_artifacts({"username": "manager-case", "role": "manager"})
+    assert {a["round"] for a in artifacts if a["flow_id"] == case["id"]} == {1, 2}
