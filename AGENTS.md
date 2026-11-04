@@ -13,7 +13,7 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 81 项浏览器回归（首次需安装 Chromium）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 82 项浏览器回归（首次需安装 Chromium）
 python3 -m pytest tests/ -q                                 # 回归测试（185 个测试函数，参数化展开 204 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
@@ -73,7 +73,7 @@ frontend/src/
   components/          WorkDeck(固定章节舞台与方向切换)、DocumentDirectory(目录)、DocumentReader(书页正文)、EChart(关系图)
   AppContext.tsx       全局状态；api.ts 客户端 + SSE 解析；motion.ts 统一动效；charts/ ECharts GL
   simpleMode.ts / theme.ts / themes.css  本地持久化四套主题与简约模式；当前顶栏不显示切换入口，风险语义色保留
-  styles.css           全局尺度（正文 15px/控件 40px/导航侧栏 240px 且白盒纵向铺满、品牌标题箱 380px）、登录页地形/网格/纸纹关键帧、状态动效类；
+  styles.css           全局尺度（正文 15px/控件 40px/导航侧栏 240px 且白盒纵向铺满、品牌标题箱 380px）、状态动效类；`login.css` 管理登录页静态等高线与蓝白布局；
                        动效只用 transform 入场，prefers-reduced-motion 全关；≤680px 抽屉导航与 skip link
 ```
 
@@ -170,3 +170,5 @@ One Page 工作区：所有受保护路由共享同一历史课题上下文，�
 自适应子页：材料、历史版本、体检项、流程、检查边界、预审证据、查重匹配、专家候选和回避理由统一使用 `AdaptivePager`。按容器实际可用高度测量每项自然高度，在当前页尽量排入更多完整项目，触底才进入下一页；不得先压扁卡片再裁字。容器尺寸、缩放、主题或数据批次变化时重算，展开证据等用户操作不得触发突然跳页。分页按钮统一使用“上一页 / 下一页”，并保留页内滚动作为单项超过容器高度时的兜底。
 
 - 专家账号须与专家库一对一显式绑定后才能指派；待审核任务存在时不能解绑，绑定和解绑留痕；已有其他专家历史任务的账号不能改绑。终审退回后可使用新材料建立下一轮并重新指派专家，原轮次材料、决定、任务与归档保持不变；关联历史课题时新材料须为当前版本；文档中心按同一评审流程合并各轮归档。
+
+登录页展示完整系统名称、账号密码表单与静态等高线，不显示能力卡、英文坐标或无条件的数据不出网承诺。演示入口只在浏览器回环地址且健康接口 `demo_login=true` 时显示；该标记仅在服务本机监听、演示账号种子开启且使用默认演示密码时为真，不代表既有账号密码一定未被修改。

@@ -128,3 +128,43 @@ test('键盘跳转主内容与侧栏折叠持久化', async ({ app: page }) => {
   await page.reload();
   await expect(page.getByRole('button', { name: '展开侧边栏', exact: true })).toBeVisible();
 });
+
+test('登录页在桌面和手机可用，演示入口遵循后台开关', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('江苏省自然资源科研诚信智慧治理平台');
+  await expect(page.getByRole('heading', { name: '账号登录' })).toBeVisible();
+  await expect(page.getByText('材料不出内网')).toHaveCount(0);
+  await expect(page.getByText('核心能力')).toHaveCount(0);
+  await expect(page.getByText('演示账号', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('login-desktop.png') });
+  await page.getByText('演示账号', { exact: true }).click();
+  await page.getByRole('button', { name: '科研管理', exact: true }).click();
+  await expect(page.getByLabel('用户名', { exact: true })).toHaveValue('manager');
+  await expect(page.getByLabel('密码', { exact: true })).toHaveValue(password);
+  await page.locator('.access-demo summary').click();
+  for (const width of [320, 390, 680]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    await expect(page.getByRole('button', { name: '登 录' })).toBeInViewport();
+    if (width === 390) await page.screenshot({ path: testInfo.outputPath('login-mobile.png') });
+  }
+  for (const theme of ['paper', 'mono', 'blue', 'aurora']) {
+    await page.evaluate(value => localStorage.setItem('yanxin.theme', value), theme);
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(page.getByRole('button', { name: '登 录' })).toBeInViewport();
+  }
+  await page.evaluate(() => { localStorage.setItem('yanxin.theme', 'blue'); localStorage.setItem('yanxin.simple-mode', '1'); });
+  await page.route('**/api/health', async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.demo_login = false;
+    await route.fulfill({ response, json: body });
+  });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '账号登录' })).toBeVisible();
+  await expect(page.getByText('演示账号', { exact: true })).toHaveCount(0);
+  await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
+  await expect(page.getByRole('button', { name: '显示密码' }).locator('svg')).toBeVisible();
+});

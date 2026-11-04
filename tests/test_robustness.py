@@ -1090,7 +1090,17 @@ def test_auth_matrix_via_asgi(tmp_path, monkeypatch):
     auth.create_user("manager1", "secret1", "manager")
 
     with TestClient(app_module.app) as client:
-        assert client.get("/api/health").status_code == 200
+        assert client.get("/api/health").json()["demo_login"] is False
+        monkeypatch.setattr(config, "SEED_DEMO_USERS", True)
+        monkeypatch.setattr(config, "DEMO_USER_PASSWORD", "")
+        monkeypatch.setattr(config, "is_loopback", lambda: True)
+        assert client.get("/api/health").json()["demo_login"] is True
+        monkeypatch.setattr(config, "DEMO_USER_PASSWORD", "custom-password")
+        assert client.get("/api/health").json()["demo_login"] is False
+        monkeypatch.setattr(config, "DEMO_USER_PASSWORD", "")
+        monkeypatch.setattr(config, "is_loopback", lambda: False)
+        assert client.get("/api/health").json()["demo_login"] is False
+        monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
         assert client.get("/api/documents").status_code == 401
         assert client.get("/api/ingest/schema").status_code == 200
 

@@ -452,6 +452,10 @@ async def _save_upload(file: UploadFile, target: Path) -> int:
 def health():
     return {
         "ok": True,
+        "demo_login": bool(
+            config.is_loopback() and config.SEED_DEMO_USERS
+            and config.DEMO_USER_PASSWORD in {"", "yanxin2026"}
+        ),
         "llm": llm.status(),
         "stats": db.stats(),
         "database": {"backend": db.backend()},

@@ -23,6 +23,7 @@ export interface LlmStatus {
 
 export interface Health {
   ok: boolean;
+  demo_login?: boolean;
   llm: LlmStatus;
   stats: {
     documents: number;
