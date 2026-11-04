@@ -13,7 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
@@ -127,7 +127,8 @@ export function ReviewCasePage() {
     [current]
   );
   const candidates = toolResult?.match?.candidates ?? [];
-  const excludedCount = toolResult?.match?.excluded?.length ?? 0;
+  const excludedCount = toolResult?.match?.excluded?.length;
+  const duplicateCount = toolResult?.duplicate?.matches?.length;
 
   useEffect(() => {
     if (busy !== "pre" && busy !== "final") {
@@ -257,41 +258,9 @@ export function ReviewCasePage() {
   };
 
   const toggleExpert = (id: number) => {
+    const bound = reviewers.find((reviewer) => reviewer.expert_id === id);
+    if (bound) setAssignee(bound.username);
     setSelectedExperts((items) => items.includes(id) ? [] : [id]);
-  };
-
-  const bindExpert = async () => {
-    if (selectedExperts.length !== 1 || !assignee) return;
-    const expert = candidates.find((item) => item.expert.id === selectedExperts[0]);
-    const reviewer = reviewers.find((item) => item.username === assignee);
-    if (!expert || !reviewer || !confirm(`确认将专家“${expert.expert.name}”绑定到账号“${reviewer.display_name}（${assignee}）”？`)) return;
-    setBusy("bind");
-    try {
-      await api.bindReviewExpert(assignee, expert.expert.id);
-      const result = await api.reviewCaseReviewers();
-      setReviewers(result.reviewers);
-      toast("专家账号已绑定");
-    } catch (error) {
-      toast(`绑定失败：${(error as Error).message}`, "error");
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const unbindExpert = async () => {
-    const reviewer = reviewers.find((item) => item.username === assignee);
-    if (!reviewer || reviewer.expert_id == null || !confirm(`确认解除账号“${reviewer.display_name}（${assignee}）”的专家绑定？该操作将留痕。`)) return;
-    setBusy("unbind");
-    try {
-      await api.unbindReviewExpert(assignee);
-      const result = await api.reviewCaseReviewers();
-      setReviewers(result.reviewers);
-      toast("专家账号已解除绑定");
-    } catch (error) {
-      toast(`解除绑定失败：${(error as Error).message}`, "error");
-    } finally {
-      setBusy("");
-    }
   };
 
   const assignExperts = async () => {
@@ -487,23 +456,23 @@ export function ReviewCasePage() {
               ) : preReview ? (
                 <>
                   <div className="kpi-grid review-case-kpis">
-                    <KpiCard label="风险等级" value={preReview.overall.risk_level} sub={`${preReview.overall.checked_items} 项检查`} tone={preReview.overall.risk_level === "高" ? "gold" : "teal"} />
-                    <KpiCard label="文本规模" value={preReview.doc.char_count} suffix="字" sub={`${preReview.doc.chunk_count} 个文本块`} />
-                    <KpiCard label="查重命中" value={toolResult?.duplicate.matches.length ?? 0} suffix="个" sub={toolResult?.duplicate.summary || "已完成"} />
-                    <KpiCard label="候选专家" value={candidates.length} suffix="位" sub={`已排除 ${excludedCount} 位`} tone="gold" />
+                    <KpiCard label="风险等级" value={preReview.overall?.risk_level ?? "未记录"} sub={preReview.overall?.checked_items == null ? "检查项未记录" : `${preReview.overall.checked_items} 项检查`} tone={preReview.overall?.risk_level === "高" ? "gold" : "teal"} />
+                    <KpiCard label="文本规模" value={preReview.doc?.char_count ?? current.doc_text_len ?? "未记录"} suffix="字" sub={(preReview.doc?.chunk_count ?? current.doc_chunk_count) == null ? "文本块数未记录" : `${preReview.doc?.chunk_count ?? current.doc_chunk_count} 个文本块`} />
+                    <KpiCard label="查重命中" value={duplicateCount ?? "未记录"} suffix="个" sub={toolResult?.duplicate?.summary || (duplicateCount == null ? "历史归档未记录查重明细" : "已完成")} />
+                    <KpiCard label="候选专家" value={candidates.length} suffix="位" sub={excludedCount == null ? "排除数量未记录" : `已排除 ${excludedCount} 位`} tone="gold" />
                   </div>
                   <div className="review-stage-grid">
                     <article className="review-stage-card">
                       <h3>预审结论</h3>
-                      <p>{preReview.overall.summary}</p>
+                      <p>{preReview.overall?.summary || "历史归档未记录预审摘要"}</p>
                       <div className="review-case-boundaries scroll-area">
-                        {toolResult?.match.applicant_warning && (
+                        {toolResult?.match?.applicant_warning && (
                           <div className="review-case-boundary-warning" role="status">
                             <AlertTriangle size={15} aria-hidden="true" />
                             <span>{toolResult.match.applicant_warning}</span>
                           </div>
                         )}
-                        {toolResult?.match.institution_match_note && (
+                        {toolResult?.match?.institution_match_note && (
                           <p><strong>单位比对口径：</strong>{toolResult.match.institution_match_note}</p>
                         )}
                         {(preReview.limitations?.length ?? 0) > 0 && (
@@ -560,7 +529,7 @@ export function ReviewCasePage() {
                           <strong>{candidate.expert.name}</strong>
                           <small>{candidate.expert.institution} · {candidate.expert.title}</small>
                         </span>
-                        <em>{Math.round((candidate.relative_score ?? candidate.score) * 100)}</em>
+                        <em>{Number.isFinite(candidate.relative_score ?? candidate.score) ? Math.round((candidate.relative_score ?? candidate.score) * 100) : "—"}</em>
                       </label>
                     ))}
                   </div>
@@ -568,12 +537,11 @@ export function ReviewCasePage() {
                     <select className="select" value={assignee} onChange={(event) => setAssignee(event.target.value)} aria-label="选择专家审核账号">
                       {reviewers.map((reviewer) => <option key={reviewer.username} value={reviewer.username}>{reviewer.display_name}（{reviewer.username}）{reviewer.expert_name ? ` · ${reviewer.expert_name} / ${reviewer.expert_institution}` : " · 未绑定"}</option>)}
                     </select>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => void bindExpert()} disabled={!!busy || current.stage !== "expert_review" || selectedExperts.length !== 1 || !assignee || reviewers.find((item) => item.username === assignee)?.expert_id != null}>绑定专家账号</button>
-                    {reviewers.find((item) => item.username === assignee)?.expert_id != null && <button type="button" className="btn btn-ghost btn-sm" onClick={() => void unbindExpert()} disabled={!!busy || current.stage !== "expert_review"}>解除绑定</button>}
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => void assignExperts()} disabled={!!busy || current.stage !== "expert_review" || selectedExperts.length !== 1 || reviewers.find((item) => item.username === assignee)?.expert_id !== selectedExperts[0]}>
                       {busy === "assign" ? <Loader2 className="spin" size={14} /> : <UserPlus size={14} />}指派审核
                     </button>
                   </div>
+                  {selectedExperts.length === 1 && !reviewers.some((reviewer) => reviewer.expert_id === selectedExperts[0]) && <p>该专家尚未绑定账号，请前往 <Link to="/experts">专家库管理绑定</Link>。</p>}
                 </article>
                 <article className="review-stage-card">
                   <div className="review-stage-card-head">

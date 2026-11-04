@@ -53,10 +53,10 @@
      30 frontend/src/components/WorkspaceRouteLoader.tsx
     421 frontend/src/data/knowledge.ts
      59 frontend/src/data/proposalWorkflow.ts
-    132 frontend/src/data/workspaceViews.tsx
+    141 frontend/src/data/workspaceViews.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
-    116 frontend/src/login.css
+    137 frontend/src/login.css
      13 frontend/src/main.tsx
      57 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
@@ -65,17 +65,17 @@
     535 frontend/src/pages/KnowledgeGraphPage.tsx
     599 frontend/src/pages/LibraryPage.tsx
     108 frontend/src/pages/LoginPage.tsx
-    422 frontend/src/pages/MatchPage.tsx
-    674 frontend/src/pages/ReviewCasePage.tsx
+    472 frontend/src/pages/MatchPage.tsx
+    642 frontend/src/pages/ReviewCasePage.tsx
     622 frontend/src/pages/ReviewPage.tsx
     232 frontend/src/pages/TrendPage.tsx
     238 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   8018 frontend/src/styles.css
+   8031 frontend/src/styles.css
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
     501 frontend/src/types.ts
-  18648 total
+  18709 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
@@ -98,7 +98,7 @@
     174 tools/soft_copyright.py
    1435 total
 浏览器回归（TypeScript/Python）
-    171 frontend/e2e/auth.spec.ts
+    194 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
     301 frontend/e2e/chat-trend.spec.ts
     265 frontend/e2e/dossier.spec.ts
@@ -107,7 +107,7 @@
     259 frontend/e2e/knowledge-document.spec.ts
     231 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
-    177 frontend/e2e/review-case.spec.ts
+    261 frontend/e2e/review-case.spec.ts
     363 frontend/e2e/review-match.spec.ts
     165 frontend/e2e/route-arrival.spec.ts
      52 frontend/e2e/server.py
@@ -116,9 +116,9 @@
     160 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3264 total
+   3371 total
 合计
-  36767 total（107 个文件）
+  36935 total（107 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

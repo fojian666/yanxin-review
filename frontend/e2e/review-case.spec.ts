@@ -36,15 +36,27 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
   await expect.poll(async () => (await firstCandidate.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  const expertName = await firstCandidate.locator('strong').innerText();
+  const expertsResponse = await context.request.get('/api/experts');
+  const experts = (await expertsResponse.json()).experts as { id: number; name: string }[];
+  const expertId = experts.find(expert => expert.name === expertName)!.id;
   await firstCandidate.click();
-  await page.getByLabel('选择专家审核账号').selectOption('reviewer');
-  await page.getByRole('button', { name: '绑定专家账号' }).scrollIntoViewIfNeeded();
-  await expect(page.getByRole('button', { name: '绑定专家账号' })).toBeInViewport();
+  await expect(page.getByRole('button', { name: '绑定专家账号' })).toHaveCount(0);
+  await page.getByRole('link', { name: '专家库管理绑定' }).click();
+  await expect(page).toHaveURL(/\/experts$/);
+  await expect(page.getByRole('heading', { name: '专家库' })).toBeVisible();
+  await page.getByText('专家账号绑定管理').click();
+  await page.getByLabel('绑定管理评审账号').selectOption('reviewer');
+  await page.getByLabel('绑定管理专家').selectOption(String(expertId));
   await page.screenshot({ path: testInfo.outputPath('review-case-binding-mobile.png') });
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '绑定专家账号' }).click();
   await expect(page.getByText('专家账号已绑定')).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goBack();
+  await page.getByRole('tab', { name: '专家审核' }).click();
+  await page.locator('.review-candidate-list label').first().click();
+  await expect(page.getByLabel('选择专家审核账号')).toHaveValue('reviewer');
   await page.getByRole('button', { name: '指派审核' }).click();
   await expect(page.locator('.review-task-row')).toHaveCount(1);
   await expect(page.locator('.review-task-row')).toContainText('待审核');
@@ -52,10 +64,35 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
 
   await context.request.post('/api/auth/logout');
   await loginUI(page, 'admin');
+  const longCaseTitle = 'E2E 全过程评审：自然资源科研项目评审与数据治理专项研究'.repeat(3);
+  await page.route('**/api/review-tasks/*', async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    if (body.task) {
+      body.task.case_title = longCaseTitle;
+      body.task.doc_name = longCaseTitle;
+    }
+    await route.fulfill({ response, json: body });
+  });
   await navigate(page, '专家审核');
   await expect(page.locator('.expert-task-tabs button')).toHaveCount(1);
   await expect(page.locator('.expert-task-summary')).toContainText('管理员调试');
-  await expect(page.getByRole('heading', { name: 'E2E 全过程评审' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: longCaseTitle })).toBeVisible();
+  for (const width of [320, 390, 680, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const link = page.getByRole('link', { name: '查看申报书原文' });
+    await link.scrollIntoViewIfNeeded();
+    await expect(link).toBeVisible();
+    expect(await link.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const parent = element.parentElement!.getBoundingClientRect();
+      return element.scrollWidth <= element.clientWidth + 1 && rect.left >= parent.left - 1 && rect.right <= parent.right + 1 && rect.height >= 44;
+    })).toBeTruthy();
+    if (width === 390) await page.screenshot({ path: testInfo.outputPath('expert-long-title-mobile.png') });
+  }
+  await page.unroute('**/api/review-tasks/*');
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByLabel('独立审核意见').fill('项目材料完整，技术路线清晰，建议通过并补充年度监测计划。');
   await page.getByRole('button', { name: '提交审核意见' }).click();
   await expect(page.getByRole('heading', { name: '审核意见已提交' })).toBeVisible();
@@ -174,4 +211,51 @@ test('预审返回时保留用户当前选择的案卷', async ({ app: page, doc
   release();
   await expect(page.getByText('预审、查重和专家匹配已完成并归档')).toBeVisible();
   await expect(page.getByLabel('切换评审案卷')).toHaveValue(created[1].id);
+});
+
+test('历史评审案卷缺失查重明细时仍可打开且不虚报为零', async ({ app: page, documents, context }, testInfo) => {
+  const created = await context.request.post('/api/review-cases', { data: { title: '旧版案卷', doc_id: documents[0].id, dossier_id: '' } });
+  expect(created.ok()).toBeTruthy();
+  const caseId = (await created.json()).case.id;
+  const result = await context.request.post(`/api/review-cases/${caseId}/run`, { data: {} });
+  expect(result.ok()).toBeTruthy();
+  await page.route(`**/api/review-cases/${caseId}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    for (const artifact of body.case.artifacts) {
+      if (artifact.artifact_type === 'pre_review') {
+        artifact.payload = { doc: { name: '旧材料' }, overall: { risk_level: '高', checked_items: 3, summary: '历史摘要' }, sections: [], disclaimer: '仅供人工复核' };
+      }
+      if (artifact.artifact_type === 'tool_check') {
+        const candidate = artifact.payload.match.candidates[0];
+        artifact.payload = { doc: { name: '旧材料' }, duplicate: {}, match: { candidates: candidate ? [{ expert: candidate.expert }] : [] }, disclaimer: '仅供人工复核' };
+      }
+    }
+    await route.fulfill({ response, json: body });
+  });
+  await navigate(page, '项目评审');
+  await page.getByRole('tab', { name: '预审', exact: true }).click();
+  await expect(page.locator('.review-case-kpis')).toContainText('历史归档未记录查重明细');
+  await expect(page.locator('.review-case-kpis')).toContainText('未记录');
+  await expect(page.locator('.review-case-workspace')).not.toContainText('undefined');
+  await expect(page.locator('.review-case-workspace')).not.toContainText('NaN');
+  await page.getByRole('tab', { name: '专家审核', exact: true }).click();
+  await expect(page.locator('.review-candidate-pool')).not.toContainText('NaN');
+  const candidate = page.locator('.review-candidate-list label');
+  await expect(candidate).toHaveCount(1);
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await expect(candidate).toBeVisible();
+    const size = await candidate.boundingBox();
+    expect(size!.height).toBeLessThanOrEqual(100);
+    expect(await candidate.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const pool = element.closest('.review-candidate-pool')!.getBoundingClientRect();
+      return rect.height >= 44 && rect.top >= pool.top && rect.bottom <= pool.bottom;
+    })).toBeTruthy();
+    const assignment = page.getByLabel('选择专家审核账号');
+    await assignment.scrollIntoViewIfNeeded();
+    await expect(assignment).toBeVisible();
+    if (viewport.width === 1280) await page.screenshot({ path: testInfo.outputPath('single-candidate.png') });
+  }
 });

@@ -14,7 +14,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
 import { AdaptivePager } from "../components/AdaptivePager";
@@ -22,7 +22,7 @@ import { EmptyState } from "../components/EmptyState";
 import { KpiCard } from "../components/KpiCard";
 import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
 import { EASE, staggerItem } from "../motion";
-import type { Expert, ExpertCandidate, ToolCheckResult } from "../types";
+import type { Expert, ExpertCandidate, ReviewerOption, ToolCheckResult } from "../types";
 
 const EXPERT_TEMPLATE =
   "姓名,单位,职称,学科,研究方向,代表性成果,回避单位,回避人员,在研项目数,是否可评审\n" +
@@ -51,14 +51,21 @@ function expertStatus(expert: Expert) {
   return { label: "可评审", cls: "status-pass" };
 }
 
-export function MatchPage() {
+export function ExpertLibraryPage() { return <MatchPage expertLibraryOnly />; }
+
+export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: boolean } = {}) {
   const { docs, toast, can, activeDocId } = useApp();
+  const [params] = useSearchParams();
   const [docId, setDocId] = useState(activeDocId);
   const [result, setResult] = useState<ToolCheckResult | null>(null);
   const [experts, setExperts] = useState<Expert[]>([]);
+  const [reviewers, setReviewers] = useState<ReviewerOption[]>([]);
+  const [bindingAccount, setBindingAccount] = useState("");
+  const [bindingExpert, setBindingExpert] = useState("");
+  const [bindingBusy, setBindingBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [section, setSection] = useState<MatchSection>("run");
+  const [section, setSection] = useState<MatchSection>(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
   const loadingRef = useRef(false);
   const checkIdRef = useRef(0);
   const csvRef = useRef<HTMLInputElement>(null);
@@ -87,6 +94,35 @@ export function MatchPage() {
   }, []);
 
   useEffect(() => {
+    if (section !== "library" || !can("review-case")) return;
+    let active = true;
+    api.reviewCaseReviewers().then(({ reviewers: items }) => {
+      if (active) setReviewers(items);
+    }).catch((error) => { if (active) toast(`专家账号加载失败：${(error as Error).message}`, "error"); });
+    return () => { active = false; };
+  }, [section, can, toast]);
+
+  const changeExpertBinding = async (unbind = false) => {
+    const account = reviewers.find((item) => item.username === bindingAccount);
+    const expert = experts.find((item) => String(item.id) === bindingExpert);
+    if (!account || (!unbind && !expert)) return;
+    const message = unbind
+      ? `确认解除账号“${account.display_name}（${account.username}）”的专家绑定？该操作将留痕。`
+      : `确认将专家“${expert!.name}”绑定到账号“${account.display_name}（${account.username}）”？`;
+    if (!confirm(message)) return;
+    setBindingBusy(true);
+    try {
+      if (unbind) await api.unbindReviewExpert(account.username);
+      else await api.bindReviewExpert(account.username, expert!.id);
+      const result = await api.reviewCaseReviewers();
+      setReviewers(result.reviewers);
+      toast(unbind ? "专家账号已解除绑定" : "专家账号已绑定");
+    } catch (error) {
+      toast(`${unbind ? "解除绑定" : "绑定"}失败：${(error as Error).message}`, "error");
+    } finally { setBindingBusy(false); }
+  };
+
+  useEffect(() => {
     if (!activeDocId) {
       checkIdRef.current += 1;
       loadingRef.current = false;
@@ -94,7 +130,7 @@ export function MatchPage() {
       setDocId("");
       setResult(null);
       setError("");
-      setSection("run");
+      setSection(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
       return;
     }
     if (!activeDocExists) return;
@@ -104,7 +140,7 @@ export function MatchPage() {
     setDocId(activeDocId);
     setResult(null);
     setError("");
-    setSection("run");
+    setSection(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
   }, [activeDocId, activeDocExists]);
 
   const run = async () => {
@@ -220,6 +256,53 @@ export function MatchPage() {
   const duplicateMatches = duplicate?.matches ?? [];
   const candidates = match?.candidates ?? [];
   const excluded = match?.excluded ?? [];
+
+  const libraryPanel = (
+            <div className="panel match-deck-page match-expert-library-page">
+              <div className="panel-head">
+                <div><h2>专家库</h2></div>
+                <div className="head-actions">
+                  <span className="count-badge">{experts.length}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}><Download size={14} />下载 CSV 模板</button>
+                  {can("import") && <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}><Upload size={14} />导入专家 CSV</button>}
+                  <input ref={csvRef} type="file" accept=".csv" hidden onChange={(event) => { void importExperts(event.target.files?.[0]); event.target.value = ""; }} />
+                  {can("remove-sample") && <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSamples()}><Trash2 size={14} />移除演示专家</button>}
+                </div>
+              </div>
+              {!expertLibraryOnly && <Link className="expert-library-link" to="/experts">进入独立专家库</Link>}
+              {expertLibraryOnly && can("review-case") && <details className="expert-account-management">
+                <summary>专家账号绑定管理</summary>
+                <div className="expert-account-controls">
+                  <label className="field"><span>评审账号</span><select aria-label="绑定管理评审账号" value={bindingAccount} onChange={(event) => setBindingAccount(event.target.value)}><option value="">请选择账号</option>{reviewers.map((reviewer) => <option key={reviewer.username} value={reviewer.username}>{reviewer.display_name}（{reviewer.username}）{reviewer.expert_id != null ? ` · ${reviewer.expert_name} / ${reviewer.expert_institution}` : " · 未绑定"}</option>)}</select></label>
+                  <label className="field"><span>专家库人员</span><select aria-label="绑定管理专家" value={bindingExpert} onChange={(event) => setBindingExpert(event.target.value)}><option value="">请选择专家</option>{experts.map((expert) => <option key={expert.id} value={expert.id}>{expert.name} · {expert.institution}</option>)}</select></label>
+                  <button className="btn btn-ghost" type="button" disabled={bindingBusy || !bindingAccount || !bindingExpert || reviewers.find((item) => item.username === bindingAccount)?.expert_id != null} onClick={() => void changeExpertBinding()}>绑定专家账号</button>
+                  <button className="btn btn-ghost" type="button" disabled={bindingBusy || reviewers.find((item) => item.username === bindingAccount)?.expert_id == null} onClick={() => void changeExpertBinding(true)}>解除绑定</button>
+                </div>
+              </details>}
+              <div className="table-wrap match-expert-table">
+                {experts.length === 0 ? (
+                  <EmptyState icon={<Users size={38} />} description="专家库尚空，导入一份专家 CSV 即成册。" />
+                ) : (
+                  <table className="data-table">
+                    <thead><tr><th>姓名</th><th>单位</th><th>学科</th><th>研究方向</th><th>在研</th><th>状态</th></tr></thead>
+                    <tbody>
+                      {experts.map((expert, index) => {
+                        const status = expertStatus(expert);
+                        return (
+                          <motion.tr key={expert.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.015, 0.18) }}>
+                            <td><div className="doc-title">{expert.name}</div>{expert.is_sample ? <span className="badge-sample">演示</span> : null}</td>
+                            <td>{expert.institution}</td><td>{expert.discipline}</td><td>{expert.research_areas}</td><td>{expert.workload}</td><td><span className={`status-pill ${status.cls}`}>{status.label}</span></td>
+                          </motion.tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+  );
+
+  if (expertLibraryOnly) return <div className="match-deck-workspace expert-library-workspace">{libraryPanel}</div>;
 
   return (
     <div className="match-page match-deck-workspace">
@@ -355,40 +438,7 @@ export function MatchPage() {
               ) : <EmptyState icon={<ShieldCheck size={38} />} description="运行检查后，在这里核对排除原因和能力边界。" />}
             </div>
           ),
-          library: (
-            <div className="panel match-deck-page match-expert-library-page">
-              <div className="panel-head">
-                <div><h2>专家库</h2><p>供专家画像匹配之用；不采集性别、年龄等敏感属性。</p></div>
-                <div className="head-actions">
-                  <span className="count-badge">{experts.length}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}><Download size={14} />下载 CSV 模板</button>
-                  {can("import") && <button className="btn btn-ghost btn-sm" onClick={() => csvRef.current?.click()}><Upload size={14} />导入专家 CSV</button>}
-                  <input ref={csvRef} type="file" accept=".csv" hidden onChange={(event) => { void importExperts(event.target.files?.[0]); event.target.value = ""; }} />
-                  {can("remove-sample") && <button className="btn btn-ghost btn-sm danger" onClick={() => void removeSamples()}><Trash2 size={14} />移除演示专家</button>}
-                </div>
-              </div>
-              <div className="table-wrap match-expert-table">
-                {experts.length === 0 ? (
-                  <EmptyState icon={<Users size={38} />} description="专家库尚空，导入一份专家 CSV 即成册。" />
-                ) : (
-                  <table className="data-table">
-                    <thead><tr><th>姓名</th><th>单位</th><th>学科</th><th>研究方向</th><th>在研</th><th>状态</th></tr></thead>
-                    <tbody>
-                      {experts.map((expert, index) => {
-                        const status = expertStatus(expert);
-                        return (
-                          <motion.tr key={expert.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: EASE, delay: Math.min(index * 0.015, 0.18) }}>
-                            <td><div className="doc-title">{expert.name}</div>{expert.is_sample ? <span className="badge-sample">演示</span> : null}</td>
-                            <td>{expert.institution}</td><td>{expert.discipline}</td><td>{expert.research_areas}</td><td>{expert.workload}</td><td><span className={`status-pill ${status.cls}`}>{status.label}</span></td>
-                          </motion.tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          ),
+          library: libraryPanel,
         }}
       />
     </div>

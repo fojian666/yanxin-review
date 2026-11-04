@@ -106,7 +106,7 @@ export function WelcomePage() {
   const showBadge = named && Boolean(role);
   const primaryPath = defaultPath;
   const isOverview = location.pathname === "/welcome";
-  const hideWorkspaceLedger = location.pathname === "/review-cases";
+  const hideWorkspaceLedger = ["/review-cases", "/experts"].includes(location.pathname);
   const selectWorkspaceDocument = (nextDocId: string) => {
     setSelectedDocs(nextDocId ? [nextDocId] : []);
     setChatMessages([]);
@@ -121,7 +121,7 @@ export function WelcomePage() {
           <h2>{greeting()}，{name}</h2>
           {showBadge && <span className={`role-badge role-${auth?.role}`}>{role}</span>}
         </div>
-        {location.pathname !== "/review-cases" && <div className="workspace-document-row">
+        {!hideWorkspaceLedger && <div className="workspace-document-row">
           <label htmlFor="workspace-document">当前课题</label>
           {dossiers.length ? (
             <select

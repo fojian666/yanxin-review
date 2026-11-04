@@ -32,6 +32,7 @@ function workspaceComponent(loader: () => Promise<{ default: ComponentType }>): 
 const ChatPanel = workspaceComponent(() => import("../pages/ChatPage").then((module) => ({ default: module.ChatPage })));
 const TrendPanel = workspaceComponent(() => import("../pages/TrendPage").then((module) => ({ default: module.TrendPage })));
 const MatchPanel = workspaceComponent(() => import("../pages/MatchPage").then((module) => ({ default: module.MatchPage })));
+const ExpertLibraryPanel = workspaceComponent(() => import("../pages/MatchPage").then((module) => ({ default: module.ExpertLibraryPage })));
 const ReviewPanel = workspaceComponent(() => import("../pages/ReviewPage").then((module) => ({ default: module.ReviewPage })));
 const DossierPanel = workspaceComponent(() => import("../components/DossierWorkbench").then((module) => ({ default: module.DossierWorkbench })));
 const LibraryPanel = workspaceComponent(() => import("../pages/LibraryPage").then((module) => ({ default: module.LibraryPage })));
@@ -95,6 +96,14 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     icon: Users,
     permission: "tool",
     component: MatchPanel,
+  },
+  {
+    path: "/experts",
+    title: "专家库",
+    description: "管理专家资料和评审账号绑定",
+    icon: Users,
+    permission: "tool",
+    component: ExpertLibraryPanel,
   },
   {
     path: "/graph",

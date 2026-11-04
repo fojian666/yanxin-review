@@ -28,6 +28,9 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     } })).status()).toBe(['admin', 'reviewer'].includes(role) ? 400 : 403);
     if (role !== 'viewer') {
       expect((await context.request.post('/api/review-cases', { data: { doc_id: 'missing' } })).status()).toBe(['admin', 'manager'].includes(role) ? 400 : 403);
+      await page.goto('/experts');
+      await expect(page.getByRole('heading', { name: '专家库' })).toBeVisible();
+      await expect(page.getByText('专家账号绑定管理')).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
     }
     if (role === 'viewer') {
       expect((await context.request.post('/api/review', { data: { doc_id: 'missing' } })).status()).toBe(403);
@@ -138,6 +141,25 @@ test('登录页在桌面和手机可用，演示入口遵循后台开关', async
   await expect(page.getByText('核心能力')).toHaveCount(0);
   await expect(page.locator('.access-landscape')).toHaveCount(0);
   await expect(page.getByText('演示账号', { exact: true })).toBeVisible();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  const motion = await page.locator('.access-page').evaluate((element) => {
+    const animation = element.getAnimations({ subtree: true }).find((item) =>
+      item instanceof CSSAnimation && item.animationName === 'access-ambient'
+    );
+    if (!animation) return null;
+    animation.pause();
+    animation.currentTime = 0;
+    const start = getComputedStyle(element, '::before').transform;
+    animation.currentTime = 11000;
+    const middle = getComputedStyle(element, '::before').transform;
+    animation.play();
+    return { start, middle };
+  });
+  expect(motion).not.toBeNull();
+  expect(motion?.start).not.toBe(motion?.middle);
+  await page.screenshot({ path: testInfo.outputPath('login-ambient.png') });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(() => page.locator('.access-page').evaluate((element) => getComputedStyle(element, '::before').animationName)).toBe('none');
   await page.screenshot({ path: testInfo.outputPath('login-desktop.png') });
   await page.getByText('演示账号', { exact: true }).click();
   await page.getByRole('button', { name: '科研管理', exact: true }).click();
@@ -167,5 +189,6 @@ test('登录页在桌面和手机可用，演示入口遵循后台开关', async
   await expect(page.getByRole('heading', { name: '账号登录' })).toBeVisible();
   await expect(page.getByText('演示账号', { exact: true })).toHaveCount(0);
   await expect(page.locator('html')).toHaveAttribute('data-simple-mode', 'true');
+  await expect.poll(() => page.locator('.access-page').evaluate((element) => getComputedStyle(element, '::before').display)).toBe('none');
   await expect(page.getByRole('button', { name: '显示密码' }).locator('svg')).toBeVisible();
 });
