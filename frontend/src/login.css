@@ -1,4 +1,4 @@
-/* 登录入口：与工作区共用主题色，静态等高线作为自然资源背景。 */
+/* 登录入口：与工作区共用主题色。 */
 html:has(.access-page) { overflow-y: auto; scrollbar-gutter: auto; }
 body:has(.access-page)::before { display: none; }
 .access-page {
@@ -29,17 +29,13 @@ body:has(.access-page)::before { display: none; }
   max-width: 1280px;
   margin: 0 auto;
   padding: 50px clamp(28px, 4vw, 64px);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-  gap: clamp(45px, 6vw, 90px);
+  display: flex;
+  justify-content: center;
   align-items: center;
 }
-.access-landscape { min-width: 0; color: var(--teal); opacity: .24; }
-:root[data-simple-mode="true"] .access-landscape { visibility: hidden; }
-.access-landscape svg { display: block; width: 100%; height: auto; max-height: 560px; stroke-width: 1.25; }
 .access-panel {
-  width: 100%;
-  padding: 38px 38px 30px;
+  width: min(100%, 440px);
+  padding: 42px 42px 34px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -47,7 +43,6 @@ body:has(.access-page)::before { display: none; }
 }
 .access-panel-heading { margin-bottom: 30px; }
 .access-panel-heading h2 { margin: 0; color: var(--ink); font: 700 23px/1.4 var(--font-ui); }
-.access-panel-heading > span { display: block; width: 32px; height: 3px; margin-top: 12px; background: var(--teal); }
 .access-form { display: flex; flex-direction: column; gap: 18px; }
 .access-form .field { gap: 7px; }
 .access-form .field > span:first-child { font-size: 14px; font-weight: 600; color: var(--ink); }
@@ -109,7 +104,6 @@ body:has(.access-page)::before { display: none; }
   .access-header { min-height: 64px; padding: 12px 20px; }
   .access-header h1 { font-size: clamp(17px, 4.5vw, 21px); }
   .access-content { padding: 28px 20px; display: flex; align-items: center; justify-content: center; }
-  .access-landscape { display: none; }
   .access-panel { max-width: 440px; padding: 28px 24px 24px; }
   .access-panel-heading { margin-bottom: 24px; }
 }

@@ -56,7 +56,7 @@
     132 frontend/src/data/workspaceViews.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
-    122 frontend/src/login.css
+    116 frontend/src/login.css
      13 frontend/src/main.tsx
      57 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
@@ -64,7 +64,7 @@
     244 frontend/src/pages/ExpertReviewPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
     599 frontend/src/pages/LibraryPage.tsx
-    126 frontend/src/pages/LoginPage.tsx
+    108 frontend/src/pages/LoginPage.tsx
     422 frontend/src/pages/MatchPage.tsx
     674 frontend/src/pages/ReviewCasePage.tsx
     622 frontend/src/pages/ReviewPage.tsx
@@ -75,7 +75,7 @@
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
     501 frontend/src/types.ts
-  18672 total
+  18648 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
@@ -98,7 +98,7 @@
     174 tools/soft_copyright.py
    1435 total
 浏览器回归（TypeScript/Python）
-    170 frontend/e2e/auth.spec.ts
+    171 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
     301 frontend/e2e/chat-trend.spec.ts
     265 frontend/e2e/dossier.spec.ts
@@ -116,9 +116,9 @@
     160 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3263 total
+   3264 total
 合计
-  36790 total（107 个文件）
+  36767 total（107 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

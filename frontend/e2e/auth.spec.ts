@@ -136,6 +136,7 @@ test('登录页在桌面和手机可用，演示入口遵循后台开关', async
   await expect(page.getByRole('heading', { name: '账号登录' })).toBeVisible();
   await expect(page.getByText('材料不出内网')).toHaveCount(0);
   await expect(page.getByText('核心能力')).toHaveCount(0);
+  await expect(page.locator('.access-landscape')).toHaveCount(0);
   await expect(page.getByText('演示账号', { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('login-desktop.png') });
   await page.getByText('演示账号', { exact: true }).click();
