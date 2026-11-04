@@ -12,7 +12,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../AppContext";
@@ -94,6 +94,7 @@ export function ReviewCasePage() {
   const [current, setCurrent] = useState<ReviewCase | null>(null);
   const [reviewers, setReviewers] = useState<ReviewerOption[]>([]);
   const [caseId, setCaseId] = useState(params.get("case") || "");
+  const selectedCaseRef = useRef(caseId);
   const [stage, setStage] = useState<FlowStage>("pre_review");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -105,6 +106,7 @@ export function ReviewCasePage() {
   const [assignee, setAssignee] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("approved");
   const [finalComment, setFinalComment] = useState("");
+
   const [processStep, setProcessStep] = useState(0);
 
   const availableDocs = useMemo(
@@ -151,6 +153,7 @@ export function ReviewCasePage() {
         const next = caseResult.cases.find((item) => item.id === requested)?.id
           || caseResult.cases[0]?.id
           || "";
+        selectedCaseRef.current = next;
         setCaseId(next);
         if (!caseResult.cases.length) {
           setCreating(true);
@@ -200,14 +203,17 @@ export function ReviewCasePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId]);
 
-  const applyCase = async (next: ReviewCase, targetStage: FlowStage = stageForCase(next)) => {
-    setCurrent(next);
-    setStage(targetStage);
+  const applyCase = async (next: ReviewCase, targetStage: FlowStage = stageForCase(next), created = false) => {
     setCases((items) => {
       const exists = items.some((item) => item.id === next.id);
       return exists ? items.map((item) => item.id === next.id ? next : item) : [next, ...items];
     });
-    setCaseId(next.id);
+    if (created || selectedCaseRef.current === next.id) {
+      selectedCaseRef.current = next.id;
+      setCurrent(next);
+      setStage(targetStage);
+      setCaseId(next.id);
+    }
   };
 
   const createCase = async () => {
@@ -222,7 +228,7 @@ export function ReviewCasePage() {
         doc_id: createDocId,
         dossier_id: createDossierId,
       });
-      await applyCase(result.case);
+      await applyCase(result.case, stageForCase(result.case), true);
       setCreating(false);
       setCreateTitle("");
       setCreateDossierId("");
@@ -266,7 +272,7 @@ export function ReviewCasePage() {
         selectedExperts.map((expert_id) => ({ expert_id, username: assignee }))
       );
       await applyCase(result.case);
-      setSelectedExperts([]);
+      if (selectedCaseRef.current === result.case.id) setSelectedExperts([]);
       toast(`已指派 ${selectedExperts.length} 位专家`);
     } catch (error) {
       toast(`专家指派失败：${(error as Error).message}`, "error");
@@ -281,7 +287,6 @@ export function ReviewCasePage() {
     try {
       const result = await api.advanceReviewCaseFinal(current.id);
       await applyCase(result.case);
-      setStage("final_review");
       toast("专家意见已齐备，进入终审");
     } catch (error) {
       toast(`无法进入终审：${(error as Error).message}`, "error");
@@ -397,7 +402,7 @@ export function ReviewCasePage() {
           <strong>{current.title}</strong>
         </div>
         <div className="review-case-bar-actions">
-          <select className="select" value={current.id} onChange={(event) => setCaseId(event.target.value)} aria-label="切换评审案卷">
+          <select className="select" value={current.id} onChange={(event) => { selectedCaseRef.current = event.target.value; setCaseId(event.target.value); }} aria-label="切换评审案卷">
             {cases.map((item) => <option key={item.id} value={item.id}>{item.title} · {item.stage_label}</option>)}
           </select>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCreating(true)}><Plus size={14} />新建案卷</button>

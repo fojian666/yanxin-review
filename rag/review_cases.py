@@ -349,12 +349,20 @@ def _artifact(
 
 def _review_markdown(report: dict[str, Any]) -> str:
     overall = report.get("overall") or {}
+    generation = report.get("generation") or {}
+    if not generation:
+        source = "来源未记录"
+    elif generation.get("provider") == "offline":
+        source = "离线规则" + ("（已回退）" if generation.get("status") == "fallback" else "")
+    else:
+        source = " · ".join(str(generation.get(key) or "") for key in ("label", "model")).strip(" ·") or "来源未记录"
     lines = [
         f"# 预审报告 · {report.get('doc', {}).get('name', '')}",
         "",
         f"- 风险等级：{overall.get('risk_level', '')}",
         f"- 检查项：{overall.get('checked_items', 0)}",
         f"- 生成时间：{overall.get('generated_at', '')}",
+        f"- 生成来源：{source}",
         "",
         overall.get("summary", ""),
         "",
@@ -363,9 +371,16 @@ def _review_markdown(report: dict[str, Any]) -> str:
         lines.append(f"## {section.get('title', '')}")
         for item in section.get("items") or []:
             lines.append(f"- {item.get('label', '')}：{item.get('detail', '')}")
-            if item.get("evidence"):
-                lines.append(f"  - 依据：{item['evidence']}")
+            evidence = item.get("evidence_full") or item.get("evidence")
+            if evidence:
+                lines.append(f"  - 依据：{evidence}")
         lines.append("")
+    if report.get("warning"):
+        lines.extend(["## 运行提示", report["warning"], ""])
+    if report.get("limitations"):
+        lines.extend(["## 能力边界", *(f"- {item}" for item in report["limitations"]), ""])
+    if report.get("questions"):
+        lines.extend(["## 待核实问题", *(f"- {item}" for item in report["questions"]), ""])
     if report.get("disclaimer"):
         lines.extend(["---", report["disclaimer"]])
     return "\n".join(lines)
@@ -379,19 +394,35 @@ def _tool_markdown(result: dict[str, Any]) -> str:
         "",
         "## 文本查重",
         duplicate.get("summary", "未执行"),
-        "",
-        "## 专家匹配",
-        match.get("summary", "未执行"),
-        "",
     ]
+    for item in duplicate.get("matches") or []:
+        lines.extend([
+            f"- 比对文档：{item.get('matched_doc_name', '')}；相似度：{item.get('similarity', '')}",
+            f"  - 本文：{item.get('source_snippet', '')}",
+            f"  - 比对：{item.get('matched_snippet', '')}",
+        ])
+    lines.extend(["", "## 专家匹配", match.get("summary", "未执行"), ""])
+    for key in ("applicant_warning", "institution_match_note"):
+        if match.get(key):
+            lines.extend([match[key], ""])
     for candidate in match.get("candidates") or []:
         expert = candidate.get("expert") or {}
         lines.append(
             f"- {expert.get('name', '')}（{expert.get('institution', '')} / {expert.get('title', '')}）"
         )
+    for item in match.get("excluded") or []:
+        lines.append(f"- 已排除 {item.get('name', '')}（{item.get('institution', '')}）：{item.get('reason', '')}；{item.get('evidence', '')}")
     if result.get("disclaimer"):
         lines.extend(["", "---", result["disclaimer"]])
     return "\n".join(lines)
+
+
+def _locked_case(conn, case_id: str):
+    # Serialize task assignment and stage changes against the same case.
+    if db.backend() == "postgresql":
+        return conn.execute("SELECT * FROM review_cases WHERE id = ? FOR UPDATE", (case_id,)).fetchone()
+    conn.execute("BEGIN IMMEDIATE")
+    return conn.execute("SELECT * FROM review_cases WHERE id = ?", (case_id,)).fetchone()
 
 
 def save_pre_results(
@@ -402,7 +433,7 @@ def save_pre_results(
     tool_result: dict[str, Any],
 ) -> dict[str, Any]:
     with db.connect() as conn:
-        case = conn.execute("SELECT * FROM review_cases WHERE id = ?", (case_id,)).fetchone()
+        case = _locked_case(conn, case_id)
         if not case:
             raise ValueError("评审案卷不存在")
         if case["stage"] != "pre_review":
@@ -431,15 +462,17 @@ def save_pre_results(
             source_doc_id=case["doc_id"],
             actor=actor,
         )
-        conn.execute(
+        updated = conn.execute(
             """
             UPDATE review_cases
             SET stage = 'expert_review', status = 'in_progress',
                 updated_by = ?, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND stage = 'pre_review'
             """,
             (actor, db.now(), case_id),
         )
+        if not updated.rowcount:
+            raise ValueError("案卷已进入其他阶段，请刷新后重试")
         _action(
             conn,
             case_id,
@@ -458,7 +491,7 @@ def assign_tasks(
     if not assignments:
         raise ValueError("请至少指派一位专家")
     with db.connect() as conn:
-        case = conn.execute("SELECT * FROM review_cases WHERE id = ?", (case_id,)).fetchone()
+        case = _locked_case(conn, case_id)
         if not case:
             raise ValueError("评审案卷不存在")
         if case["stage"] != "expert_review":
@@ -602,6 +635,10 @@ def list_tasks(user: dict, case_id: str | None = None) -> list[dict[str, Any]]:
             tuple(params),
         ).fetchall()
     result = [_row(row) for row in rows]
+    if user.get("role") == "reviewer":
+        for item in result:
+            if item.get("case_stage") == "completed":
+                item["case_status"] = "completed"
     if result:
         case_ids = sorted({str(item["case_id"]) for item in result})
         with db.connect() as conn:
@@ -654,6 +691,8 @@ def get_task(task_id: str, user: dict) -> dict[str, Any]:
             (row["case_id"],),
         ).fetchall()
     data = _row(row) or {}
+    if user.get("role") == "reviewer" and data.get("case_stage") == "completed":
+        data["case_status"] = "completed"
     _decorate_task_audit([data], [_row(item) for item in audit_artifacts])
     latest: dict[str, dict[str, Any]] = {}
     for artifact in artifacts:
@@ -695,6 +734,9 @@ def submit_task(
         ).fetchone()
         if not row:
             raise ValueError("审核任务不存在")
+        case = _locked_case(conn, row["case_id"])
+        if not case or case["stage"] != "expert_review":
+            raise ValueError("案卷不在专家审核阶段，不能提交任务")
         admin_debug = (
             user.get("role") == "admin"
             and row["assignee_username"] != username
@@ -791,7 +833,7 @@ def submit_task(
 
 def advance_to_final(case_id: str, actor: str) -> dict[str, Any]:
     with db.connect() as conn:
-        case = conn.execute("SELECT * FROM review_cases WHERE id = ?", (case_id,)).fetchone()
+        case = _locked_case(conn, case_id)
         if not case:
             raise ValueError("评审案卷不存在")
         if case["stage"] != "expert_review":
@@ -837,7 +879,7 @@ def finalize_case(
     if len(comment) < 10:
         raise ValueError("终审意见至少填写 10 个字")
     with db.connect() as conn:
-        case = conn.execute("SELECT * FROM review_cases WHERE id = ?", (case_id,)).fetchone()
+        case = _locked_case(conn, case_id)
         if not case:
             raise ValueError("评审案卷不存在")
         if case["stage"] != "final_review":
@@ -846,6 +888,10 @@ def finalize_case(
             "SELECT * FROM review_tasks WHERE case_id = ? ORDER BY created_at, id",
             (case_id,),
         ).fetchall()
+        if any(task["status"] == "assigned" for task in tasks):
+            raise ValueError("仍有专家任务未提交")
+        if not any(task["status"] == "submitted" for task in tasks):
+            raise ValueError("至少需要一份已提交的专家意见")
         stamp = db.now()
         content = [
             f"# 终审决定 · {case['title']}",

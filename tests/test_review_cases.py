@@ -74,6 +74,10 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
     assert case["stage"] == "pre_review"
 
     report, tool = _pre_payloads()
+    report["limitations"] = ["离线能力边界测试"]
+    report["sections"][0]["items"][0]["evidence_full"] = "完整政策条款测试"
+    tool["duplicate"]["matches"] = [{"matched_doc_name": "其他材料", "similarity": 0.6, "source_snippet": "原文片段", "matched_snippet": "比对片段"}]
+    tool["match"]["applicant_warning"] = "申报单位未识别"
     case = review_cases.save_pre_results(
         case["id"],
         actor="manager-case",
@@ -81,6 +85,10 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
         tool_result=tool,
     )
     assert case["stage"] == "expert_review"
+    pre = next(item for item in case["artifacts"] if item["artifact_type"] == "pre_review")
+    check = next(item for item in case["artifacts"] if item["artifact_type"] == "tool_check")
+    assert "离线能力边界测试" in pre["content"] and "完整政策条款测试" in pre["content"]
+    assert "原文片段" in check["content"] and "比对片段" in check["content"] and "申报单位未识别" in check["content"]
 
     expert_id = db.list_experts()[0]["id"]
     case = review_cases.assign_tasks(
@@ -137,6 +145,9 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
     assert all(item["sha256"] for item in artifacts)
     assert len(case["actions"]) >= 5
 
+    assert review_cases.get_task(task_id, reviewer)["case_status"] == "completed"
+    assert review_cases.list_tasks(reviewer)[0]["case_status"] == "completed"
+    assert review_cases.get_task(task_id, {"username": "manager-case", "role": "manager"})["case_status"] == "approved"
     reviewer_case = review_cases.get_case(case["id"], reviewer)
     assert len(reviewer_case["tasks"]) == 1
     assert reviewer_case["status"] == "completed"
@@ -209,3 +220,59 @@ def test_review_case_expert_conflict_and_access_boundary(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="至少需要一份"):
         review_cases.advance_to_final(case["id"], "manager-case")
+
+
+def test_concurrent_pre_review_only_archives_once(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+
+    _seed(tmp_path, monkeypatch)
+    case = review_cases.create_case(title="并发预审", doc_id="doc-case", dossier_id="", actor="manager-case")
+    report, tool = _pre_payloads()
+    barrier = threading.Barrier(2)
+
+    def run():
+        barrier.wait(timeout=5)
+        try:
+            review_cases.save_pre_results(case["id"], actor="manager-case", report=report, tool_result=tool)
+            return "success"
+        except ValueError:
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: run(), range(2)))
+    assert sorted(results) == ["rejected", "success"]
+    result = review_cases.get_case(case["id"], {"username": "manager-case", "role": "manager"})
+    assert len(result["artifacts"]) == 2
+
+
+def test_concurrent_assignment_and_advance_cannot_leave_pending_final_task(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+
+    _seed(tmp_path, monkeypatch)
+    second = db.insert_expert({"name": "第二位测试专家", "institution": "测试机构", "available": True})
+    case = review_cases.create_case(title="并发阶段", doc_id="doc-case", dossier_id="", actor="manager-case")
+    report, tool = _pre_payloads()
+    tool["match"]["candidates"].append({"expert": {"id": second}})
+    case = review_cases.save_pre_results(case["id"], actor="manager-case", report=report, tool_result=tool)
+    case = review_cases.assign_tasks(case["id"], [{"expert_id": 1, "username": "reviewer-case"}], "manager-case")
+    review_cases.submit_task(case["tasks"][0]["id"], {"username": "reviewer-case", "role": "reviewer"}, recommendation="approve", opinion="专家测试审核意见已经超过十个字", conflict_declared=False, conflict_reason="")
+    barrier = threading.Barrier(2)
+
+    def execute(action):
+        barrier.wait(timeout=5)
+        try:
+            action()
+            return "success"
+        except ValueError:
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(execute, [
+            lambda: review_cases.assign_tasks(case["id"], [{"expert_id": second, "username": "reviewer-case"}], "manager-case"),
+            lambda: review_cases.advance_to_final(case["id"], "manager-case"),
+        ]))
+    assert sorted(results) == ["rejected", "success"]
+    result = review_cases.get_case(case["id"], {"username": "manager-case", "role": "manager"})
+    assert result["stage"] == "expert_review" or result["assigned_count"] == 0

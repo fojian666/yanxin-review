@@ -113,3 +113,32 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.getByRole('button', { name: /案卷数据/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('library-case-artifacts-mobile.png') });
 });
+
+test('预审返回时保留用户当前选择的案卷', async ({ app: page, documents, context }) => {
+  const created = [];
+  for (const title of ['延迟预审案卷', '当前查看案卷']) {
+    const response = await context.request.post('/api/review-cases', { data: { title, doc_id: documents[0].id, dossier_id: '' } });
+    expect(response.ok()).toBeTruthy();
+    created.push((await response.json()).case);
+  }
+  await navigate(page, '项目评审');
+  await page.getByLabel('切换评审案卷').selectOption(created[0].id);
+  await expect(page.locator('.review-case-bar')).toContainText('延迟预审案卷');
+  let release!: () => void;
+  let started!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  const requestStarted = new Promise<void>(resolve => { started = resolve; });
+  await page.route(`**/api/review-cases/${created[0].id}/run`, async route => {
+    const response = await route.fetch();
+    started();
+    await blocked;
+    await route.fulfill({ response });
+  });
+  await page.getByRole('button', { name: '一键预审并匹配专家' }).click();
+  await requestStarted;
+  await page.getByLabel('切换评审案卷').selectOption(created[1].id);
+  await expect(page.locator('.review-case-bar')).toContainText('当前查看案卷');
+  release();
+  await expect(page.getByText('预审、查重和专家匹配已完成并归档')).toBeVisible();
+  await expect(page.getByLabel('切换评审案卷')).toHaveValue(created[1].id);
+});

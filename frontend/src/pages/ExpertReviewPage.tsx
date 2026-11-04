@@ -12,7 +12,7 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
-import type { ExpertRecommendation, ReviewTask } from "../types";
+import type { ExpertRecommendation, ReviewTask, ToolCheckResult } from "../types";
 
 const RECOMMENDATIONS: { value: ExpertRecommendation; label: string }[] = [
   { value: "approve", label: "建议通过" },
@@ -35,6 +35,7 @@ export function ExpertReviewPage() {
   const [opinion, setOpinion] = useState("");
 
   const pendingCount = useMemo(() => tasks.filter((item) => item.status === "assigned").length, [tasks]);
+  const duplicate = (task?.tool_check?.payload as unknown as ToolCheckResult | undefined)?.duplicate;
 
   const loadTasks = async (preferred = "") => {
     const result = await api.reviewTasks();
@@ -135,7 +136,8 @@ export function ExpertReviewPage() {
               key={item.id}
               className={item.id === selectedId ? "is-active" : ""}
               aria-pressed={item.id === selectedId}
-              onClick={() => setSelectedId(item.id)}
+              disabled={busy}
+              onClick={() => { if (item.id !== selectedId) { setTask(null); setLoading(true); setSelectedId(item.id); } }}
             >
               <span className={`status-pill ${item.status === "submitted" ? "status-pass" : item.status === "conflict" ? "status-warn" : "status-idle"}`}>
                 {item.status_label}
@@ -167,6 +169,18 @@ export function ExpertReviewPage() {
                 <Markdown content={task.pre_review.content} className="expert-review-markdown" />
               ) : (
                 <EmptyState icon={<AlertTriangle size={32} />} description="该案卷尚未生成预审报告，请联系管理人员。" />
+              )}
+              {duplicate && (
+                <section className="expert-review-markdown">
+                  <h3>文本查重</h3>
+                  <p>{duplicate.summary}</p>
+                  {duplicate.matches?.map((match, index) => (
+                    <div key={`${match.matched_doc_id}-${index}`}>
+                      <Link to={`/library?doc=${encodeURIComponent(match.matched_doc_id)}`}>{match.matched_doc_name}</Link>
+                      <p>本文：{match.source_snippet}</p><p>比对：{match.matched_snippet}</p>
+                    </div>
+                  ))}
+                </section>
               )}
             </div>
           </section>

@@ -18,13 +18,13 @@
     193 rag/qa.py
     285 rag/retrieval.py
     499 rag/review.py
-    949 rag/review_cases.py
+    995 rag/review_cases.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     290 rag/trends.py
     353 rag/vector_stores.py
-   9389 total
+   9435 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     358 frontend/src/AppContext.tsx
@@ -59,12 +59,12 @@
      57 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
     584 frontend/src/pages/ChatPage.tsx
-    226 frontend/src/pages/ExpertReviewPage.tsx
+    240 frontend/src/pages/ExpertReviewPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
     596 frontend/src/pages/LibraryPage.tsx
     302 frontend/src/pages/LoginPage.tsx
     422 frontend/src/pages/MatchPage.tsx
-    608 frontend/src/pages/ReviewCasePage.tsx
+    613 frontend/src/pages/ReviewCasePage.tsx
     622 frontend/src/pages/ReviewPage.tsx
     232 frontend/src/pages/TrendPage.tsx
     238 frontend/src/pages/WelcomePage.tsx
@@ -73,7 +73,7 @@
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
     496 frontend/src/types.ts
-  18568 total
+  18587 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
@@ -83,10 +83,10 @@
      93 tests/test_llm_payload.py
     470 tests/test_llm_provider.py
     417 tests/test_retrieval_embedding.py
-    211 tests/test_review_cases.py
+    278 tests/test_review_cases.py
    1407 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   3582 total
+   3649 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -105,7 +105,7 @@
     259 frontend/e2e/knowledge-document.spec.ts
     231 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
-    115 frontend/e2e/review-case.spec.ts
+    144 frontend/e2e/review-case.spec.ts
     363 frontend/e2e/review-match.spec.ts
     165 frontend/e2e/route-arrival.spec.ts
      52 frontend/e2e/server.py
@@ -114,9 +114,9 @@
     160 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3161 total
+   3190 total
 合计
-  36129 total（105 个文件）
+  36290 total（105 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
