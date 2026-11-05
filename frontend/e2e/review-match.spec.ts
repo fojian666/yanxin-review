@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, navigate, downloadText, proposalText } from './fixtures';
+import type { ReviewReport } from '../src/types';
 
 async function uploadRefreshDocument(page: Page, name: string) {
   await page.locator('.topbar-actions').getByRole('button', { name: '上传文档', exact: true }).click();
@@ -17,6 +18,7 @@ async function uploadRefreshDocument(page: Page, name: string) {
 
 async function showReviewCheck(page: Page, title: string, selector = 'h3') {
   await page.getByRole('tab', { name: '检查项', exact: true }).click();
+  await page.getByRole('button', { name: '补充检查', exact: true }).click();
   const target = page.locator('.review-check-list .adaptive-pager-page').locator(selector).filter({ hasText: title });
   const pager = page.getByRole('group', { name: '检查项分页' });
   for (let index = 0; index < 30; index += 1) {
@@ -48,13 +50,36 @@ async function showExcludedExpert(page: Page, name: string) {
 test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: page, documents }, testInfo) => {
   await page.goto(`/review?doc=${documents[0].id}`);
   await expect(page.getByLabel('当前课题')).toHaveValue(documents[0].id);
+  const reportResponse = page.waitForResponse(response => response.url().endsWith('/api/review') && response.request().method() === 'POST');
   await page.getByRole('button', { name: '开始预审' }).click();
+  const report = await (await reportResponse).json() as ReviewReport;
+  const scoring = report.scoring!;
+  expect(scoring.maximum).toBe(100);
+  expect(scoring.dimensions.map(dimension => dimension.maximum)).toEqual([20, 20, 20, 15, 10, 15]);
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
   await expect(page.locator('.report-head')).toContainText('规则预审');
   await expect(page.locator('.report-seal')).toHaveText('待人工复核');
   await expect(page.locator('.report-head-export')).toHaveAttribute('aria-label', '导出完整报告');
   await expect(page.locator('.review-summary-page .disclaimer')).toContainText('须经专家和管理人员复核');
   await expect(page.locator('.review-summary-page .report-summary-limits')).toContainText('能力边界');
+  const scoreValue = scoring.final_score == null ? `${scoring.earned}–${scoring.upper_bound}` : String(scoring.final_score);
+  await expect(page.locator('.report-head-score')).toContainText(`${scoreValue} / 100`);
+  await expect(page.locator('.review-summary-page .review-scoring')).toContainText(`待核验权重 ${scoring.pending_points} 分`);
+  await expect(page.locator('.review-summary-page .review-score-disclaimer')).toContainText('能力边界');
+  await expect(page.locator('.review-summary-page .review-score-disclaimer')).toBeInViewport();
+  await expect(page.locator('.review-summary-page .review-score-dimensions > div')).toHaveCount(6);
+  await expect(page.locator('.review-summary-page .review-score-dimensions > div').last()).toBeInViewport();
+  await expect(page.locator('.review-summary-page .review-score-value')).toHaveCount(0);
+  await expect(page.locator('.report-head .report-meta')).toContainText('固定规则计分');
+  await page.getByRole('tab', { name: '检查项', exact: true }).click();
+  await expect(page.getByRole('button', { name: '计分依据', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const firstScoreItem = scoring.dimensions[0].items[0];
+  const scoreCard = page.locator('.review-score-check-list .adaptive-pager-page .review-score-item').first();
+  await expect(scoreCard).toContainText(firstScoreItem.label);
+  await expect(scoreCard).toContainText(`已确认 ${firstScoreItem.earned} / ${firstScoreItem.maximum} 分`);
+  await expect(scoreCard).toContainText(firstScoreItem.detail);
+  await expect(scoreCard.locator('.check-evidence')).toHaveCSS('-webkit-line-clamp', 'none');
+  await page.getByRole('tab', { name: '结论概览', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('review-summary-desktop.png') });
   await uploadRefreshDocument(page, '预审刷新回归');
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
@@ -90,10 +115,16 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   expect(text).toContain('文本查重');
   expect(text).toContain('离线规则与检索');
   expect(text).toContain('须经专家和管理人员复核');
+  expect(text).toContain(`${scoreValue} / 100 分`);
+  expect(text).toContain(`待核验权重：${scoring.pending_points} 分`);
+  expect(text).toContain(firstScoreItem.detail);
+  expect(text).toContain(scoring.disclaimer);
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.review-print-only')).toBeVisible();
   await expect(page.locator('.review-print-only')).toContainText('形式完整性');
   await expect(page.locator('.review-print-only')).toContainText('建议核实的问题');
+  await expect(page.locator('.review-print-only .review-score-print')).toContainText(`${scoreValue} / 100 分`);
+  await expect(page.locator('.review-print-only .review-score-print')).toContainText(firstScoreItem.detail);
   await expect(page.locator('.work-deck')).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
   await page.getByLabel('当前课题').selectOption(documents[1].id);
@@ -102,7 +133,7 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   await expect(page.locator('.report-head')).toContainText(documents[1].name);
 });
 
-test('预审慢请求期间阻止重复运行，错误后可重试', async ({ app: page, documents }) => {
+test('预审慢请求防重、失败重试与历史及待核验报告兼容', async ({ app: page, documents }, testInfo) => {
   await page.goto(`/review?doc=${documents[0].id}`);
   let calls = 0;
   let release!: () => void;
@@ -118,9 +149,67 @@ test('预审慢请求期间阻止重复运行，错误后可重试', async ({ ap
   await expect(page.getByRole('heading', { name: '预审失败', exact: true })).toBeVisible();
   expect(calls).toBe(1);
   await page.unroute('**/api/review');
+  // 旧报告没有计分快照，不能用风险等级补造分数。
+  await page.route('**/api/review', async route => {
+    const response = await route.fetch();
+    const report = await response.json() as ReviewReport;
+    delete report.scoring;
+    await route.fulfill({ response, json: report });
+  });
   await page.getByRole('tab', { name: '运行预审', exact: true }).click();
   await page.getByRole('button', { name: '开始预审' }).click();
   await expect(page.locator('.report-head')).toContainText(documents[0].name);
+  await expect(page.locator('.review-summary-page .review-score-unrecorded')).toContainText('未记录');
+  await expect(page.locator('.report-head-score')).toHaveCount(0);
+  await page.getByRole('tab', { name: '检查项', exact: true }).click();
+  await page.getByRole('button', { name: '计分依据', exact: true }).click();
+  await expect(page.locator('.review-check-page')).toContainText('不推算分数');
+  await page.unroute('**/api/review');
+  // 控制为跨越高/中/低档的区间，验证未知权重不会被显示成确定分数。
+  await page.route('**/api/review', async route => {
+    const response = await route.fetch();
+    const report = await response.json() as ReviewReport;
+    const maximums = [20, 20, 20, 15, 10, 15];
+    const earned = [10, 10, 10, 10, 5, 10];
+    const pending = [10, 10, 5, 5, 0, 0];
+    report.scoring = {
+      version: 'e2e-pending-v1', label: '固定规则计分', maximum: 100,
+      earned: 55, pending_points: 30, upper_bound: 85, final_score: null,
+      risk_level: '待核验', risk_reason: '待核验区间跨越多个风险档位，须人工核对。',
+      thresholds: { low: 80, medium: 60 },
+      critical_issues: [{ key: 'e2e-critical', label: '关键问题独立核查', detail: '分数不能抵消关键问题。', evidence: '需核对原始诚信承诺材料。' }],
+      dimensions: maximums.map((maximum, index) => ({
+        key: `dimension-${index}`, label: `核验维度${index + 1}`, maximum,
+        earned: earned[index], pending_points: pending[index],
+        items: [{ key: `item-${index}`, label: `计分子项${index + 1}`, maximum,
+          earned: earned[index], pending_points: pending[index], status: pending[index] ? 'pending' : 'partial',
+          detail: '已经确认的扣分和待核验权重分别保留。', evidence: '完整依据不得裁字。'.repeat(80),
+        }],
+      })),
+      disclaimer: '固定规则计分试行，须人工复核，不作为立项或处罚结论。',
+    };
+    await route.fulfill({ response, json: report });
+  });
+  await page.getByRole('tab', { name: '运行预审', exact: true }).click();
+  await page.getByRole('button', { name: '开始预审' }).click();
+  await expect(page.locator('.report-head-score')).toContainText('55–85 / 100');
+  await expect(page.locator('.report-head .risk-badge')).toContainText('待核验');
+  await expect(page.locator('.review-summary-page .review-scoring')).toContainText('已核验权重 70 分 · 待核验权重 30 分');
+  await expect(page.locator('.review-summary-page .review-score-critical')).toContainText('分数不能抵消关键问题');
+  await page.getByRole('tab', { name: '检查项', exact: true }).click();
+  const evidence = page.locator('.review-score-check-list .adaptive-pager-page .check-evidence').first();
+  await expect(evidence).toContainText('完整依据不得裁字。'.repeat(80));
+  await expect(evidence).toHaveCSS('-webkit-line-clamp', 'none');
+  await expect(page.locator('.review-score-check-list .adaptive-pager-page .review-evidence-body').first()).toHaveCSS('overflow-y', 'auto');
+  await page.setViewportSize({ width: 390, height: 640 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+  await expect.poll(async () => (await page.locator('.review-score-check-list .adaptive-pager-page .review-evidence-body').first().boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(90);
+  await page.screenshot({ path: testInfo.outputPath('review-score-pending-mobile.png') });
+  await page.getByRole('tab', { name: '边界与导出', exact: true }).click();
+  const pendingText = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
+  expect(pendingText).toContain('待核验区间：55–85 / 100 分');
+  expect(pendingText).toContain('关键问题独立核查');
+  expect(pendingText).toContain('完整依据不得裁字。'.repeat(80));
 });
 
 test('预审期间切换卷宗会丢弃旧响应', async ({ app: page, documents }) => {

@@ -296,6 +296,9 @@ def test_revoked_model_policy_is_removed_from_every_narrative_and_archive(secure
     restricted = client.get(f"/api/review-artifacts/{original['id']}").json()["artifact"]
     assert secret not in json.dumps(restricted, ensure_ascii=False)
     assert "public-policy" not in json.dumps(restricted, ensure_ascii=False)
+    assert restricted["payload"]["scoring"] == original["payload"]["scoring"]
+    assert_private_absent(restricted["payload"]["scoring"])
+    assert "precheck-v1" in restricted["content"]
     assert restricted["redacted"] is True
     assert restricted["original_sha256"] == original["sha256"]
     assert restricted["sha256"] == hashlib.sha256(restricted["content"].encode()).hexdigest()

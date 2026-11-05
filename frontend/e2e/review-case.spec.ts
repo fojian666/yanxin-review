@@ -26,8 +26,17 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.getByRole('button', { name: '重新运行需新建轮次' })).toBeVisible();
   await expect(page.getByRole('tab', { name: '预审' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.review-case-kpis')).toBeVisible();
+  await expect(page.locator('.review-case-kpis')).toContainText('/ 100');
+  await expect(page.locator('.review-case-score-card .review-scoring')).toContainText('试行 · 待人工复核');
+  await expect(page.locator('.review-case-score-card .review-score-dimensions > div')).toHaveCount(6);
+  await expect(page.locator('.review-case-score-card .review-score-dimensions > div').last()).toBeInViewport();
+  await expect(page.locator('.review-case-score-card .review-score-value')).toHaveCount(0);
+  await page.getByText('完整计分依据', { exact: true }).click();
+  await expect(page.locator('.review-case-score-details .print-check-item').first()).toContainText('核验与扣分原因');
+  await page.getByText('完整计分依据', { exact: true }).click();
+  await page.locator('.review-case-score-card').evaluate(element => { element.scrollTop = 0; });
   await expect(page.getByText('单位比对口径：')).toBeVisible();
-  await expect(page.getByText(/查重相似度不等于抄袭/)).toBeVisible();
+  await expect(page.locator('.review-case-boundaries').getByText(/查重相似度不等于抄袭/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('review-case-pre-complete.png') });
   await page.unroute('**/api/review-cases/*/run');
   await page.getByRole('tab', { name: '专家审核' }).click();

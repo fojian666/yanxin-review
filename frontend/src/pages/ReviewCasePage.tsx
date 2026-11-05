@@ -18,6 +18,7 @@ import { api } from "../api";
 import { useApp } from "../AppContext";
 import { EmptyState } from "../components/EmptyState";
 import { KpiCard } from "../components/KpiCard";
+import { ReviewScoringSummary, ReviewScoringPrint, reviewScoreValue } from "../components/ReviewScoring";
 import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
 import type {
   ExpertCandidate,
@@ -127,6 +128,7 @@ export function ReviewCasePage() {
     [current]
   );
   const candidates = toolResult?.match?.candidates ?? [];
+  const preReviewRisk = preReview?.scoring?.risk_level ?? preReview?.overall?.risk_level;
   const excludedCount = toolResult?.match?.excluded?.length;
   const duplicateCount = toolResult?.duplicate?.matches?.length;
 
@@ -456,14 +458,16 @@ export function ReviewCasePage() {
               ) : preReview ? (
                 <>
                   <div className="kpi-grid review-case-kpis">
-                    <KpiCard label="风险等级" value={preReview.overall?.risk_level ?? "未记录"} sub={preReview.overall?.checked_items == null ? "检查项未记录" : `${preReview.overall.checked_items} 项检查`} tone={preReview.overall?.risk_level === "高" ? "gold" : "teal"} />
+                    <KpiCard label={preReview.scoring?.final_score == null && preReview.scoring ? "待核验区间 / 100" : "规则得分 / 100"} value={reviewScoreValue(preReview.scoring)} sub={`风险等级：${preReviewRisk ?? "未记录"}`} tone={preReviewRisk === "低" ? "teal" : preReviewRisk === "高" || preReviewRisk === "中" ? "gold" : "ink"} />
                     <KpiCard label="文本规模" value={preReview.doc?.char_count ?? current.doc_text_len ?? "未记录"} suffix="字" sub={(preReview.doc?.chunk_count ?? current.doc_chunk_count) == null ? "文本块数未记录" : `${preReview.doc?.chunk_count ?? current.doc_chunk_count} 个文本块`} />
                     <KpiCard label="查重命中" value={duplicateCount ?? "未记录"} suffix="个" sub={toolResult?.duplicate?.summary || (duplicateCount == null ? "历史归档未记录查重明细" : "已完成")} />
                     <KpiCard label="候选专家" value={candidates.length} suffix="位" sub={excludedCount == null ? "排除数量未记录" : `已排除 ${excludedCount} 位`} tone="gold" />
                   </div>
                   <div className="review-stage-grid">
-                    <article className="review-stage-card">
+                    <article className="review-stage-card review-case-score-card">
                       <h3>预审结论</h3>
+                      <ReviewScoringSummary scoring={preReview.scoring} compact />
+                      {preReview.scoring && <details className="review-case-score-details"><summary>完整计分依据</summary><ReviewScoringPrint scoring={preReview.scoring} includeSummary={false} /></details>}
                       <p>{preReview.overall?.summary || "历史归档未记录预审摘要"}</p>
                       <div className="review-case-boundaries scroll-area">
                         {toolResult?.match?.applicant_warning && (

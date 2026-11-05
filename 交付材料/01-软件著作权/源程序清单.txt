@@ -18,14 +18,15 @@
     790 rag/parsers.py
     193 rag/qa.py
     285 rag/retrieval.py
-    507 rag/review.py
-   1129 rag/review_cases.py
+    486 rag/review.py
+   1132 rag/review_cases.py
+    253 rag/review_scoring.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     292 rag/trends.py
     353 rag/vector_stores.py
-  10059 total
+  10294 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     378 frontend/src/AppContext.tsx
@@ -48,6 +49,7 @@
     103 frontend/src/components/KeywordGraph.tsx
     104 frontend/src/components/KpiCard.tsx
      84 frontend/src/components/Markdown.tsx
+    112 frontend/src/components/ReviewScoring.tsx
     181 frontend/src/components/Sidebar.tsx
      18 frontend/src/components/StatusPill.tsx
     126 frontend/src/components/Topbar.tsx
@@ -69,30 +71,31 @@
     603 frontend/src/pages/LibraryPage.tsx
     108 frontend/src/pages/LoginPage.tsx
     524 frontend/src/pages/MatchPage.tsx
-    642 frontend/src/pages/ReviewCasePage.tsx
-    631 frontend/src/pages/ReviewPage.tsx
+    646 frontend/src/pages/ReviewCasePage.tsx
+    646 frontend/src/pages/ReviewPage.tsx
     232 frontend/src/pages/TrendPage.tsx
     238 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   8069 frontend/src/styles.css
+   8130 frontend/src/styles.css
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
-    525 frontend/src/types.ts
-  18985 total
+    570 frontend/src/types.ts
+  19222 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
      42 tests/test_docs.py
-    339 tests/test_document_access.py
+    342 tests/test_document_access.py
     388 tests/test_dossiers.py
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
     470 tests/test_llm_provider.py
     417 tests/test_retrieval_embedding.py
     367 tests/test_review_cases.py
-   1449 tests/test_robustness.py
+    167 tests/test_review_scoring.py
+   1450 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   4123 total
+   4294 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -112,8 +115,8 @@
     259 frontend/e2e/knowledge-document.spec.ts
     231 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
-    311 frontend/e2e/review-case.spec.ts
-    363 frontend/e2e/review-match.spec.ts
+    320 frontend/e2e/review-case.spec.ts
+    452 frontend/e2e/review-match.spec.ts
     166 frontend/e2e/route-arrival.spec.ts
      52 frontend/e2e/server.py
     322 frontend/e2e/themes.spec.ts
@@ -121,9 +124,9 @@
     160 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3697 total
+   3795 total
 合计
-  38301 total（112 个文件）
+  39042 total（115 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

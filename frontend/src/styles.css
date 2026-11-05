@@ -8067,3 +8067,64 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
 .document-access-readers { margin: 12px 0; border: 1px solid var(--line); border-radius: 6px; max-height: 160px; overflow-y: auto; }
 .document-access-readers label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .document-access-body .warning-banner { margin-block: 12px; }
+
+/* 固定规则计分：未知保留区间与权重，依据正文不裁字。 */
+.review-scoring { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 13px; line-height: 1.65; }
+.review-summary-page > .review-scoring { flex: 0 0 auto; }
+.review-scoring.is-compact { margin-top: 10px; padding-top: 10px; }
+.review-scoring.is-compact .review-score-dimensions { margin: 8px 0; }
+.review-scoring.is-compact .review-score-dimensions > div { padding: 6px 0; }
+.review-case-score-card > .review-scoring.is-compact { margin-top: 0; padding-top: 0; border-top: 0; }
+.review-score-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.review-score-heading h3 { margin: 0; font: 700 15px/1.5 var(--font-ui); color: var(--ink); }
+.review-score-heading h3 span { display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 500; }
+.review-score-value { color: var(--ink); font: 700 29px/1.2 "Songti SC", "STSong", serif; white-space: nowrap; }
+.review-score-value small { font: 500 13px/1.4 var(--font-ui); }
+.review-scoring p { margin: 7px 0; overflow-wrap: anywhere; }
+.review-score-dimensions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; margin: 12px 0; }
+.review-score-dimensions > div { min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.review-score-dimensions dt { font-weight: 680; color: var(--ink); }
+.review-score-dimensions dd { margin: 3px 0 0; font-variant-numeric: tabular-nums; }
+.review-score-dimensions dd span { display: block; font-size: 12px; }
+.review-score-critical { padding: 8px 0; }
+.review-score-critical h4 { margin: 0 0 5px; color: var(--ink); font: 700 13px/1.5 var(--font-ui); }
+.review-score-critical > div { margin: 8px 0; padding-left: 10px; border-left: 3px solid var(--gold); }
+.review-score-critical blockquote { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-kai); }
+.review-score-disclaimer { padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--line); }
+.review-score-rule, .review-score-unrecorded { color: var(--ink-2); font-size: 12px; }
+.review-score-unrecorded { padding: 12px; }
+.review-check-switch { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.review-check-switch .btn { min-height: 44px; }
+.review-check-switch .btn[aria-pressed="true"] { color: var(--ink); background: var(--panel-2); border-color: var(--teal); font-weight: 700; }
+.review-check-page { padding: 0; }
+.review-check-page .section-block { margin-top: 0; }
+.review-check-page .section-head { flex: 0 0 auto; }
+.review-score-status { flex: 0 0 auto; padding: 3px 7px; border-radius: 3px; color: var(--ink-2); background: var(--panel-2); font-size: 12px; }
+.review-score-status.score-fail { color: var(--red); }
+.review-score-status.score-partial { color: var(--warning); }
+.review-score-status.score-pass { color: var(--teal-deep); }
+.review-score-points { margin: 9px 0; font-variant-numeric: tabular-nums; }
+.review-score-item .check-label { margin: 0; }
+.review-score-check-list .check-evidence { white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-case-score-card { overflow-y: auto; overscroll-behavior: contain; }
+.review-case-score-card .review-case-boundaries { max-height: none; overflow: visible; }
+.review-case-score-details { margin-top: 12px; border-top: 1px solid var(--line); }
+.review-case-score-details > summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: var(--ink); font-weight: 700; }
+.review-score-print .print-check-item { break-inside: avoid; overflow-wrap: anywhere; }
+.risk-ring.is-pending > div { font-size: 12px; }
+.risk-badge.risk-pending { color: var(--idle-ink); background: var(--idle); }
+.report-head-score { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 9px; margin-bottom: 6px; color: var(--ink); }
+.report-head-score strong { font: 700 23px/1.2 "Songti SC", "STSong", serif; }
+.report-head-score span { font-size: 11px; }
+@media (max-width: 680px) {
+  .review-score-dimensions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-score-heading h3 span { margin-left: 0; }
+  .review-check-switch { padding: 4px 12px; }
+  .review-check-page .section-head { padding: 10px 14px; }
+  .review-check-page .inline-pager { padding: 4px 14px; }
+}
+@media print {
+  .review-score-dimensions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .review-scoring, .review-score-critical, .review-score-dimensions { break-inside: auto; }
+  .review-score-dimensions > div { break-inside: avoid; }
+}

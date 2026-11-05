@@ -1305,7 +1305,7 @@ def test_remove_sample_documents_route_is_reachable(tmp_path, monkeypatch):
 def test_review_risk_excludes_policy_on_both_paths(monkeypatch):
     """同一份内容：离线与模型两条路径的风险等级必须一致（政策提示不计入风险）。"""
     doc = {"id": "d1", "name": "演示本子", "kind": "proposal", "year": 2026, "path": ""}
-    # 文档完整性要求 ≥1500 字，否则规则路径本身就会判「风险」，测不到政策口径
+    # 规则计分独立于模型及政策；材料中未核验的项目不能冒充低风险。
     text = (
         "立项背景 研究目标 研究内容 技术路线 创新点 考核指标 经费预算 研究基础 科研诚信 参考文献 [1]\n"
         + "本项目围绕耕地保护与科研诚信开展研究，数据来源包括遥感影像与统计年鉴。\n" * 60
@@ -1347,7 +1347,8 @@ def test_review_risk_excludes_policy_on_both_paths(monkeypatch):
     monkeypatch.setattr(review_service, "llm", FakeLLM())
     online = review_service.review_document("d1")
     assert online["mode"] == "qwen"
-    assert online["overall"]["risk_level"] == offline["overall"]["risk_level"] == "低"
+    assert online["overall"]["risk_level"] == offline["overall"]["risk_level"] == "待核验"
+    assert online["scoring"] == offline["scoring"]
     assert "不计入风险等级" in online["overall"]["summary"]
 
 

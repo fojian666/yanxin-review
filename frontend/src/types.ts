@@ -278,6 +278,49 @@ export interface ReviewMatch {
   reference_id?: string;
 }
 
+export interface ReviewScoreItem {
+  key: string;
+  label: string;
+  maximum: number;
+  earned: number;
+  pending_points: number;
+  status: "pass" | "partial" | "fail" | "pending";
+  detail: string;
+  evidence: string;
+}
+
+export interface ReviewScoring {
+  version: string;
+  label: string;
+  maximum: 100;
+  earned: number;
+  pending_points: number;
+  upper_bound: number;
+  final_score: number | null;
+  risk_level: "低" | "中" | "高" | "待核验";
+  risk_reason: string;
+  critical_issues: Array<{ key: string; label: string; detail: string; evidence: string }>;
+  dimensions: Array<{
+    key: string;
+    label: string;
+    maximum: number;
+    earned: number;
+    pending_points: number;
+    items: ReviewScoreItem[];
+  }>;
+  disclaimer: string;
+  thresholds: { low: number; medium: number };
+  duplicate_metrics?: {
+    coverage: number | null;
+    matched_characters: number;
+    total_characters: number;
+    longest_span: number;
+    candidates_checked: number;
+    scope_note: string;
+    pending_review: boolean;
+  };
+}
+
 export interface ReviewReport {
   access_note?: string;
   doc: {
@@ -299,6 +342,8 @@ export interface ReviewReport {
   questions: string[];
   mode: string;
   generation?: GenerationInfo;
+  /** 固定规则计分；历史报告可能未记录，不能从风险等级推算。 */
+  scoring?: ReviewScoring;
   warning: string;
   /** 未启用大模型时的能力边界说明，空数组表示由模型生成 */
   limitations?: string[];

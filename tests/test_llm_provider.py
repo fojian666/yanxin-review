@@ -160,7 +160,7 @@ def test_review_uses_source_char_count_not_overlapping_chunks(monkeypatch):
     assert report["doc"]["char_count"] == 1200
     assert "共 1200 字" in count_item["detail"]
     assert "共 1200 字" in report["overall"]["summary"]
-    assert count_item["status"] == "fail"
+    assert count_item["status"] == "warn"  # 长度不足仅提示解析/材料边界，不单独决定风险。
 
 
 def test_offline_review_reports_limitations(monkeypatch):

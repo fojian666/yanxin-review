@@ -421,6 +421,8 @@ def _artifact(
 
 
 def _review_markdown(report: dict[str, Any]) -> str:
+    from .review_scoring import scoring_markdown
+
     overall = report.get("overall") or {}
     generation = report.get("generation") or {}
     if not generation:
@@ -440,6 +442,7 @@ def _review_markdown(report: dict[str, Any]) -> str:
         overall.get("summary", ""),
         "",
     ]
+    lines.extend(scoring_markdown(report.get("scoring")))
     for section in report.get("sections") or []:
         lines.append(f"## {section.get('title', '')}")
         for item in section.get("items") or []:

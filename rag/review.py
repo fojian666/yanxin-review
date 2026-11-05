@@ -9,6 +9,7 @@ from typing import Any
 from . import db
 from .llm import LLMError, generation_info, llm
 from .retrieval import retriever
+from .review_scoring import build_scorecard, duplicate_coverage
 from .text import extract_terms, truncate
 
 log = logging.getLogger("rag.review")
@@ -144,7 +145,7 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
     integrity_items.append(
         {
             "label": "文档完整性",
-            "status": "pass" if char_count >= 1500 else "fail",
+            "status": "pass" if char_count >= 1500 else "warn",
             "detail": f"共 {char_count} 字、{len(text.splitlines())} 个文本段落" + ("，内容偏短，可能解析不完整" if char_count < 1500 else ""),
             "evidence": "",
         }
@@ -236,15 +237,6 @@ def _heuristic_sections(text: str, doc: dict, duplicate_matches: list[dict], pol
     return sections, questions[:6]
 
 
-def _risk_level(sections: list[dict]) -> str:
-    statuses = [s.get("status") for s in sections]
-    if "fail" in statuses:
-        return "高"
-    if "warn" in statuses:
-        return "中"
-    return "低"
-
-
 def _summary(doc: dict, text: str, sections: list[dict], questions: list[str]) -> str:
     char_count = _document_char_count(doc, text)
     fail = sum(1 for s in sections for i in s.get("items", []) if i.get("status") == "fail")
@@ -291,7 +283,7 @@ def _build_llm_prompt(doc: dict, text: str, chunks: list[dict], duplicate_matche
         f"《{c.get('doc_name','')}》{truncate(c.get('text',''), 500)}" for c in policy_cites[:3]
     ) or "未提供政策库"
     system = """你是科研项目评审辅助专家。请对申报书做预审，只输出合法 JSON，不要 Markdown 代码块，不要额外解释。
-严格依据提供的本子内容和政策资料，不编造条款、数据或结论；不给出立项结论和评分。
+严格依据提供的本子内容和政策资料，不编造条款、数据或结论；不给出立项结论、评分或风险等级，系统按固定规则另行计算。
 每个判断必须给出 evidence（原文摘录或“未识别到”）。"""
     user = f"""申报书名称：{doc['name']}
 文档字数：{_document_char_count(doc, text)}
@@ -308,7 +300,6 @@ def _build_llm_prompt(doc: dict, text: str, chunks: list[dict], duplicate_matche
 请输出如下 JSON 结构：
 {{
   "summary": "150字以内的总体判断",
-  "risk_level": "低|中|高",
   "sections": [
     {{
       "key": "completeness",
@@ -362,6 +353,10 @@ def review_document(doc_id: str) -> dict:
         raise ValueError("文档没有可用文本，可能解析失败或为扫描件；请上传可复制文本的文件")
 
     duplicate_matches = retriever.similarity_between_docs(doc_id, top_k=5)
+    candidate_chunks = [retriever.chunks_of(match["matched_doc_id"]) for match in duplicate_matches]
+    candidate_chunks = [items for items in candidate_chunks if items]
+    metrics = duplicate_coverage(chunks, candidate_chunks, available=bool(retriever.ready and candidate_chunks))
+    scoring = build_scorecard(chunks, metrics)
     policy_docs = [d for d in db.list_documents() if d.get("kind") == "policy"]
     policy_cites: list[dict] = []
     if policy_docs:
@@ -388,9 +383,7 @@ def review_document(doc_id: str) -> dict:
         text, doc, duplicate_matches, policy_cites, bool(policy_docs)
     )
     summary = _summary(doc, text, sections, questions) + POLICY_NOTE
-    # 政策合规只作提示：无论是否入库都不参与风险等级，否则任何本子恒 ≥「中」
-    risk_sections = [s for s in sections if s.get("key") != "policy"]
-    risk = _risk_level(risk_sections)
+    risk = scoring["risk_level"]
     mode = "offline"
     warning = ""
     rule_state = (sections, questions, summary, risk)
@@ -443,9 +436,6 @@ def review_document(doc_id: str) -> dict:
                     summary = str(parsed.get("summary") or summary).strip()
                     if "不计入风险等级" not in summary:
                         summary += POLICY_NOTE
-                    # 与离线路径同一口径：政策合规只作提示，不参与风险等级
-                    section_risk = _risk_level([s for s in sections if s.get("key") != "policy"])
-                    risk = _max_risk(_map_risk(parsed.get("risk_level"), section_risk), section_risk)
                     llm_questions = [str(q).strip() for q in (parsed.get("questions") or []) if str(q).strip()]
                     if llm_questions:
                         questions = llm_questions[:8]
@@ -461,6 +451,10 @@ def review_document(doc_id: str) -> dict:
             mode = "offline"
             warning = f"大模型结果解析失败，已使用规则预审：{exc}"
 
+    # Model commentary never changes fixed-version points, pending items or risk bands.
+    risk = scoring["risk_level"]
+    score_text = str(scoring["final_score"]) if scoring["final_score"] is not None else f"{scoring['earned']}–{scoring['upper_bound']}"
+    summary += f" 规范性检查分{score_text}/100，待核验{scoring['pending_points']}分；{scoring['risk_reason']}"
     return {
         "privacy_version": 1,
         "narrative_source_ids": narrative_source_ids,
@@ -478,6 +472,7 @@ def review_document(doc_id: str) -> dict:
             "checked_items": sum(len(s.get("items", [])) for s in sections),
             "generated_at": datetime.now().isoformat(timespec="seconds"),
         },
+        "scoring": scoring,
         "sections": sections,
         "duplicate": {"matches": duplicate_matches[:3]},
         "questions": questions,
@@ -489,19 +484,3 @@ def review_document(doc_id: str) -> dict:
         "limitations": [] if mode == "qwen" else list(OFFLINE_LIMITATIONS),
         "disclaimer": DISCLAIMER,
     }
-
-
-def _max_risk(a: str, b: str) -> str:
-    order = {"低": 1, "中": 2, "高": 3}
-    return a if order.get(a, 0) >= order.get(b, 0) else b
-
-
-def _map_risk(value: Any, default: str) -> str:
-    s = str(value or "").strip().lower()
-    if s in {"低", "low", "1"}:
-        return "低"
-    if s in {"中", "medium", "2"}:
-        return "中"
-    if s in {"高", "high", "3"}:
-        return "高"
-    return default

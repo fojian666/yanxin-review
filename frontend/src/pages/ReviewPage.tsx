@@ -15,6 +15,7 @@ import { DuplicateSource, DuplicateComparison } from "../components/DuplicateSou
 import { generationLabel } from "../generation";
 import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
+import { ReviewScoringChecks, ReviewScoringPrint, ReviewScoringSummary, reviewScoringMarkdown, reviewScoreValue } from "../components/ReviewScoring";
 import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
 import { EASE, SPRING, useMotionPreference } from "../motion";
 import type { CheckStatus, ReviewReport } from "../types";
@@ -56,9 +57,13 @@ export function ReviewPage() {
   const [selectionError, setSelectionError] = useState("");
   const [reportReady, setReportReady] = useState(false);
   const [section, setSection] = useState<ReviewSection>("run");
+  const [checkView, setCheckView] = useState<"scoring" | "supplement">("scoring");
   // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(() => new Set());
-  useEffect(() => setExpandedEvidence(new Set()), [report]);
+  useEffect(() => {
+    setExpandedEvidence(new Set());
+    setCheckView(report?.scoring ? "scoring" : "supplement");
+  }, [report]);
   const toggleEvidence = (key: string) =>
     setExpandedEvidence((prev) => {
       const next = new Set(prev);
@@ -225,15 +230,16 @@ export function ReviewPage() {
     const lines = [
       `# 预审报告：${report.doc.name}`,
       "",
-      `- 风险等级：${report.overall.risk_level}`,
+      `- 风险等级：${report.scoring?.risk_level ?? report.overall.risk_level}`,
       `- 生成时间：${report.overall.generated_at}`,
       `- 文本规模：${report.doc.char_count} 字 / ${report.doc.chunk_count} 个文本块`,
-      `- 执行模式：${report.mode === "qwen" ? "大模型生成，规则引擎校验" : "离线规则与检索（未启用大模型）"}`,
+      `- 执行模式：${report.mode === "qwen" ? (report.scoring ? "固定规则计分；大模型补充检查（不参与计分）" : "模型辅助检查；历史计分未记录") : "离线规则与检索（未启用大模型）"}`,
       `- 生成来源：${generationLabel(report.generation, "规则预审")}`,
       "",
       "## 总体判断",
       report.overall.summary,
       "",
+      ...reviewScoringMarkdown(report.scoring),
     ];
     if (report.warning) lines.push(`> 运行提示：${report.warning}`, "");
     report.sections.forEach((section) => {
@@ -328,7 +334,7 @@ export function ReviewPage() {
                 </div>
                 <div className="control-note">
                   <strong>边界</strong>
-                  <p>不输出立项结论、评分与排名；查重相似度不等于抄袭，须人工复核；政策引用须人工核对。</p>
+                  <p>规则计分为试行辅助检查，不输出立项结论或排名；待核验项保留分数区间，查重和政策引用须人工复核。</p>
                 </div>
               </div>
             </div>
@@ -339,6 +345,7 @@ export function ReviewPage() {
                 <>
                   <p className="disclaimer report-summary-disclaimer">{report.disclaimer}</p>
                   <ReportHeader report={report} onExport={exportReport} />
+                  <ReviewScoringSummary scoring={report.scoring} compact boundaryFirst />
                   <ReportSummary report={report} />
                   {report.warning && <div className="llm-warning">{report.warning}</div>}
                 </>
@@ -354,7 +361,13 @@ export function ReviewPage() {
           ),
           checks: (
             <div className="review-report review-check-page" role="region" aria-label="检查项" tabIndex={0}>
-              {flattenedChecks.length ? (
+              {report && <div className="review-check-switch" role="group" aria-label="检查内容">
+                <button type="button" className="btn btn-ghost" aria-pressed={checkView === "scoring"} onClick={() => setCheckView("scoring")}>计分依据</button>
+                <button type="button" className="btn btn-ghost" aria-pressed={checkView === "supplement"} onClick={() => setCheckView("supplement")}>补充检查</button>
+              </div>}
+              {report && checkView === "scoring" ? (
+                report.scoring ? <ReviewScoringChecks scoring={report.scoring} resetKey={report.overall.generated_at} /> : <p className="review-score-unrecorded">规则计分：未记录。历史报告未保存计分，不推算分数。</p>
+              ) : flattenedChecks.length ? (
                 <AdaptivePager
                   className="review-check-list"
                   label="检查项"
@@ -507,11 +520,12 @@ function ReviewPrintReport({ report }: { report: ReviewReport }) {
     <article className="review-print-only" aria-hidden="true">
       <h1>预审报告：{report.doc.name}</h1>
       <p>
-        风险等级：{report.overall.risk_level} · {generationLabel(report.generation, "规则预审")} ·{" "}
+        风险等级：{report.scoring?.risk_level ?? report.overall.risk_level} · {generationLabel(report.generation, "规则预审")} ·{" "}
         {report.overall.generated_at.replace("T", " ")}
       </p>
       <h2>总体判断</h2>
       <p>{report.overall.summary}</p>
+      <ReviewScoringPrint scoring={report.scoring} />
       {report.warning && <p>{report.warning}</p>}
       {report.sections.map((reportSection) => (
         <section key={reportSection.key}>
@@ -552,8 +566,8 @@ function ReviewPrintReport({ report }: { report: ReviewReport }) {
 
 function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: () => void }) {
   const reduce = useMotionPreference();
-  const risk = report.overall.risk_level;
-  const riskClass = risk === "高" ? "risk-high" : risk === "低" ? "risk-low" : "risk-mid";
+  const risk = report.scoring?.risk_level ?? report.overall.risk_level;
+  const riskClass = risk === "高" ? "risk-high" : risk === "低" ? "risk-low" : risk === "待核验" ? "risk-pending" : "risk-mid";
   return (
     <div className="report-head">
       <div>
@@ -576,9 +590,10 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
           <RiskRing level={risk} />
         </motion.div>
         <div>
+          {report.scoring && <div className="report-head-score"><strong>{reviewScoreValue(report.scoring)} / 100</strong><span>{report.scoring.final_score == null ? "待核验区间" : "规则得分"} · 试行</span></div>}
           <span className={`risk-badge ${riskClass}`}>风险等级：{risk}</span>
           <div className="report-meta">
-            <span>{report.mode === "qwen" ? "大模型预审" : "规则预审"}</span>
+            <span>{report.mode === "qwen" ? (report.scoring ? "规则计分 · 模型补充检查" : "模型辅助检查") : (report.scoring ? "固定规则计分" : "规则检查")}</span>
             <span className="generation-source">{generationLabel(report.generation, "规则预审")}</span>
             <span>{report.overall.generated_at.replace("T", " ")}</span>
           </div>
@@ -592,13 +607,13 @@ function ReportHeader({ report, onExport }: { report: ReviewReport; onExport: ()
 }
 
 function RiskRing({ level }: { level: string }) {
-  const color = level === "高" ? "#b3453f" : level === "低" ? "#0e7c6b" : "#b5853c";
+  const color = level === "高" ? "#b3453f" : level === "低" ? "#0e7c6b" : level === "待核验" ? "#66717d" : "#b5853c";
   return (
     <div
-      className="risk-ring"
+      className={`risk-ring${level === "待核验" ? " is-pending" : ""}`}
       role="img"
-      aria-label={`风险等级：${level}（分类，非评分）`}
-      title={`风险等级：${level}（分类，非评分）`}
+      aria-label={`风险等级：${level}（分类）`}
+      title={`风险等级：${level}（分类）`}
       style={{ background: color }}
     >
       <div>{level}</div>

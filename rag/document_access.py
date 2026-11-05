@@ -151,7 +151,7 @@ class Access:
         if narrative_denied:
             # 模型可把政策转述到任何叙述字段。快照缺失时也不猜测来源安全。
             safe_sections = [] if legacy else [section for section in projected.get("sections") or [] if section.get("key") in {"policy", "duplicate"}]
-            projected = {key: projected[key] for key in ("doc", "overall", "duplicate", "mode", "generation", "disclaimer", "access_note") if key in projected}
+            projected = {key: projected[key] for key in ("doc", "overall", "scoring", "duplicate", "mode", "generation", "disclaimer", "access_note") if key in projected}
             projected.setdefault("overall", {})["summary"] = "模型报告的依据已受限或缺少来源快照，原模型叙述已隐藏；完整报告由授权管理人员核验。"
             projected["sections"] = safe_sections or [{"key": "duplicate", "title": "文本查重", "status": "warn", "items": []}]
             projected["questions"] = []

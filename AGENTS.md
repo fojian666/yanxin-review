@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 87 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（198 个测试函数，参数化展开 219 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（208 个测试函数，参数化展开 234 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -46,7 +46,8 @@ rag/
                        ALLOW_EXTERNAL_EMBED 门禁 + 拒绝跟随重定向；向量按「后端|端点|模型 + 单条文本」
                        哈希缓存（新增文档不重算整库），查询向量不落盘
   qa.py                RAG 问答：系统提示含防注入；无 LLM 时离线摘录式回答
-  review.py            预审：规则引擎（8 类必需章节）+ 可选千问 JSON（解析失败自动回退规则）
+  review.py            预审：固定规则计分 + 系统证据 + 可选模型补充意见（失败回退规则）
+  review_scoring.py    precheck-v1 规范性检查：六维100分、21个子项、待核验区间、关键问题与候选字面覆盖
   experts.py           专家匹配：硬约束过滤（不可评审/在研≥5/同单位/回避）→
                        0.55·语义 + 0.30·关键词 + 0.15·学科 − 负载惩罚；查重分级 ≥0.55 高 / 0.30–0.55 关注
   trends.py            文献趋势：相关性筛选 + 年度统计 + 规则/千问摘要
@@ -91,7 +92,7 @@ frontend/src/
 
 ## 不能破坏的约束（业务红线）
 
-1. **AI 不打分、不排名、不给立项/处罚结论**；预审/查重/匹配输出必须带免责声明，查重必须提示"相似≠抄袭、需人工复核"。
+1. **允许固定、版本化规则输出100分制规范性检查分，禁止模型自由给科研价值或立项评分、禁止项目排名及立项/处罚结论**；模型只能补充证据和疑点，不得改规则分、待核验状态和分档。预审/查重/匹配输出必须带免责声明，查重必须提示"相似≠抄袭、需人工复核"。
 2. **专家匹配不使用性别、年龄等敏感属性**；回避/负载约束过滤必须在语义排序之前。
 3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。**两条出网面都拒绝跟随重定向**（307/308 会把原始 body 转到未校验地址），`auto` 嵌入降级到 API 前必须重跑门禁、不通过就退回纯 TF-IDF；改任何一处都要保住这条，用例已锁定。
 4. **隐私**：本地 `*.docx` / `*.doc` 申报材料、`2026科研课题立项流程及附件/`、根目录 `微信图片_*` 与 `交付材料/01-软件著作权/screenshots/` 可能含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
@@ -119,7 +120,8 @@ frontend/src/
 - `/api/dossiers*` 的列表、详情与材料体检四角色均有只读入口，但非管理人员仅能读取归属、明确授权或本人专家任务所关联的卷宗，可见材料仍按阅读权限过滤；`/dossiers` 页面必须同步对所有登录角色开放，viewer 只隐藏新建、编辑、归卷、切换版本和人工确认入口。材料写入必须校验角色白名单和文档 kind 匹配，非法角色返回 400，不能在 DB 层静默收录。
 - 已进入 `review_cases` 的文档不能直接删除；案卷阶段按 `pre_review → expert_review → final_review → completed` 推进。预审完成后一键归档预审与查重匹配，专家任务必须全部结束且至少一份意见提交后才能进入终审，终审必须由 manager/admin 签署。
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
-- 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，无评分刻度。
+- 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，规范性检查分及待核验区间另行展示。
+- 预审固定规则为 `precheck-v1`：材料20、任务路线20、指标20、预算15、诚信10、复用15。未知项计为 `pending`，展示 `earned` 至 `upper_bound=earned+pending_points` 的区间，未决项不得当通过。60/80为未经专家标注校准的试行分界；上下界同档才定档，跨档显示待核验，关键问题独立提示并可将风险标为高。正文不足1500字仅提示解析/长度边界，不单独触发高风险。历史归档缺计分即显示未记录，不重算补写。规则详见 `docs/预审计分标准.md`。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
 - XML 实体扫描会同时检查原始字节和 UTF-8/UTF-16/UTF-32 解码结果，不能只做 ASCII 正则；RTF 控制字使用带位置的正则线性解析，并受 `RTF_PARSE_TIMEOUT_SECONDS` 限制。历史课题已关联评审案卷时禁止删除，避免 `SET NULL` 静默破坏案卷归属。
 - 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示且不得写死回退值；上传走 XHR 以显示真实进度。原件以 `0600` 权限独占写入，断连或失败时清理半截文件。Office 压缩文档限制条目数、单条体积、解压总量和压缩比；旧版 DOC 多个本机转换器共享 `DOC_PARSE_TIMEOUT_SECONDS` 总预算，macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
