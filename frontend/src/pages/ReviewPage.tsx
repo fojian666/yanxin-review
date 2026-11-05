@@ -467,6 +467,7 @@ export function ReviewPage() {
                     <div className="review-boundary-body">
                       <AdaptivePager
                         className="review-limits-list report-limits"
+                        fill={false}
                         label="检查边界"
                         items={limitations.length ? limitations : DEFAULT_REVIEW_BOUNDARIES}
                         resetKey={report.overall.generated_at}

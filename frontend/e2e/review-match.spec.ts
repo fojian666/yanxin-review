@@ -109,6 +109,30 @@ test('@smoke 真实预审、规则边界和导出文档一致', async ({ app: pa
   expect(boundaryColumns.copyRight, '能力边界与报告输出区域重叠').toBeLessThanOrEqual(boundaryColumns.outputLeft);
   await page.screenshot({ path: testInfo.outputPath('review-boundaries-desktop.png') });
   await expect(page.locator('.report-limits')).not.toBeEmpty();
+  for (const [width, height] of [[1366, 768], [1280, 720], [1024, 768], [900, 700], [768, 1024], [720, 450], [640, 400], [390, 844], [375, 667], [320, 568], [1920, 1080], [2560, 1440]]) {
+    await page.setViewportSize({ width, height });
+    const boundaryBody = page.locator('.review-limits-list .adaptive-pager-page');
+    await expect.poll(async () => {
+      const box = await boundaryBody.boundingBox();
+      return Boolean(box && box.height >= 70 && box.width >= 150);
+    }, `${width}×${height} 边界正文必须有可阅读面积`).toBeTruthy();
+    const boundaryText = page.locator('.review-limits-list .adaptive-pager-page .review-boundary-item p').first();
+    await boundaryText.scrollIntoViewIfNeeded();
+    await expect(boundaryText).toBeVisible();
+    expect(await boundaryText.evaluate(element => element.scrollHeight <= element.clientHeight + 1), '边界文字不得裁切').toBeTruthy();
+    for (const label of ['导出 Markdown', '打印 / 存为 PDF']) {
+      const action = page.getByRole('button', { name: label, exact: true });
+      await action.scrollIntoViewIfNeeded();
+      await expect(action).toBeInViewport();
+      const bounds = (await action.boundingBox())!;
+      expect(bounds.width).toBeGreaterThan(100);
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight + 1), '滚动只发生在工作面内').toBeTruthy();
+    if ([1024, 390, 640].includes(width)) await page.screenshot({ path: testInfo.outputPath(`review-boundaries-${width}x${height}.png`) });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('.review-boundaries-page').evaluate(element => { element.scrollTop = 0; });
   const text = await downloadText(page, () => page.getByRole('button', { name: '导出 Markdown', exact: true }).click(), testInfo);
   expect(text).toContain(documents[0].name);
   expect(text).toContain('能力边界');
