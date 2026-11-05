@@ -8,6 +8,8 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     expect(new Set(sidebarPaths).size).toBe(sidebarPaths.length);
     await expect(nav.getByRole('link', { name: '用户管理' })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(nav.getByRole('link', { name: '查重匹配' })).toHaveCount(role === 'viewer' ? 0 : 1);
+    await expect(nav.getByRole('link', { name: '材料查重', exact: true })).toHaveCount(role === 'viewer' ? 1 : 0);
+    await expect(nav.getByRole('link', { name: '专家库', exact: true })).toHaveCount(role === 'viewer' ? 0 : 1);
     await expect(nav.getByRole('link', { name: '项目评审' })).toHaveCount(['admin', 'manager'].includes(role) ? 1 : 0);
     await expect(nav.getByRole('link', { name: '专家审核' })).toHaveCount(['admin', 'reviewer'].includes(role) ? 1 : 0);
     await expect(nav.getByRole('link', { name: '申报流程' })).toHaveCount(1);
@@ -34,8 +36,23 @@ for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
     }
     if (role === 'viewer') {
       expect((await context.request.post('/api/review', { data: { doc_id: 'missing' } })).status()).toBe(403);
+      expect((await context.request.post('/api/tool/check', { data: { doc_id: 'missing' } })).status()).toBe(403);
+      const forbiddenRequests: string[] = [];
+      const captureRequest = (request: { url(): string }) => {
+        const path = new URL(request.url()).pathname;
+        if (path === '/api/experts' || path === '/api/tool/check') forbiddenRequests.push(path);
+      };
+      page.on('request', captureRequest);
       await page.goto('/match');
+      await expect(page).toHaveURL(/\/match$/);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('材料查重');
+      await expect(page.getByRole('button', { name: '开始查重', exact: true })).toBeDisabled();
+      await expect(page.getByRole('tab', { name: '专家候选' })).toHaveCount(0);
+      await expect(page.getByRole('tab', { name: '专家库' })).toHaveCount(0);
+      await page.goto('/experts');
       await expect(page).toHaveURL(/\/chat$/);
+      expect(forbiddenRequests).toEqual([]);
+      page.off('request', captureRequest);
       await page.goto('/dossiers');
       await expect(page).toHaveURL(/\/dossiers$/);
       await expect(page.locator('.dossier-workbench')).toBeVisible();

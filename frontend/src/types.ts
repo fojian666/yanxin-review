@@ -400,12 +400,15 @@ export interface DuplicateResult {
   summary: string;
 }
 
-export interface ToolCheckResult {
+export interface DuplicateCheckResult {
   doc: { id: string; name: string; kind: string; year: number | null };
   duplicate: DuplicateResult;
-  match: ExpertMatchResult;
   generated_at: string;
   disclaimer: string;
+}
+
+export interface ToolCheckResult extends DuplicateCheckResult {
+  match: ExpertMatchResult;
 }
 
 export type ReviewCaseStage = "pre_review" | "expert_review" | "final_review" | "completed";

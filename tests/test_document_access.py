@@ -74,6 +74,55 @@ def test_owner_public_and_unassigned_materials(secured, monkeypatch):
         assert "/private/internal" not in failed.text
 
 
+def test_owner_duplicate_check_is_independent_and_anonymous(secured, monkeypatch):
+    client, _ = secured
+    def forbidden_matching(*_args, **_kwargs):
+        raise AssertionError("独立查重不得运行专家匹配")
+    monkeypatch.setattr(experts, "match_experts", forbidden_matching)
+    login(client, "applicant")
+    response = client.post("/api/duplicate/check", json={"doc_id": "own"})
+    assert response.status_code == 200
+    result = response.json()
+    assert set(result) == {"doc", "duplicate", "generated_at", "disclaimer"}
+    assert result["doc"]["id"] == "own"
+    assert "相似度不等于抄袭" in result["disclaimer"] and "人工复核" in result["disclaimer"]
+    assert "专家" not in json.dumps(result, ensure_ascii=False)
+    assert_private_absent(result)
+    matches = result["duplicate"]["matches"]
+    assert matches and any(match.get("restricted") and match["source_snippet"] and match["similarity"] > 0 for match in matches)
+    assert all(match["matched_doc_id"] == "" and match["matched_snippet"] == "" for match in matches if match.get("restricted"))
+    assert client.post("/api/tool/check", json={"doc_id": "own"}).status_code == 403
+    assert client.get("/api/experts").status_code == 403
+    for doc_id in ("opponent", "public-policy", "legacy", "missing"):
+        assert client.post("/api/duplicate/check", json={"doc_id": doc_id}).status_code == 403
+    document_access.set_policy("opponent", "manager", "outsider", "public", [])
+    assert client.post("/api/duplicate/check", json={"doc_id": "opponent"}).status_code == 403
+    document_access.set_policy("opponent", "manager", "outsider", "restricted", ["applicant"])
+    assert client.get("/api/documents/opponent/content").status_code == 200
+    assert client.post("/api/duplicate/check", json={"doc_id": "opponent"}).status_code == 403
+
+
+def test_duplicate_check_validates_body_and_keeps_management_roles(secured):
+    client, _ = secured
+    assert auth.create_user("admin", "testing123", "admin")
+    document_access.set_policy("own", "manager", "applicant", "restricted", ["expert"])
+    for username in ("manager", "admin", "expert"):
+        login(client, username)
+        result = client.post("/api/duplicate/check", json={"doc_id": "own"})
+        assert result.status_code == 200
+        assert "match" not in result.json()
+    login(client, "manager")
+    for doc_id in ("", "public-policy"):
+        assert client.post("/api/duplicate/check", json={"doc_id": doc_id}).status_code == 400
+    db.insert_document({"id": "empty-own", "name": "空申报材料", "kind": "other", "path": "/tmp/empty.txt", "owner_username": "applicant"}, [])
+    login(client, "applicant")
+    assert client.post("/api/duplicate/check", json={"doc_id": "empty-own"}).status_code == 400
+    with db.connect() as conn:
+        read_events = [dict(row) for row in conn.execute("SELECT doc_id, detail_json FROM document_access_events WHERE actor = 'manager' AND action = 'read'").fetchall()]
+    assert any(row["doc_id"] == "own" and json.loads(row["detail_json"])["channel"] == "duplicate-check" for row in read_events)
+    assert any(row["doc_id"] == "opponent" and json.loads(row["detail_json"])["channel"] == "duplicate-evidence" for row in read_events)
+
+
 def test_upload_defaults_to_restricted_owner_even_for_policy_kind(secured, tmp_path, monkeypatch):
     client, _ = secured
     monkeypatch.setattr(application.config, "UPLOAD_DIR", tmp_path / "uploads")

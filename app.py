@@ -1111,6 +1111,23 @@ def remove_sample_experts(_user: dict = Depends(require_role("manager", "admin")
     return {"ok": True, "removed": count}
 
 
+@app.post("/api/duplicate/check")
+def duplicate_check(payload: ReviewRequest, user: dict = Depends(require_role("viewer", "reviewer", "manager", "admin"))):
+    doc_id = payload.doc_id.strip()
+    if not doc_id:
+        raise HTTPException(status_code=400, detail="请选择文档")
+    access = document_access.Access(user)
+    if not access.can_check(doc_id):
+        raise document_access.DocumentAccessDenied("无权对该材料发起查重")
+    try:
+        result = expert_service.run_duplicate_check(doc_id)
+        access.audit([doc_id], "duplicate-check")
+        projected = access.tool(result)
+        return {key: projected[key] for key in ("doc", "duplicate", "generated_at", "disclaimer")}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/tool/check")
 def tool_check(payload: ToolCheckRequest, _user: dict = Depends(require_role("reviewer", "manager", "admin"))):
     doc_id = payload.doc_id.strip()

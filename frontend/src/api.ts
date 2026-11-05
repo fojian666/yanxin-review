@@ -25,6 +25,7 @@ import type {
   ReviewerOption,
   StreamHandlers,
   ToolCheckResult,
+  DuplicateCheckResult,
   TrendData,
 } from "./types";
 
@@ -245,6 +246,7 @@ export const api = {
   },
   removeSampleExperts: () =>
     request<{ ok: boolean; removed: number }>("/experts/sample", { method: "DELETE" }),
+  duplicateCheck: (docId: string) => request<DuplicateCheckResult>("/duplicate/check", jsonOptions({ doc_id: docId })),
   toolCheck: (docId: string, topK = 8) =>
     request<ToolCheckResult>("/tool/check", jsonOptions({ doc_id: docId, top_k: topK })),
   reviewCases: () => request<{ cases: ReviewCase[] }>("/review-cases"),

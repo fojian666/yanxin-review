@@ -39,6 +39,12 @@ test('材料归属、匿名查重、受限导出与显式阅读授权', async ({
   await expect(page.getByText('阅读权限已保存并留痕')).toBeVisible();
 
   await context.request.post('/api/auth/logout');
+  const forbiddenViewerRequests: string[] = [];
+  const captureViewerRequest = (request: { url(): string }) => {
+    const path = new URL(request.url()).pathname;
+    if (path === '/api/experts' || path === '/api/tool/check') forbiddenViewerRequests.push(path);
+  };
+  page.on('request', captureViewerRequest);
   await loginUI(page, 'viewer');
   const docs = (await (await context.request.get('/api/documents')).json()).documents;
   expect(docs.some((doc: { id: string }) => doc.id === own.id)).toBeTruthy();
@@ -65,6 +71,63 @@ test('材料归属、匿名查重、受限导出与显式阅读授权', async ({
   await page.screenshot({ path: testInfo.outputPath('owner-restricted-review.png') });
   expect((await context.request.get(`/api/documents/${other.id}/content`)).status()).toBe(403);
   expect((await context.request.put(`/api/documents/${own.id}/access`, { data: { visibility: 'public' } })).status()).toBe(403);
+
+  // 申报账号从真实导航进入独立查重，不能借此调用专家匹配接口。
+  await navigate(page, '材料查重');
+  await expect(page.getByRole('button', { name: '开始查重', exact: true })).toBeEnabled();
+  await expect(page.getByRole('tab', { name: '专家候选' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: '专家库' })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('owner-duplicate-run-desktop.png') });
+  const ownCheckResponse = page.waitForResponse(response => response.url().endsWith('/api/duplicate/check') && response.request().postDataJSON().doc_id === own.id);
+  await page.getByRole('button', { name: '开始查重', exact: true }).click();
+  const checkedResponse = await ownCheckResponse;
+  expect(checkedResponse.ok()).toBeTruthy();
+  const ownCheck = await checkedResponse.json();
+  expect(Object.keys(ownCheck).sort()).toEqual(['disclaimer', 'doc', 'duplicate', 'generated_at']);
+  expect(ownCheck.doc.id).toBe(own.id);
+  expect(ownCheck).not.toHaveProperty('match');
+  expect(ownCheck).not.toHaveProperty('experts');
+  expect(JSON.stringify(ownCheck)).not.toContain(other.id);
+  expect(JSON.stringify(ownCheck)).not.toContain(other.name);
+  expect(ownCheck.duplicate.matches.some((match: { restricted?: boolean }) => match.restricted)).toBeTruthy();
+  await page.getByRole('tab', { name: '查重结果' }).click();
+  await expect(page.locator('.match-duplicate-list')).toContainText('原文受保护');
+  await expect(page.locator(`a[href*="${other.id}"]`)).toHaveCount(0);
+  const duplicateDownloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出结果', exact: true }).click();
+  const duplicateDownload = await duplicateDownloadEvent;
+  const duplicateExport = await readFile((await duplicateDownload.path())!, 'utf8');
+  expect(duplicateExport).toContain('# 材料查重报告');
+  expect(duplicateExport).toContain('对方原文受保护');
+  expect(duplicateExport).not.toContain('专家');
+  expect(duplicateExport).not.toContain(other.name);
+  expect(duplicateExport).not.toContain(other.id);
+  await page.screenshot({ path: testInfo.outputPath('owner-duplicate-result-desktop.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.match-duplicate-list')).toBeVisible();
+  await expect(page.getByRole('button', { name: '导出结果', exact: true })).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: testInfo.outputPath('owner-restricted-duplicate-mobile.png') });
+  await page.getByRole('tab', { name: '检查边界' }).click();
+  await expect(page.locator('.match-boundaries-page')).toContainText('相似不等于抄袭');
+  await page.screenshot({ path: testInfo.outputPath('owner-duplicate-boundaries-mobile.png') });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/match?doc=${own.id}&section=library`);
+  await expect(page.getByRole('tab', { name: '运行查重' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: '专家库' })).toHaveCount(0);
+  const publicReference = docs.find((doc: { id: string; kind: string; can_check?: boolean }) => doc.id !== own.id && doc.kind === 'proposal' && doc.can_check === false);
+  expect(publicReference).toBeTruthy();
+  await page.goto(`/match?doc=${publicReference.id}`);
+  await expect(page.getByRole('button', { name: '开始查重', exact: true })).toBeDisabled();
+  await expect(page.locator('.match-hero')).toContainText('请选择归属本人的申报材料');
+  await page.goto(`/match?doc=${other.id}`);
+  await expect(page.getByRole('alert')).toContainText('未找到该申报材料或无权读取');
+  await expect(page.locator('#workspace-document')).toHaveValue('');
+  await expect(page.getByRole('button', { name: '开始查重', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '导出结果', exact: true })).toBeDisabled();
+  await expect(page.locator('.duplicate-card')).toHaveCount(0);
+  expect(forbiddenViewerRequests).toEqual([]);
+  page.off('request', captureViewerRequest);
 
   await context.request.post('/api/auth/logout');
   await loginUI(page, 'reviewer');

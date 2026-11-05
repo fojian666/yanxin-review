@@ -78,6 +78,7 @@ const PERMISSIONS: Record<string, string[]> = {
   "expert-review": ["reviewer", "admin"],
   review: ["reviewer", "manager", "admin"],
   tool: ["reviewer", "manager", "admin"],
+  duplicate: ["viewer", "reviewer", "manager", "admin"],
   admin: ["admin"],
 };
 

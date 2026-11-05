@@ -23,7 +23,7 @@ import { EmptyState } from "../components/EmptyState";
 import { KpiCard } from "../components/KpiCard";
 import { WorkDeck, type WorkDeckStep } from "../components/WorkDeck";
 import { EASE, staggerItem } from "../motion";
-import type { Expert, ExpertCandidate, ReviewerOption, ToolCheckResult } from "../types";
+import type { DuplicateCheckResult, Expert, ExpertCandidate, ReviewerOption, ToolCheckResult } from "../types";
 
 const EXPERT_TEMPLATE =
   "姓名,单位,职称,学科,研究方向,代表性成果,回避单位,回避人员,在研项目数,是否可评审\n" +
@@ -38,6 +38,12 @@ const MATCH_STEPS: WorkDeckStep<MatchSection>[] = [
   { id: "experts", label: "专家候选", hint: "排序、理由与约束" },
   { id: "boundaries", label: "回避边界", hint: "排除原因与免责声明" },
   { id: "library", label: "专家库", hint: "CSV 导入与数据核对" },
+];
+
+const DUPLICATE_STEPS: WorkDeckStep<MatchSection>[] = [
+  { id: "run", label: "运行查重", hint: "检查本人材料" },
+  { id: "duplicates", label: "查重结果", hint: "查看相似位置" },
+  { id: "boundaries", label: "检查边界", hint: "阅读权限与人工核对" },
 ];
 
 function scoreClass(score: number) {
@@ -57,8 +63,9 @@ export function ExpertLibraryPage() { return <MatchPage expertLibraryOnly />; }
 export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: boolean } = {}) {
   const { docs, toast, can, loading: docsLoading, activeDocId, setActiveDocId, setActiveDossierId } = useApp();
   const [params, setParams] = useSearchParams();
+  const duplicateOnly = !can("tool");
   const [docId, setDocId] = useState(activeDocId);
-  const [result, setResult] = useState<ToolCheckResult | null>(null);
+  const [result, setResult] = useState<ToolCheckResult | DuplicateCheckResult | null>(null);
   const [experts, setExperts] = useState<Expert[]>([]);
   const [reviewers, setReviewers] = useState<ReviewerOption[]>([]);
   const [bindingAccount, setBindingAccount] = useState("");
@@ -67,7 +74,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectionError, setSelectionError] = useState("");
-  const [section, setSection] = useState<MatchSection>(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
+  const [section, setSection] = useState<MatchSection>(expertLibraryOnly || (!duplicateOnly && params.get("section") === "library") ? "library" : "run");
   const loadingRef = useRef(false);
   const checkIdRef = useRef(0);
   const csvRef = useRef<HTMLInputElement>(null);
@@ -116,7 +123,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
   };
 
   useEffect(() => {
-    void loadExperts();
+    if (!duplicateOnly) void loadExperts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -157,7 +164,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
       setDocId("");
       setResult(null);
       setError("");
-      setSection(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
+      setSection(expertLibraryOnly || (!duplicateOnly && params.get("section") === "library") ? "library" : "run");
       return;
     }
     if (!activeDocExists) return;
@@ -168,12 +175,16 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
     setDocId(activeDocId);
     setResult(null);
     setError("");
-    setSection(expertLibraryOnly || params.get("section") === "library" ? "library" : "run");
-  }, [activeDocId, activeDocExists]);
+    setSection(expertLibraryOnly || (!duplicateOnly && params.get("section") === "library") ? "library" : "run");
+  }, [activeDocId, activeDocExists, duplicateOnly]);
 
   const run = async () => {
     if (!docId) {
       toast("请先选择待查本子", "error");
+      return;
+    }
+    if (duplicateOnly && !canCheckOwn) {
+      toast("仅可对归属本人的申报材料查重", "error");
       return;
     }
     if (loadingRef.current) return;
@@ -182,13 +193,13 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
     setError("");
     const token = ++checkIdRef.current;
     try {
-      const data = await api.toolCheck(docId);
+      const data = duplicateOnly ? await api.duplicateCheck(docId) : await api.toolCheck(docId);
       if (token !== checkIdRef.current) return;  // 期间已改选或重跑，丢弃过期结果
       setResult(data);
     } catch (err) {
       if (token !== checkIdRef.current) return;
       setError((err as Error).message);
-      toast(`一体化检查失败：${(err as Error).message}`, "error");
+      toast(`${duplicateOnly ? "查重" : "一体化检查"}失败：${(err as Error).message}`, "error");
     } finally {
       if (token === checkIdRef.current) {
         loadingRef.current = false;
@@ -232,7 +243,7 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
   const exportReport = () => {
     if (!result) return;
     const lines = [
-      `# 智能查重与专家匹配报告`,
+      duplicateOnly ? "# 材料查重报告" : "# 智能查重与专家匹配报告",
       "",
       `- 待查文档：${result.doc.name}`,
       `- 生成时间：${result.generated_at.replace("T", " ")}`,
@@ -250,40 +261,46 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
     } else {
       lines.push("当前已入库文档范围内未发现相似文档。");
     }
-    lines.push("", "## 专家匹配", result.match.summary, result.match.institution_match_note, "");
-    if (result.match.applicant_warning) lines.push(result.match.applicant_warning);
-    lines.push(`- 申报单位：${result.match.applicant.institutions.join("、") || "未识别"}`);
-    lines.push(`- 负责人：${result.match.applicant.people.join("、") || "未识别"}`);
-    lines.push(`- 主题词：${result.match.proposal_keywords.join("、")}`);
-    lines.push("");
-    result.match.candidates.forEach((candidate, index) => {
-      lines.push(
-        `${index + 1}. ${candidate.expert.name}（${candidate.expert.institution} / ${candidate.expert.title}）` +
-          ` 匹配分 ${(candidate.score * 100).toFixed(1)}（相对 ${((candidate.relative_score ?? candidate.score) * 100).toFixed(0)}）`
-      );
-      candidate.reasons.forEach((reason) => lines.push(`   - ${reason}`));
-    });
-    if (result.match.excluded.length) {
-      lines.push("", "### 已排除");
-      result.match.excluded.forEach((item) => {
-        lines.push(`- ${item.name}（${item.institution}）：${item.reason}；${item.evidence}`);
+    const match = "match" in result ? result.match : undefined;
+    if (match) {
+      lines.push("", "## 专家匹配", match.summary, match.institution_match_note, "");
+      if (match.applicant_warning) lines.push(match.applicant_warning);
+      lines.push(`- 申报单位：${match.applicant.institutions.join("、") || "未识别"}`);
+      lines.push(`- 负责人：${match.applicant.people.join("、") || "未识别"}`);
+      lines.push(`- 主题词：${match.proposal_keywords.join("、")}`);
+      lines.push("");
+      match.candidates.forEach((candidate, index) => {
+        lines.push(
+          `${index + 1}. ${candidate.expert.name}（${candidate.expert.institution} / ${candidate.expert.title}）` +
+            ` 匹配分 ${(candidate.score * 100).toFixed(1)}（相对 ${((candidate.relative_score ?? candidate.score) * 100).toFixed(0)}）`
+        );
+        candidate.reasons.forEach((reason) => lines.push(`   - ${reason}`));
       });
+      if (match.excluded.length) {
+        lines.push("", "### 已排除");
+        match.excluded.forEach((item) => {
+          lines.push(`- ${item.name}（${item.institution}）：${item.reason}；${item.evidence}`);
+        });
+      }
     }
     lines.push("", "---", result.disclaimer);
     const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `查重匹配报告-${result.doc.name.slice(0, 40)}.md`;
+    anchor.download = `${duplicateOnly ? "材料查重" : "查重匹配"}报告-${result.doc.name.slice(0, 40)}.md`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
 
   const duplicate = result?.duplicate;
-  const match = result?.match;
+  const match = result && "match" in result ? result.match : undefined;
   const duplicateMatches = duplicate?.matches ?? [];
   const candidates = match?.candidates ?? [];
   const excluded = match?.excluded ?? [];
+
+  const selectedDocument = docs.find(doc => doc.id === docId);
+  const canCheckOwn = selectedDocument?.can_check === true && ["proposal", "other"].includes(selectedDocument.kind);
 
   const libraryPanel = (
             <div className="panel match-deck-page match-expert-library-page">
@@ -337,10 +354,10 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
     <div className="match-page match-deck-workspace">
       <WorkDeck
         className="match-deck"
-        steps={MATCH_STEPS}
+        steps={duplicateOnly ? DUPLICATE_STEPS : MATCH_STEPS}
         active={section}
         onChange={setSection}
-        ariaLabel="查重匹配工作台"
+        ariaLabel={duplicateOnly ? "材料查重工作台" : "查重匹配工作台"}
         compactStatus
         status={<button type="button" className="btn btn-ghost btn-sm" onClick={exportReport} disabled={!result}><Download size={14} />导出结果</button>}
         panels={{
@@ -348,14 +365,15 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
             <div className="match-run-page">
               <div className="panel match-hero">
                 <div className="match-hero-copy">
-                  <h2>查重与专家匹配</h2>
+                  <h2>{duplicateOnly ? "材料查重" : "查重与专家匹配"}</h2>
                 </div>
                 <div className="match-controls">
                   <div className="match-actions">
-                    <button className="btn btn-primary" onClick={() => void run()} disabled={loading || !docId}>
-                      {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />运行一体化检查</>}
+                    <button className="btn btn-primary" onClick={() => void run()} disabled={loading || !docId || (duplicateOnly && !canCheckOwn)}>
+                      {loading ? <><Loader2 size={16} className="spin" />检查中…</> : <><ScanSearch size={16} />{duplicateOnly ? "开始查重" : "运行一体化检查"}</>}
                     </button>
                   </div>
+                  {duplicateOnly && !canCheckOwn && <p role="status">请选择归属本人的申报材料；尚未分配时，请联系管理人员设置材料归属。</p>}
                   {match && <div className="match-summary-line">{match.summary}</div>}
                 </div>
               </div>
@@ -373,11 +391,11 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className="kpi-grid">
+              <div className={`kpi-grid${duplicateOnly ? " duplicate-kpis" : ""}`}>
                 <KpiCard label="最高相似度" value={duplicate ? `${Math.round(duplicate.highest * 100)}%` : "—"} sub={duplicate ? `高相似 ${duplicate.high_count} · 关注 ${duplicate.watch_count}` : "尚未检查"} tone={duplicate?.high_count ? "gold" : "teal"} />
                 <KpiCard label="查重命中" value={duplicate ? duplicate.matches.length : 0} suffix="个" sub="仅统计已入库文档" />
-                <KpiCard label="候选专家" value={match ? match.candidates.length : 0} suffix="位" sub={match ? `满足约束 ${match.available_count} / ${match.total_experts}` : "尚未匹配"} tone="gold" />
-                <KpiCard label="已排除专家" value={match ? match.excluded.length : 0} suffix="位" sub="负载 / 回避 / 不可评审" />
+                {!duplicateOnly && <><KpiCard label="候选专家" value={match ? match.candidates.length : 0} suffix="位" sub={match ? `满足约束 ${match.available_count} / ${match.total_experts}` : "尚未匹配"} tone="gold" />
+                <KpiCard label="已排除专家" value={match ? match.excluded.length : 0} suffix="位" sub="负载 / 回避 / 不可评审" /></>}
               </div>
             </div>
           ),
@@ -444,8 +462,12 @@ export function MatchPage({ expertLibraryOnly = false }: { expertLibraryOnly?: b
           ),
           boundaries: (
             <div className="panel match-panel match-deck-page match-boundaries-page">
-              <div className="panel-head"><div><h2>回避与边界</h2></div><UserCheck size={18} /></div>
-              {result && match ? (
+              <div className="panel-head"><div><h2>{duplicateOnly ? "检查边界" : "回避与边界"}</h2></div><UserCheck size={18} /></div>
+              {duplicateOnly ? <div className="control-note duplicate-boundary-copy">
+                <p>仅检查归属本人的申报材料。比对在本系统已入库材料范围内进行，不能代替外部数据库查重。</p>
+                <p>相似不等于抄袭，须人工复核。未获阅读权的对方材料只显示匿名来源，不提供题名、片段或原文链接。</p>
+                <div className="disclaimer">{result?.disclaimer || "本工具只提供文本相似线索，不给出抄袭、立项或处罚结论。"}</div>
+              </div> : result && match ? (
                 <>
                   <div className="match-callout"><strong>匹配口径：</strong>{match.institution_match_note}</div>
                   {excluded.length ? (

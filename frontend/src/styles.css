@@ -4389,6 +4389,9 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   padding-left: 21px;
   padding-right: 21px;
 }
+.match-run-page .kpi-grid.duplicate-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.match-boundaries-page > .duplicate-boundary-copy { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px 24px; }
+.duplicate-boundary-copy p { font-size: 14px; }
 .match-boundaries-page .match-excluded-item {
   padding-left: 24px;
   padding-right: 24px;

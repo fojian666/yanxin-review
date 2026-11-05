@@ -1,7 +1,7 @@
 源程序清单（首期原型 V2.0）
 
 后端（Python）
-   1434 app.py
+   1451 app.py
       1 rag/__init__.py
     220 rag/auth.py
     331 rag/config.py
@@ -11,7 +11,7 @@
     220 rag/document_access.py
     450 rag/dossiers.py
     362 rag/embeddings.py
-    365 rag/experts.py
+    380 rag/experts.py
      33 rag/ingest.py
     145 rag/keyword_graph.py
     294 rag/llm.py
@@ -25,11 +25,11 @@
     294 rag/text.py
     292 rag/trends.py
     353 rag/vector_stores.py
-  10027 total
+  10059 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
-    377 frontend/src/AppContext.tsx
-    405 frontend/src/api.ts
+    378 frontend/src/AppContext.tsx
+    407 frontend/src/api.ts
       1 frontend/src/branding.ts
     365 frontend/src/charts/TrendCharts.tsx
     143 frontend/src/components/AdaptivePager.tsx
@@ -56,7 +56,7 @@
      30 frontend/src/components/WorkspaceRouteLoader.tsx
     421 frontend/src/data/knowledge.ts
      59 frontend/src/data/proposalWorkflow.ts
-    141 frontend/src/data/workspaceViews.tsx
+    143 frontend/src/data/workspaceViews.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
     137 frontend/src/login.css
@@ -68,22 +68,22 @@
     535 frontend/src/pages/KnowledgeGraphPage.tsx
     603 frontend/src/pages/LibraryPage.tsx
     108 frontend/src/pages/LoginPage.tsx
-    502 frontend/src/pages/MatchPage.tsx
+    524 frontend/src/pages/MatchPage.tsx
     642 frontend/src/pages/ReviewCasePage.tsx
     631 frontend/src/pages/ReviewPage.tsx
     232 frontend/src/pages/TrendPage.tsx
     238 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   8066 frontend/src/styles.css
+   8069 frontend/src/styles.css
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
-    522 frontend/src/types.ts
-  18952 total
+    525 frontend/src/types.ts
+  18985 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
      42 tests/test_docs.py
-    290 tests/test_document_access.py
+    339 tests/test_document_access.py
     388 tests/test_dossiers.py
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
@@ -92,7 +92,7 @@
     367 tests/test_review_cases.py
    1449 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   4074 total
+   4123 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -102,10 +102,10 @@
     174 tools/soft_copyright.py
    1437 total
 浏览器回归（TypeScript/Python）
-    277 frontend/e2e/auth.spec.ts
+    294 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
     301 frontend/e2e/chat-trend.spec.ts
-    105 frontend/e2e/document-access.spec.ts
+    168 frontend/e2e/document-access.spec.ts
     267 frontend/e2e/dossier.spec.ts
     148 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
@@ -121,9 +121,9 @@
     160 frontend/e2e/workspace-sizing.spec.ts
     105 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3617 total
+   3697 total
 合计
-  38107 total（112 个文件）
+  38301 total（112 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

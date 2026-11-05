@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../AppContext";
 import { SYSTEM_NAME } from "../branding";
-import { WORKSPACE_VIEWS } from "../data/workspaceViews";
+import { visibleWorkspaceViews } from "../data/workspaceViews";
 import { ROLE_LABELS, type UserRole } from "../types";
 import { EASE, SPRING, MOTION, useMotionPreference } from "../motion";
 
@@ -33,7 +33,7 @@ export function Topbar({ onOpenNav, navOpen = false }: { onOpenNav?: () => void;
       document.removeEventListener("keydown", onKey);
     };
   }, [userOpen]);
-  const workspaceView = WORKSPACE_VIEWS.find((item) => item.path === pathname);
+  const workspaceView = visibleWorkspaceViews(can).find((item) => item.path === pathname);
   const meta = pathname === "/welcome"
     ? WELCOME_META
     : workspaceView

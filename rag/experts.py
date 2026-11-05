@@ -20,6 +20,8 @@ DISCLAIMER = (
     "所有结果须由管理人员复核。"
 )
 
+DUPLICATE_DISCLAIMER = "查重相似度不等于抄袭；结果仅供辅助核对，须由有权限的人员人工复核。"
+
 HEADER_ALIASES = {
     "name": {"姓名", "name", "专家姓名"},
     "institution": {"单位", "institution", "所在单位"},
@@ -350,6 +352,19 @@ def duplicate_check(doc_id: str, top_k: int = 5) -> dict[str, Any]:
         "high_count": len(high),
         "watch_count": len(watch),
         "summary": summary,
+    }
+
+
+def run_duplicate_check(doc_id: str) -> dict[str, Any]:
+    doc, _text = _doc_text(doc_id)
+    if doc.get("kind") not in {"proposal", "other"}:
+        raise ValueError("仅申报书或实际材料可发起文本查重")
+    return {
+        "privacy_version": 1,
+        "doc": {"id": doc["id"], "name": doc["name"], "kind": doc.get("kind"), "year": doc.get("year")},
+        "duplicate": duplicate_check(doc_id),
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "disclaimer": DUPLICATE_DISCLAIMER,
     }
 
 

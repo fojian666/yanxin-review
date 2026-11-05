@@ -94,7 +94,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     title: "查重匹配",
     description: "检查文本相似度并匹配专家",
     icon: Users,
-    permission: "tool",
+    permission: "duplicate",
     component: MatchPanel,
   },
   {
@@ -137,5 +137,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
 ];
 
 export function visibleWorkspaceViews(can: (permission: string) => boolean): WorkspaceView[] {
-  return WORKSPACE_VIEWS.filter((item) => !item.permission || can(item.permission));
+  return WORKSPACE_VIEWS.filter((item) => !item.permission || can(item.permission)).map(item =>
+    item.path === "/match" && !can("tool") ? { ...item, title: "材料查重", description: "检查本人申报材料的相似位置" } : item
+  );
 }
