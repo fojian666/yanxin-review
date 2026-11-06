@@ -250,6 +250,7 @@ def parse_pdf(path: Path) -> dict:
         "page_count": page_count,
         "warning": warning,
         "text_len": full_len,
+        "page_limit_reached": bool(config.MAX_PDF_PAGES > 0 and page_count >= config.MAX_PDF_PAGES),
         "missing_pages": [i + 1 for i, value in enumerate(pages_raw) if len(re.sub(r"\s+", "", value)) < 80],
     }
 
@@ -735,14 +736,14 @@ def parse_upload(path: Path) -> dict:
         raise ParseError(f"不支持的文件类型：{suffix or '未知'}")
     limited = apply_content_limit(result)
     missing = result.get("missing_pages", [])
-    truncated = result.get("text_len", 0) > limited.get("text_len", 0)
+    truncated = result.get("text_len", 0) > limited.get("text_len", 0) or bool(result.get("page_limit_reached"))
     usable = bool(limited.get("text_len"))
     limited["quality"] = {
         "state": "partial" if truncated or missing or not usable else "ready",
         "complete": usable and not truncated and not missing,
         "source_chars": result.get("text_len", 0),
         "indexed_chars": limited.get("text_len", 0),
-        "total_pages": result.get("page_count", 0),
+        "total_pages": None if result.get("page_limit_reached") else result.get("page_count", 0),
         "processed_pages": limited.get("page_count", 0),
         "missing_pages": len(missing), "ocr_pages": 0,
         "truncated": truncated,

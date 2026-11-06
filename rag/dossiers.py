@@ -341,6 +341,7 @@ def checklist(dossier_id: str, readable_ids: set[str] | None = None) -> dict[str
     if not dossier:
         return None
     materials = db.list_dossier_documents(dossier_id)
+    has_restricted = readable_ids is not None and any(item["doc_id"] not in readable_ids for item in materials)
     if readable_ids is not None:
         materials = [item for item in materials if item["doc_id"] in readable_ids]
 
@@ -428,6 +429,14 @@ def checklist(dossier_id: str, readable_ids: set[str] | None = None) -> dict[str
             }
         )
 
+    if has_restricted:
+        # Do not disclose which role has an unreadable file. Any missing role
+        # is ambiguous to this reader and must not be reported as absent.
+        for section in sections:
+            for item in section["items"]:
+                if not item.get("doc_id") and (item["key"].startswith("material-") or item["key"] == "indicators"):
+                    item.update(status="warn", detail="该项未能核验，材料可能未归入或当前账号无阅读权限。", evidence="")
+            section["status"] = _status(section["items"])
     items = [item for section in sections for item in section["items"]]
     fail = sum(item["status"] == "fail" for item in items)
     warn = sum(item["status"] == "warn" for item in items)

@@ -34,7 +34,7 @@ export function reviewScoringMarkdown(scoring?: ReviewScoring): string[] {
     dimension.items.forEach(item => lines.push(
       `- [${SCORE_STATUS[item.status]}] ${item.label}：${itemPoints(item)}`,
       `  - 核验与扣分原因：${item.detail}`,
-      `  - 依据：${item.evidence || "未记录，须人工补充核验。"}`,
+      `  - 依据：${item.evidence_full || item.evidence || "未记录，须人工补充核验。"}`,
     ));
   });
   const duplicate = scoring.duplicate_metrics;
@@ -91,7 +91,7 @@ export function ReviewScoringChecks({ scoring, resetKey }: { scoring: ReviewScor
           <h4 className="check-label">{item.label}</h4>
           <p className="review-score-points">{itemPoints(item)}</p>
           <p className="check-detail"><strong>核验与扣分原因：</strong>{item.detail}</p>
-          <div className="check-evidence is-expanded"><strong>依据：</strong>{item.evidence || "未记录，须人工补充核验。"}</div>
+          <div className="check-evidence is-expanded"><strong>依据：</strong>{item.evidence_full || item.evidence || "未记录，须人工补充核验。"}</div>
         </div>
       </div>
     </section>}
@@ -105,7 +105,7 @@ export function ReviewScoringPrint({ scoring, includeSummary = true }: { scoring
       <h3>{dimension.label}（{itemPoints(dimension)}）</h3>
       {dimension.items.map(item => <div className="print-check-item" key={item.key}>
         <h4>{item.label}（{SCORE_STATUS[item.status]}）</h4>
-        <p>{itemPoints(item)}</p><p>核验与扣分原因：{item.detail}</p><p>依据：{item.evidence || "未记录，须人工补充核验。"}</p>
+        <p>{itemPoints(item)}</p><p>核验与扣分原因：{item.detail}</p><p>依据：{item.evidence_full || item.evidence || "未记录，须人工补充核验。"}</p>
       </div>)}
     </section>)}
   </section>;

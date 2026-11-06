@@ -533,9 +533,8 @@ def login(payload: LoginRequest, request: Request):
 @app.post("/api/auth/logout")
 def logout(request: Request):
     auth.delete_session(request.cookies.get(auth.SESSION_COOKIE, ""))
-    resp = JSONResponse({"ok": True})
-    resp.delete_cookie(auth.SESSION_COOKIE)
-    return resp
+    # 已撤销的cookie即使留在浏览器也不可再用；避免迟到响应清除新的登录cookie。
+    return JSONResponse({"ok": True})
 
 
 @app.get("/api/auth/me")
@@ -1040,7 +1039,7 @@ def review_doc(payload: ReviewRequest, _user: dict = Depends(require_role("viewe
         if not access.can_check(doc_id):
             raise document_access.DocumentAccessDenied("无权对该材料发起预审")
         access.audit([doc_id], "review")
-        return access.report(review.review_document(doc_id))
+        return access.report(review.review_document(doc_id, readable_ids=access.readable))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1056,7 +1055,7 @@ def trend_analysis(payload: TrendRequest, access: document_access.Access = Depen
 
 @app.get("/api/papers")
 def papers(access: document_access.Access = Depends(document_reader)):
-    items = [p for p in db.list_papers(limit=500) if not p.get("doc_id") or access.can_read(p["doc_id"])]
+    items = [p for p in db.list_papers() if not p.get("doc_id") or access.can_read(p["doc_id"])][:500]
     access.audit([paper["doc_id"] for paper in items if paper.get("doc_id")], "paper-evidence")
     return {"papers": items, "count": len(items)}
 
@@ -1149,6 +1148,8 @@ def tool_check(payload: ToolCheckRequest, _user: dict = Depends(require_role("re
     try:
         access = document_access.Access(_user)
         access.require(doc_id)
+        if not access.can_check(doc_id):
+            raise document_access.DocumentAccessDenied("无权对该材料发起查重，或材料正在处理")
         access.audit([doc_id], "duplicate-check")
         return access.tool(expert_service.run_tool_check(doc_id, top_k=payload.top_k))
     except ValueError as exc:

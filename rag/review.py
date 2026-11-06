@@ -343,7 +343,7 @@ def _parse_llm_json(text: str) -> dict | None:
         return None
 
 
-def review_document(doc_id: str) -> dict:
+def review_document(doc_id: str, readable_ids: set[str] | None = None) -> dict:
     doc = db.get_document(doc_id)
     if not doc:
         raise ValueError("文档不存在")
@@ -360,7 +360,7 @@ def review_document(doc_id: str) -> dict:
     candidate_chunks = [items for items in candidate_chunks if items]
     metrics = duplicate_coverage(chunks, candidate_chunks, available=bool(retriever.ready and candidate_chunks))
     scoring = build_scorecard(chunks, metrics)
-    policy_docs = [d for d in db.list_documents() if d.get("kind") == "policy"]
+    policy_docs = [d for d in db.list_documents() if d.get("kind") == "policy" and (readable_ids is None or d["id"] in readable_ids)]
     policy_cites: list[dict] = []
     if policy_docs:
         # 检索词取自本文，避免所有本子都命中同一批条款（固定关键词串会与正文无关）
@@ -370,6 +370,8 @@ def review_document(doc_id: str) -> dict:
         ]
         query = " ".join(doc_terms + POLICY_QUERY_TERMS)
         hits = retriever.search(query, scope=[d["id"] for d in policy_docs], top_k=8)
+        allowed_policies = {d["id"] for d in policy_docs}
+        hits = [hit for hit in hits if hit.get("doc_id") in allowed_policies]
         # 阈值在检索之后取：万一本次查询向量化失败、索引熔断回 TF-IDF，
         # 阈值也跟着回到 TF-IDF 尺度，否则会把结果一次性卡空
         min_score = _policy_min_score()

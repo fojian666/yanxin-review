@@ -180,6 +180,7 @@ def test_rebuilt_paper_updates_only_automatic_derived_fields(materials):
 
 
 def test_worker_cancels_child_and_can_stop_start_in_same_process(materials, monkeypatch):
+    processing.enqueue("material", "manager")
     real_popen = subprocess.Popen
     child = real_popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
     try:
@@ -209,3 +210,100 @@ def test_worker_cancels_child_and_can_stop_start_in_same_process(materials, monk
             child.kill()
             child.wait()
         processing._stop.clear()
+
+
+@pytest.mark.parametrize('failure', ['engine', 'page'])
+def test_ocr_failure_does_not_replace_existing_pages(materials, monkeypatch, failure):
+    path = materials.with_suffix('.pdf')
+    path.write_bytes(b'synthetic pdf')
+    with db.connect() as conn:
+        conn.execute("UPDATE documents SET path=? WHERE id='material'", (str(path),))
+        conn.execute("INSERT INTO chunks (doc_id,idx,page,section,text,char_len) VALUES ('material',1,2,'','已有第二页',5)")
+    before = db.get_chunks('material')
+    monkeypatch.setattr(processing, 'parse_pdf', lambda _: {'pages': [{'page': 1, 'text': '第一页' * 80}], 'page_count': 2})
+    monkeypatch.setattr(processing.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess([], 0, b'Pages: 2\n', b''))
+    if failure == 'engine':
+        monkeypatch.setattr(ocr, 'engine', lambda: (_ for _ in ()).throw(ocr.OCRUnavailable('无本地引擎')))
+    else:
+        monkeypatch.setattr(ocr, 'engine', lambda: ('fake', 'offline'))
+        monkeypatch.setattr(ocr, 'recognize_page', lambda *a: (_ for _ in ()).throw(subprocess.TimeoutExpired('ocr', 1)))
+    processing.enqueue('material', 'manager')
+    processing.process_document('material')
+    assert quality()['state'] == 'failed'
+    assert db.get_chunks('material') == before
+
+
+def test_resumed_execution_cannot_be_overwritten_by_older_execution(materials, monkeypatch):
+    processing.enqueue('material', 'manager')
+    assert processing._allocate_execution('material', 'old-execution')
+    old_running, release = threading.Event(), threading.Event()
+    def parse(_):
+        if threading.current_thread().name == 'old-worker':
+            old_running.set()
+            assert release.wait(5)
+            text = '过期正文'
+        else:
+            text = '恢复后正文'
+        return {'pages': [{'page': 1, 'text': text}], 'page_count': 1, 'text_len': len(text), 'warning': '', 'quality': {'complete': True}}
+    monkeypatch.setattr(processing, 'parse_upload', parse)
+    old = threading.Thread(target=processing.process_document, args=('material', 'old-execution'), name='old-worker')
+    old.start()
+    assert old_running.wait(5)
+    assert processing._allocate_execution('material', 'new-execution')
+    processing.process_document('material', 'new-execution')
+    committed = db.get_chunks('material')
+    revision = quality()['revision']
+    release.set()
+    old.join(5)
+    assert not old.is_alive()
+    assert db.get_chunks('material') == committed
+    assert committed[0]['text'] == '恢复后正文'
+    assert quality()['state'] == 'indexing' and quality()['revision'] == revision
+
+
+def test_delayed_old_process_cannot_reclaim_after_resume(materials, monkeypatch):
+    processing.enqueue('material', 'manager')
+    assert processing._allocate_execution('material', 'old-execution')
+    assert processing._allocate_execution('material', 'new-execution')
+    processing.process_document('material', 'new-execution')
+    committed = db.get_chunks('material')
+    revision = quality()['revision']
+    processing.process_document('material', 'old-execution')
+    assert db.get_chunks('material') == committed
+    assert quality()['state'] == 'indexing' and quality()['revision'] == revision
+
+
+def test_upload_pdf_page_limit_does_not_claim_complete(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, 'MAX_PDF_PAGES', 2)
+    monkeypatch.setattr(parsers.subprocess, 'run', lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout=(('文本' * 80 + '\f') * 2).encode(), stderr=b''))
+    result = parsers.parse_upload(tmp_path / 'synthetic.pdf')
+    assert result['quality']['truncated'] is True
+    assert result['quality']['complete'] is False
+    assert result['quality']['state'] == 'partial'
+    assert '仅解析前 2 页' in result['warning']
+
+
+@pytest.mark.parametrize('replacement', ['new_job', 'new_execution'])
+def test_old_child_failure_cannot_fail_replacement_job(materials, monkeypatch, replacement):
+    processing.enqueue('material', 'manager')
+    old_job = quality()['job_id']
+    class FailedChild:
+        returncode = 1
+        def poll(self):
+            return self.returncode
+    def spawn(args, **kwargs):
+        old_execution = args[-1]
+        if replacement == 'new_job':
+            processing._progress('material', old_job, execution_id=old_execution, state='failed')
+            processing.enqueue('material', 'manager')
+        else:
+            assert processing._allocate_execution('material', 'new-execution') == old_job
+        return FailedChild()
+    monkeypatch.setattr(processing.subprocess, 'Popen', spawn)
+    processing._run_job('material')
+    current = quality()
+    if replacement == 'new_job':
+        assert current['job_id'] != old_job and current['state'] == 'queued'
+    else:
+        assert current['job_id'] == old_job and current['execution_id'] == 'new-execution'
+        assert current['state'] == 'processing'

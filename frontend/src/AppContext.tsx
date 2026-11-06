@@ -275,6 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     // 退出请求尚在途中时，也不能再提交旧会话的读取结果。
     invalidateApiSession();
+    const generation = getApiSessionGeneration();
     let message = "已退出登录";
     let type: "info" | "error" = "info";
     try {
@@ -283,6 +284,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       message = `退出登录请求失败：${(err as Error).message}`;
       type = "error";
     }
+    if (getApiSessionGeneration() !== generation) return;
     authRef.current = null;
     setAuth(null);
     resetSession();

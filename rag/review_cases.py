@@ -332,7 +332,10 @@ def bind_expert_account(username: str, expert_id: int, actor: str) -> dict[str, 
     """Explicit, one-to-one binding; never infer identities from historical tasks."""
     username = username.strip()
     with db.connect() as conn:
-        user = conn.execute("SELECT role FROM users WHERE username = ?", (username,)).fetchone()
+        if db.backend() == "sqlite":
+            conn.execute("BEGIN IMMEDIATE")
+        suffix = " FOR UPDATE" if db.backend() == "postgresql" else ""
+        user = conn.execute("SELECT role FROM users WHERE username = ?" + suffix, (username,)).fetchone()
         if not user or user["role"] != "reviewer":
             raise ValueError("审核账号必须是评审专家角色")
         expert = conn.execute("SELECT id, name, institution FROM experts WHERE id = ?", (expert_id,)).fetchone()
@@ -371,6 +374,7 @@ def unbind_expert_account(username: str, actor: str) -> None:
         if db.backend() == "sqlite":
             conn.execute("BEGIN IMMEDIATE")
         suffix = " FOR UPDATE" if db.backend() == "postgresql" else ""
+        conn.execute("SELECT username FROM users WHERE username = ?" + suffix, (username,)).fetchone()
         binding = conn.execute("SELECT expert_id FROM expert_accounts WHERE username = ?" + suffix, (username,)).fetchone()
         if not binding:
             raise ValueError("该账号未绑定专家")
@@ -639,7 +643,7 @@ def assign_tasks(
         }
         created = 0
         stamp = db.now()
-        for item in assignments:
+        for item in sorted(assignments, key=lambda value: str(value.get("username", "")).strip()):
             username = str(item.get("username", "")).strip()
             expert_id = int(item.get("expert_id") or 0)
             user = conn.execute("SELECT role FROM users WHERE username = ?", (username,)).fetchone()
@@ -1036,10 +1040,17 @@ def finalize_case(
             "## 专家意见汇总",
             "",
         ]
+        artifacts = [_row(row) or {} for row in conn.execute(
+            "SELECT * FROM review_artifacts WHERE case_id = ? AND artifact_type = 'expert_opinion'", (case_id,)
+        ).fetchall()]
+        task_dicts = [dict(task) for task in tasks]
+        _decorate_task_audit(task_dicts, artifacts)
+        tasks = task_dicts
         for task in tasks:
             if task["status"] == "submitted":
+                debug_note = f"（管理员 {task['submitted_by']} 代提交，原指派账号 {task['assignee_username']}）" if task.get("admin_debug") else ""
                 content.append(
-                    f"### {task['expert_name']}\n\n"
+                    f"### {task['expert_name']}{debug_note}\n\n"
                     f"{_RECOMMENDATIONS.get(task['recommendation'], task['recommendation'])}：{task['opinion']}"
                 )
             elif task["status"] == "conflict":

@@ -1,5 +1,30 @@
 import { test, expect, loginUI, navigate, password } from './fixtures';
 
+test('迟到的退出响应不清除新会话', async ({ app: page, context }) => {
+  let release!: () => void;
+  let started!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const received = new Promise<void>(resolve => { started = resolve; });
+  await page.route('**/api/auth/logout', async route => {
+    const response = await route.fetch();
+    started();
+    await pending;
+    await route.fulfill({ response });
+  });
+  await page.locator('.topbar-actions').getByRole('button').last().click();
+  await page.getByRole('menuitem', { name: '退出登录' }).click();
+  await received;
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('auth:expired')));
+  await expect(page.getByPlaceholder('请输入用户名')).toBeVisible();
+  await page.getByLabel('用户名', { exact: true }).fill('viewer');
+  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '登 录', exact: true }).click();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  release();
+  await expect.poll(async () => (await context.request.get('/api/auth/me')).status()).toBe(200);
+  await expect(page.locator('.app-shell')).toBeVisible();
+});
+
 for (const role of ['admin', 'manager', 'reviewer', 'viewer']) {
   test(`@smoke ${role} 登录、导航权限与服务端边界`, async ({ page, context }) => {
     await loginUI(page, role);

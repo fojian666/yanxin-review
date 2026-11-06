@@ -55,8 +55,8 @@ def test_overlap_and_multiple_peers_do_not_inflate_coverage():
               {"section": "研究内容", "text": "研究内容\n" + body[50:]}]
     assert joined_text(chunks).count("研究内容") == 1
     source = normalized_body(chunks)
-    # The repeated prefix is retained once; overlap is counted once.
-    assert source == "研究内容" + body
+    # Without provenance offsets identical adjacent text is retained conservatively.
+    assert source == "研究内容" + body[:70] + body[50:]
     candidate = [{"text": "甲" * 50}]
     metrics = duplicate_coverage(chunks, [candidate, candidate], available=True)
     assert metrics["matched_characters"] == 50
@@ -79,10 +79,34 @@ def test_absent_comparison_is_not_a_clean_result():
     assert "候选" in checked["scope_note"] and "非全库" in checked["scope_note"]
 
 
-def test_short_adjacent_overlap_is_removed():
+def test_unproven_short_adjacent_overlap_is_retained():
     chunks = [{"idx": 0, "section": "研究内容", "text": "研究内容\n前段正文。尾部七个字符甲"},
               {"idx": 1, "section": "研究内容", "text": "研究内容\n七个字符甲\n后段正文。"}]
-    assert joined_text(chunks) == "研究内容\n前段正文。尾部七个字符甲\n后段正文。"
+    assert joined_text(chunks) == "研究内容\n前段正文。尾部七个字符甲\n七个字符甲\n后段正文。"
+
+
+def test_independent_hard_split_repetition_is_not_removed():
+    chunks = [{"section": "研究内容", "text": "研究内容\n" + "甲" * 700},
+              {"section": "研究内容", "text": "研究内容\n" + "甲" * 700}]
+    assert normalized_body(chunks) == "研究内容" + "甲" * 1400
+
+
+def test_indicator_heading_variants_preserve_scoring():
+    base = "研究内容\n监测\n技术路线\n测量\n{heading}\n（1）2028年完成报告2份，提供第三方验收报告。\n经费预算\n待补充"
+    a = score(base.format(heading="考核指标"))
+    b = score(base.format(heading="（三）考核指标与预期成果"))
+    for key in ("indicator_quantity", "indicator_units", "indicator_time", "indicator_acceptance"):
+        assert item(a, key)["earned"] == item(b, key)["earned"] == 5
+    assert (a["earned"], a["upper_bound"], a["risk_level"]) == (b["earned"], b["upper_bound"], b["risk_level"])
+
+
+def test_evidence_preserves_full_trigger_and_export():
+    from rag.review_scoring import scoring_markdown
+    result = score("研究内容\n监测\n技术路线\n测量\n考核指标\n完成报告\n经费预算\n测算说明：" + "说明" * 150 + "单价100元")
+    basis = item(result, "budget_basis")
+    assert basis["earned"] == 3 and "单价100元" not in basis["evidence"]
+    assert "单价100元" in basis["evidence_full"]
+    assert "单价100元" in "\n".join(scoring_markdown(result))
 
 
 def test_longest_span_does_not_join_different_sources():
@@ -121,6 +145,26 @@ def test_budget_same_currency_conversion_and_conflicts():
     other_fee = score(text.replace("劳务费：5万元", "劳务费：2万元；其他费用：3万元"))
     assert item(other_fee, "budget_sum")["status"] == "pending"
     assert not any(i["key"] == "budget_conflict" for i in other_fee["critical_issues"])
+    other_spending = score(text.replace("劳务费：5万元", "劳务费：4万元；其他支出：1万元"))
+    assert item(other_spending, "budget_sum")["status"] == "pending"
+    assert not any(i["key"] == "budget_conflict" for i in other_spending["critical_issues"])
+    other_source = score(text.replace("财政补助：8万元", "财政补助：7万元").replace("自筹资金：2万元", "自筹资金：2万元；其他资金：1万元"))
+    assert item(other_source, "budget_sources")["status"] == "pending"
+    assert not any(i["key"] == "funding_conflict" for i in other_source["critical_issues"])
+
+
+@pytest.mark.parametrize("extra", ["其他：1万元", "材料：1万元", "企业配套：1万元", "材料购置1万元", "其他：1"])
+def test_unknown_budget_amount_never_claims_conflict(extra):
+    text = f"""研究内容\n监测\n技术路线\n测量\n考核指标\n完成报告1份
+经费预算
+预算总额：10万元
+预算明细：设备费：2万元；业务费：3万元；劳务费：4万元；{extra}
+财政补助：7万元；自筹资金：2万元；{extra}
+"""
+    result = score(text)
+    assert item(result, "budget_sum")["status"] == "pending"
+    assert item(result, "budget_sources")["status"] == "pending"
+    assert not any(issue["key"] in {"budget_conflict", "funding_conflict"} for issue in result["critical_issues"])
 
 
 @pytest.mark.parametrize("lower,upper,expected", [(0, 59.99, "高"), (59.99, 60, "待核验"), (60, 79.99, "中"), (79.99, 80, "待核验"), (80, 100, "低"), (100, 100, "低")])

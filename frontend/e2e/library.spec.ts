@@ -1,5 +1,37 @@
 import { test, expect, navigate, proposalText, downloadText } from './fixtures';
 
+test('目录快照缺少新授权文档时刷新后打开深链', async ({ app: page, documents }) => {
+  const target = documents[0];
+  let requests = 0;
+  await page.route('**/api/documents', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    if (++requests === 1) data.documents = data.documents.filter((doc: { id: string }) => doc.id !== target.id);
+    await route.fulfill({ response, json: data });
+  });
+  await page.goto(`/library?doc=${target.id}`);
+  await expect(page.locator('.document-reader-head')).toContainText(target.name);
+  expect(requests).toBeGreaterThanOrEqual(2);
+  await expect(page).toHaveURL(new RegExp(`doc=${target.id}$`));
+});
+
+test('失效深链离开后新获权限再次返回可读取', async ({ app: page, documents }) => {
+  let granted = false;
+  await page.route('**/api/documents', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    if (!granted) data.documents = data.documents.filter((doc: { id: string }) => doc.id !== documents[0].id);
+    await route.fulfill({ response, json: data });
+  });
+  await page.goto(`/library?doc=${documents[0].id}`);
+  await expect(page.getByText('未找到该文档，可能已被删除或无权访问。')).toBeVisible();
+  await page.locator('.document-directory').getByRole('button', { name: new RegExp(documents[1].name) }).click();
+  await expect(page.locator('.document-reader-head')).toContainText(documents[1].name);
+  granted = true;
+  await page.goBack();
+  await expect(page.locator('.document-reader-head')).toContainText(documents[0].name);
+});
+
 test('长材料重建文本、年度筛选与处理质量在桌面手机均可读', async ({ app: page, context }, testInfo) => {
   const text = '研究内容与技术路线。自然资源数据质量核验。\n'.repeat(3600);
   expect(text.length).toBeGreaterThan(60000);

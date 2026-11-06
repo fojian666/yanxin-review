@@ -1,5 +1,39 @@
 import { expect, loginUI, navigate, test } from './fixtures';
 
+test('重审迟到响应不会切回已离开的案卷', async ({ app: page, documents, context }) => {
+  const created: Array<{ id: string }> = [];
+  for (const title of ['原案卷', '当前案卷']) {
+    const response = await context.request.post('/api/review-cases', { data: { title, doc_id: documents[0].id, dossier_id: '' } });
+    expect(response.ok()).toBeTruthy();
+    created.push((await response.json()).case);
+  }
+  await page.route(`**/api/review-cases/${created[0].id}`, async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    Object.assign(data.case, { stage: 'completed', final_decision: 'returned', final_comment: '请补正材料后重新送审' });
+    await route.fulfill({ response, json: data });
+  });
+  let release!: () => void;
+  let started!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const received = new Promise<void>(resolve => { started = resolve; });
+  await page.route(`**/api/review-cases/${created[0].id}/resubmit`, async route => {
+    started();
+    await pending;
+    await route.fulfill({ json: { case: { ...created[0], id: 'new-round', stage: 'pre_review', round: 2 } } });
+  });
+  await page.goto(`/review-cases?case=${created[0].id}`);
+  await page.getByLabel('补正材料').selectOption(documents[1].id);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '创建补正重审' }).click();
+  await received;
+  await page.getByLabel('切换评审案卷').selectOption(created[1].id);
+  await expect(page.locator('.review-case-bar')).toContainText('当前案卷');
+  release();
+  await expect(page.getByText('已建立新一轮评审')).toBeVisible();
+  await expect(page.getByLabel('切换评审案卷')).toHaveValue(created[1].id);
+});
+
 test('项目评审一条龙、专家独立审核、终审与文档中心归档', async ({ app: page, documents, context }, testInfo) => {
   test.setTimeout(120_000);
   const source = documents[0];

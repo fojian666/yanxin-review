@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 88 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（219 个测试函数，参数化展开 246 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 92 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（232 个测试函数，参数化展开 265 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -186,3 +186,5 @@ One Page 工作区：所有受保护路由共享同一历史课题上下文，�
 材料阅读授权：manager/admin 在文档中心“阅读权限”分配归属账号和额外读者，新上传默认受控且归上传账号；旧材料不推断归属。明确 `source=demo` 或 `source=public` 的政策/文献默认共享，显式权限优先，不能仅凭 kind 公开上传文档。专家本人任务对应申报书可读，不能因此读取其他查重来源。所有列表、原文、检索/SSE、图谱、关联文献、卷宗和报告/归档读取统一走 `rag/document_access.py`，空授权范围必须返回空检索，不能回退全库。查重继续在全库内部计算，对无阅读权来源仅保留本材料片段、相似度和匿名代号；模型预审上下文也不得含其他项目名称或受控政策。模型报告保存实际政策来源快照，读取时重新核权，政策撤权后也不能在模型叙述中泄漏；快照缺失的旧模型报告保守隐藏原叙述。前端异步资料和401必须检查会话代次，不得跨账号回填或退出新会话。旧归档不可覆盖，阅读投影副本必须标明副本并计算独立哈希、保留原哈希。访问与权限修改留痕，只有 manager/admin 可查权限账号目录和访问记录。viewer 可对归属本人、可读且正文有效的proposal/other材料预审和独立查重，不因此获得专家匹配或正式案卷管理权。独立查重必须使用 `POST /api/duplicate/check`，四角色均须通过目标 `can_check`；不得对viewer开放 `/api/tool/check` 或 `/api/experts`，两者仍为403。`/match` 共用页面对viewer由 `visibleWorkspaceViews` 能力配置显示“材料查重”，仅运行查重/查重结果/检查边界三步；无本人材料仍显示入口，但禁用运行并提示管理员分配归属。其他三角色保持五步查重匹配。导出只含查重和匿名来源，不夹带专家候选或回避信息。撤销对后续请求生效，已经交付的内容不能远程收回。
 
 本地材料处理：管理人员在文档中心“处理原文”排队；`POST /api/documents/{doc_id}/process` 只允许 manager/admin，且原件必须在受控上传目录。任务进度写入 meta，已解析文本失败时保留；逐页缓存位于 data/ocr_cache，不出网、不提交。队列及处理中禁止新建正式案卷和运行预审/查重，已被正式案卷引用的材料不原地重建。单进程后台线程逐份处理，索引按批合并更新；多进程部署需外部任务队列协调，当前不支持多工作进程同时消费。本地文字层 complete 仅表示未触及限制且未检测到少字/低置信页面，不证明表格关系、图片、签章真实或识别无误。目录提供年度与已记录材料类别筛选，不推断缺失类别或自动合并同名项目。
+
+材料OCR任一页面识别失败时保留全部旧正文；恢复任务须使用新的执行代次，旧进程不得提交或标记新任务失败。PDF达到页数上限必须将质量标为不完整。预算存在未识别金额科目或单位时计为待核验，不得据此断言冲突；检查项保存完整命中依据。缺少分块来源偏移时保守保留可能重叠的正文，并说明候选覆盖率边界。

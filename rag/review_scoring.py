@@ -22,24 +22,18 @@ SECTIONS = {
 
 
 def joined_text(chunks: list[dict]) -> str:
-    """Remove adjacent chunk overlap and injected repeated section prefixes."""
+    """保留无来源偏移信息的正文，避免把巧合重复误认为分块重叠。"""
     parts: list[str] = []
-    previous_body = previous_section = ""
+    previous_section = ""
     for chunk in chunks:
         section = str(chunk.get("section") or "").strip()
         body = str(chunk.get("text") or "").strip()
         if section and body.startswith(section + "\n"):
             body = body[len(section):].lstrip()
-        if section == previous_section and previous_body:
-            for length in range(min(300, len(previous_body), len(body)), 0, -1):
-                if previous_body.endswith(body[:length]):
-                    body = body[length:].lstrip()
-                    break
         if section and section != previous_section:
             parts.append(section)
         if body:
             parts.append(body)
-        previous_body = str(chunk.get("text") or "").strip()
         previous_section = section
     return "\n".join(parts)
 
@@ -81,7 +75,7 @@ def duplicate_coverage(chunks: list[dict], candidates: list[list[dict]], *, avai
         "longest_span": longest,
         "candidates_checked": checked,
         "pending_review": bool(matched) or not available,
-        "scope_note": f"仅核对字面检索前{checked}份候选的去分块重叠正文；忽略空白和标点，连续24个字母、数字或汉字一致计入区间并集。非全库全文重复率，未剔除模板及合理引用，不识别同义改写。",
+        "scope_note": f"仅核对字面检索前{checked}份候选的分块正文；缺少分块来源偏移时保留可能的重叠。忽略空白和标点，连续24个字母、数字或汉字一致计入区间并集。非全库全文重复率，未剔除模板及合理引用，不识别同义改写。",
     }
 
 
@@ -90,7 +84,7 @@ def _item(key: str, label: str, maximum: float, ratio: float | None, detail: str
     return {"key": key, "label": label, "maximum": maximum, "earned": earned,
             "pending_points": maximum if ratio is None else 0,
             "status": "pending" if ratio is None else "pass" if earned == maximum else "fail" if earned == 0 else "partial",
-            "detail": detail, "evidence": truncate(evidence, 240)}
+            "detail": detail, "evidence": truncate(evidence, 240), "evidence_full": evidence}
 
 
 def _evidence(text: str, pattern: str) -> str:
@@ -131,17 +125,35 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
     block = _block(text, SECTIONS["budget"])
     amount = r"\s*[:：]\s*(-?\d+(?:\.\d+)?)\s*(万元|元)"
     def money(label: str) -> tuple[Decimal | None, str, bool]:
-        mentions = re.findall("(?:" + label + r")\s*[:：]", block)
-        hits = list(re.finditer("(?:" + label + ")" + amount, block))
+        prefix = r"(?<![\u4e00-\u9fff])(?:" + label + ")"
+        mentions = re.findall(prefix + r"\s*[:：]", block)
+        hits = list(re.finditer(prefix + amount, block))
         values = {Decimal(m[1]) * (10000 if m[2] == "万元" else 1) for m in hits}
         valid = len(values) == 1 and len(hits) == len(mentions)
         return (next(iter(values)), hits[0][0], False) if valid else (None, "", bool(mentions))
     total, total_evidence, total_ambiguous = money("总经费|经费总额|预算总额|项目总预算|经费合计|预算合计")
     leaf = [money(label) for label in ("设备费", "业务费", "劳务费", "间接费用")]
+    # 任意无法归入已知口径的金额，都可能是额外科目或资金来源；不能凭
+    # 已识别子集断言合计冲突。单价只是测算依据，不属于预算合计科目。
+    known = {"总经费", "经费总额", "预算总额", "项目总预算", "经费合计", "预算合计",
+             "设备费", "业务费", "劳务费", "间接费用", "财政补助", "财政拨款", "财政资金",
+             "自筹资金", "自筹经费", "自筹"}
+    labeled = list(re.finditer(r"([\u4e00-\u9fffA-Za-z]{1,30})\s*[:：]\s*(-?\d+(?:\.\d+)?)\s*(万元|元)?", block))
+    ambiguous_amount = any(
+        match[1] not in known and match[1] != "单价"
+        and (match[3] is not None or not block[match.end():].lstrip() or block[match.end():].lstrip()[0] in "；;\n")
+        for match in labeled
+    )
+    for value in re.finditer(r"(?<!\d)-?\d+(?:\.\d+)?\s*(?:万元|元)", block):
+        if any(match.start(2) == value.start() for match in labeled):
+            continue
+        context = block[max(0, value.start() - 8):value.start()]
+        if not re.search(r"单价\s*[:：]?\s*$", context):
+            ambiguous_amount = True
     # Require the explicit flat detail marker; nested tables are deliberately pending.
-    fee_labels = set(re.findall(r"([\u4e00-\u9fff]{1,20}(?:费用|费))\s*[:：]", block))
+    fee_labels = set(re.findall(r"([\u4e00-\u9fff]{1,20}(?:支出|费用|费))\s*[:：]", block))
     unknown_fees = fee_labels - {"设备费", "业务费", "劳务费", "间接费用", "总经费"}
-    flat = bool(re.search(r"(?:预算明细|经费明细)\s*[:：]", block)) and not re.search(r"其中|直接费用|小计", block) and not unknown_fees
+    flat = bool(re.search(r"(?:预算明细|经费明细)\s*[:：]", block)) and not re.search(r"其中|直接费用|小计", block) and not unknown_fees and not ambiguous_amount
     parts = [value for value, _, _ in leaf if value is not None]
     critical: list[dict] = []
     ratio = None
@@ -155,7 +167,9 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
     rows = [_item("budget_sum", "预算明细与总额一致", 5, ratio, detail, block)]
     fiscal, _, _ = money("财政补助|财政拨款|财政资金")
     own, _, _ = money("自筹资金|自筹经费|自筹")
-    source_ratio = None if total is None or fiscal is None or own is None else float(abs(fiscal + own - total) <= Decimal("0.01") and fiscal >= 0 and own >= 0)
+    funding_labels = set(re.findall(r"([\u4e00-\u9fff]{1,20}(?:资金|拨款|补助|经费来源))\s*[:：]", block))
+    unknown_sources = funding_labels - {"财政补助", "财政拨款", "财政资金", "自筹资金"}
+    source_ratio = None if total is None or fiscal is None or own is None or unknown_sources or ambiguous_amount else float(abs(fiscal + own - total) <= Decimal("0.01") and fiscal >= 0 and own >= 0)
     source_detail = "需明确财政资金、自筹资金、预算总额及各自单位，未识别完整时待核验。"
     if source_ratio is not None:
         source_detail = f"资金来源合计{fiscal + own:.2f}元，总额{total:.2f}元。"
@@ -190,7 +204,13 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
         _item("schedule", "提供带时间的进度安排", 4, float(bool(schedule)), "识别到进度及时间表述；计划可行性仍须人工核验。" if schedule else "未识别到带年份、季度或时长的研究计划。", schedule),
     ])
     indicator_block = _block(text, SECTIONS["indicators"])
-    targets = list(dict.fromkeys(re.sub(r"^\s*(?:[（(]\s*[一二三四五六七八九十\d]+\s*[）)]|\d+[、.．])\s*", "", line.strip()) for line in re.split(r"[；;\n]", indicator_block) if len(line.strip()) > 8 and not (len(line.strip()) < 30 and re.match(r"^[一二三四五六七八九十]+[、．.]", line.strip()))))[:100]
+    targets = []
+    for line in re.split(r"[；;\n]", indicator_block):
+        line = re.sub(r"^\s*(?:[（(]\s*[一二三四五六七八九十\d]+\s*[）)]|[一二三四五六七八九十\d]+[、.．])\s*", "", line.strip())
+        line = re.sub(r"^(?:考核指标(?:与预期成果)?|预期成果(?:及考核指标)?|成果形式|提交成果)\s*[:：]?\s*", "", line)
+        if len(line) > 8 and line not in targets:
+            targets.append(line)
+    targets = targets[:100]
     patterns = (
         ("indicator_quantity", "指标明确数值", r"(?<!\d)(?!20\d{2}\s*年)\d+(?:\.\d+)?|[一二三四五六七八九十两]+\s*(?:套|项|篇|份|个|处|期)"),
         ("indicator_units", "指标明确单位", r"(?:\d+(?:\.\d+)?|[一二三四五六七八九十两]+)\s*(?:%|％|套|项|篇|份|个|处|期|件|人次|公顷|平方米|公里|千米|毫米|米|条|次)"),
@@ -244,8 +264,8 @@ def scoring_markdown(scoring: dict | None) -> list[str]:
         lines.append(f"### {dimension['label']}（已确认{dimension['earned']} / {dimension['maximum']}，待核验{dimension['pending_points']}）")
         for item in dimension["items"]:
             lines.append(f"- {item['label']}：已确认{item['earned']} / {item['maximum']}，待核验{item['pending_points']}；{item['detail']}")
-            if item.get("evidence"):
-                lines.append(f"  - 依据：{item['evidence']}")
+            if item.get("evidence_full") or item.get("evidence"):
+                lines.append(f"  - 依据：{item.get('evidence_full') or item['evidence']}")
     metrics = scoring.get("duplicate_metrics") or {}
     if metrics:
         coverage = "待核验" if metrics.get("coverage") is None else f"{metrics['coverage']:.2%}"

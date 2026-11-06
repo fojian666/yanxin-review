@@ -301,6 +301,7 @@ export interface ReviewScoreItem {
   status: "pass" | "partial" | "fail" | "pending";
   detail: string;
   evidence: string;
+  evidence_full?: string;
 }
 
 export interface ReviewScoring {

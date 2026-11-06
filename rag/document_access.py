@@ -78,7 +78,9 @@ class Access:
 
     def can_check(self, doc_id: str) -> bool:
         quality = (self.docs.get(doc_id, {}).get("quality") or {})
-        return quality.get("state") not in {"queued", "processing", "indexing"} and self.can_read(doc_id) and (self.manager or self.user.get("role") == "reviewer" or self.policy(doc_id)["owner_username"] == self.username)
+        viewer = self.user.get("role") == "viewer"
+        valid_kind = not viewer or self.docs.get(doc_id, {}).get("kind") in {"proposal", "other"}
+        return valid_kind and quality.get("state") not in {"queued", "processing", "indexing"} and self.can_read(doc_id) and (self.manager or self.user.get("role") == "reviewer" or self.policy(doc_id)["owner_username"] == self.username)
 
     def can_dossier(self, dossier_id: str) -> bool:
         if self.manager:

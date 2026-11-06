@@ -146,6 +146,9 @@ def test_review_case_full_lifecycle_and_artifacts(tmp_path, monkeypatch):
         "final_decision",
     }
     assert all(item["sha256"] for item in artifacts)
+    final_artifact = next(item for item in artifacts if item["artifact_type"] == "final_decision")
+    assert "管理员 admin-debug 代提交" in final_artifact["content"]
+    assert "原指派账号 reviewer-case" in final_artifact["content"]
     review_cases.unbind_expert_account("reviewer-case", "manager-case")
     replacement = db.insert_expert({"name": "不能接管历史任务的专家", "institution": "测试机构"})
     with pytest.raises(ValueError, match="历史审核任务"):

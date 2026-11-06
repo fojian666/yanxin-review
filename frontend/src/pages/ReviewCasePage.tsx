@@ -317,10 +317,11 @@ export function ReviewCasePage() {
 
   const resubmit = async () => {
     if (!current || !resubmitDocId || !confirm("确认用所选补正材料创建新一轮评审？原轮次及专家意见会保留，新一轮需重新指派专家。")) return;
+    const originatingCase = current.id;
     setBusy("resubmit");
     try {
       const result = await api.resubmitReviewCase(current.id, resubmitDocId);
-      await applyCase(result.case, "pre_review", true);
+      await applyCase(result.case, "pre_review", selectedCaseRef.current === originatingCase);
       toast("已建立新一轮评审");
     } catch (error) {
       toast(`创建重审失败：${(error as Error).message}`, "error");

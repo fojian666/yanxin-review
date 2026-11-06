@@ -105,11 +105,21 @@ export function LibraryPage() {
   const requestedView = params.get("view");
   const requestedPaperId = Number(params.get("paper")) || 0;
   const requestedDoc = orderedDocs.find((doc) => doc.id === requestedId);
+  const [checkedMissingId, setCheckedMissingId] = useState("");
+  const [failedMissingId, setFailedMissingId] = useState("");
+  useEffect(() => { setCheckedMissingId(""); setFailedMissingId(""); }, [requestedId]);
+  useEffect(() => {
+    if (!requestedId || requestedDoc || loading || checkedMissingId === requestedId || failedMissingId === requestedId) return;
+    let active = true;
+    void refreshDocs().then(() => { if (active) setCheckedMissingId(requestedId); })
+      .catch(() => { if (active) setFailedMissingId(requestedId); });
+    return () => { active = false; };
+  }, [requestedId, requestedDoc, loading, checkedMissingId, failedMissingId, refreshDocs]);
   const requestedPaper = papers.find((paper) => paper.id === requestedPaperId);
   const contextDoc = orderedDocs.find((doc) => doc.id === activeDocId);
   const uploadedDoc = orderedDocs.find((doc) => doc.id === uploadedDocId);
-  const requestedMissing = Boolean(requestedId) && !loading && !requestedDoc;
-  const selected = requestedMissing ? null : uploadedDoc ?? requestedDoc ?? contextDoc ?? orderedDocs[0] ?? null;
+  const requestedMissing = Boolean(requestedId) && !loading && !requestedDoc && checkedMissingId === requestedId;
+  const selected = requestedId && !requestedDoc ? null : uploadedDoc ?? requestedDoc ?? contextDoc ?? orderedDocs[0] ?? null;
   const selectedIndex = selected ? orderedDocs.findIndex((doc) => doc.id === selected.id) : -1;
   const previous = selectedIndex > 0 ? orderedDocs[selectedIndex - 1] : null;
   const next = selectedIndex >= 0 && selectedIndex < orderedDocs.length - 1 ? orderedDocs[selectedIndex + 1] : null;
@@ -442,7 +452,7 @@ export function LibraryPage() {
           canReview={can("precheck") && selected?.can_check !== false && (selected?.chunk_count ?? 0) > 0}
           canDelete={can("delete-doc")}
           deleting={deletingId === selected?.id}
-          missingMessage={requestedMissing ? "未找到该文档，可能已被删除或无权访问。" : undefined}
+          missingMessage={requestedId && failedMissingId === requestedId ? "文档目录刷新失败，请重新打开链接。" : requestedMissing ? "未找到该文档，可能已被删除或无权访问。" : undefined}
           readerRef={readerRef}
           onNavigate={chooseDocument}
           onAsk={openForChat}
