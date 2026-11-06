@@ -346,6 +346,8 @@ def duplicate_check(doc_id: str, top_k: int = 5) -> dict[str, Any]:
         summary = f"未发现高相似文档，最高相似度 {highest:.2f}；入库范围越大，查重越有效。"
     else:
         summary = "当前已入库文档范围内未发现相似文档。"
+    if doc.get("warning"):
+        summary += " 材料解析提示：" + doc["warning"]
     return {
         "matches": matches,
         "highest": round(highest, 4),

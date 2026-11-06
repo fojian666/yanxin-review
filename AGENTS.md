@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 87 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（208 个测试函数，参数化展开 234 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 88 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（219 个测试函数，参数化展开 246 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -29,15 +29,17 @@ PDF 解析依赖 `pdftotext`（poppler）。`frontend/dist` 已存在时运行�
 ## 模块地图
 
 ```
-app.py                 FastAPI：58 条 API 路由（含认证、卷宗、项目评审案卷、专家任务、归档、数据接入）、SSE、文档读取、上传、SPA 托管
+app.py                 FastAPI：59 条 API 路由（含认证、卷宗、项目评审案卷、专家任务、归档、数据接入）、SSE、文档读取、上传、SPA 托管
 rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、128MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   document_access.py   材料归属与阅读授权、匿名查重、受限归档副本、访问留痕；所有读出口必须使用
   db.py                SQLite/PostgreSQL 双适配：documents/document_access/document_access_events/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
   review_cases.py      项目评审状态机：预审、专家指派、回避/意见、终审、不可覆盖操作留痕、SHA256 归档与角色隔离
   dossiers.py          历史课题材料角色、计划类型/阶段体检、版本与人工确认规则
-  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；60k 字截断保护
+  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；50万字安全上限与范围提示
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
+  ocr.py               本地逐页OCR、页码/原件哈希缓存、置信度与识别超时
+  material_processing.py 持久化处理队列、进度、重启续跑、原子文本替换与正式评审材料保护
   keyword_graph.py     本地提取分块关键词，按分块频次取最多500个；共现余弦连线、自动聚类和来源摘录，按内容缓存提词，不出网
   retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
                        keyword/章节加权与文档间段落查重（查重固定走 TF-IDF，理由见下）
@@ -63,6 +65,7 @@ tools/
   eval_retrieval.py    14 个政策问题的 TF-IDF vs 向量召回对比（命中@k / MRR，答案按原文关键句定位）
   migrate_sqlite_to_postgres.py  幂等复制 SQLite 业务表到 PostgreSQL
   smoke_postgres.py             隔离测试库写链路与评审状态机冒烟
+  process_materials.py  按本地导入批次排队、重试失败与查询处理状态
   doc_check.py         文档漂移检查：测试数/接口表/模块清单/环境变量/软著材料/过时表述，只读，退出码非 0 即有不一致
   soft_copyright.py    生成软著《源程序清单》并打印规模表（--check 只校验）——
                        **所有代码改完后最后跑**，否则清单又落后于刚改的文件
@@ -114,7 +117,7 @@ frontend/src/
 - 政策默认导入仅允许 `corpus/` 内相对路径并强制校验有效 SHA256；重复导入仅在快照一致时原位修正条号，不改文档/分块 ID 或正文。
 - 模型预审不得覆盖系统的政策引用（含完整证据与章条标签）和查重章节。OpenAI 预设不发千问扩展参数，显式 `LLM_THINKING_STYLE` 优先于预设。
 - 手动政策抓取仅固定政府来源 HTTPS、默认校验证书且不跟随重定向；失败保留快照，不得回退 HTTP 或关闭 TLS 校验。SHA256 只校验完整性，不证明来源真实性。`--force` 仅重建清单同来源，不自动清理历史政策。
-- 无 OCR（扫描件 PDF 会提示）；Uvicorn 为单进程开发模式。
+- 本地 OCR（macOS Vision / Linux Tesseract 中文；无引擎时明确失败，绝不走云服务）；Uvicorn 为单进程开发模式。
 - 卷宗体检只核对本地材料角色、当前版本、人工确认和可读取文本线索；同角色新材料自动成为当前版本。不得把“文件已上传”表述为公章、签字真实，也不得把本地检查表述为官方受理、评审、验收或结题状态。
 - 承诺书、合同、自评表、评价表和评价意见是实际卷宗材料，自动识别为 `other` 并允许归入所选材料角色；只有名称含“模板”的空白文件才识别为 `template`。模板不进入归卷候选。
 - `/api/dossiers*` 的列表、详情与材料体检四角色均有只读入口，但非管理人员仅能读取归属、明确授权或本人专家任务所关联的卷宗，可见材料仍按阅读权限过滤；`/dossiers` 页面必须同步对所有登录角色开放，viewer 只隐藏新建、编辑、归卷、切换版本和人工确认入口。材料写入必须校验角色白名单和文档 kind 匹配，非法角色返回 400，不能在 DB 层静默收录。
@@ -181,3 +184,5 @@ One Page 工作区：所有受保护路由共享同一历史课题上下文，�
 登录页展示完整系统名称、居中的账号密码表单与缓慢移动的低对比背景柔光，减少动态效果及简约模式停用该动效，不显示能力卡、英文坐标或无条件的数据不出网承诺。演示入口只在浏览器回环地址且健康接口 `demo_login=true` 时显示；该标记仅在服务本机监听、演示账号种子开启且使用默认演示密码时为真，不代表既有账号密码一定未被修改。
 
 材料阅读授权：manager/admin 在文档中心“阅读权限”分配归属账号和额外读者，新上传默认受控且归上传账号；旧材料不推断归属。明确 `source=demo` 或 `source=public` 的政策/文献默认共享，显式权限优先，不能仅凭 kind 公开上传文档。专家本人任务对应申报书可读，不能因此读取其他查重来源。所有列表、原文、检索/SSE、图谱、关联文献、卷宗和报告/归档读取统一走 `rag/document_access.py`，空授权范围必须返回空检索，不能回退全库。查重继续在全库内部计算，对无阅读权来源仅保留本材料片段、相似度和匿名代号；模型预审上下文也不得含其他项目名称或受控政策。模型报告保存实际政策来源快照，读取时重新核权，政策撤权后也不能在模型叙述中泄漏；快照缺失的旧模型报告保守隐藏原叙述。前端异步资料和401必须检查会话代次，不得跨账号回填或退出新会话。旧归档不可覆盖，阅读投影副本必须标明副本并计算独立哈希、保留原哈希。访问与权限修改留痕，只有 manager/admin 可查权限账号目录和访问记录。viewer 可对归属本人、可读且正文有效的proposal/other材料预审和独立查重，不因此获得专家匹配或正式案卷管理权。独立查重必须使用 `POST /api/duplicate/check`，四角色均须通过目标 `can_check`；不得对viewer开放 `/api/tool/check` 或 `/api/experts`，两者仍为403。`/match` 共用页面对viewer由 `visibleWorkspaceViews` 能力配置显示“材料查重”，仅运行查重/查重结果/检查边界三步；无本人材料仍显示入口，但禁用运行并提示管理员分配归属。其他三角色保持五步查重匹配。导出只含查重和匿名来源，不夹带专家候选或回避信息。撤销对后续请求生效，已经交付的内容不能远程收回。
+
+本地材料处理：管理人员在文档中心“处理原文”排队；`POST /api/documents/{doc_id}/process` 只允许 manager/admin，且原件必须在受控上传目录。任务进度写入 meta，已解析文本失败时保留；逐页缓存位于 data/ocr_cache，不出网、不提交。队列及处理中禁止新建正式案卷和运行预审/查重，已被正式案卷引用的材料不原地重建。单进程后台线程逐份处理，索引按批合并更新；多进程部署需外部任务队列协调，当前不支持多工作进程同时消费。本地文字层 complete 仅表示未触及限制且未检测到少字/低置信页面，不证明表格关系、图片、签章真实或识别无误。目录提供年度与已记录材料类别筛选，不推断缺失类别或自动合并同名项目。

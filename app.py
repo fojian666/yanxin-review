@@ -23,7 +23,7 @@ from starlette.concurrency import run_in_threadpool
 from rag import auth, config, db, dossiers as dossier_service, qa, review, review_cases, schemas, trends
 from rag import experts as expert_service
 from rag import ingest as ingest_service
-from rag import keyword_graph, document_access
+from rag import keyword_graph, document_access, material_processing
 from rag.llm import LLMError, chat_options, generation_info, llm, resolve_chat_client
 from rag.experts import parse_experts_csv
 from rag.parsers import ParseError, parse_papers_csv, parse_upload
@@ -106,9 +106,11 @@ async def lifespan(_app: FastAPI):
     db.init_db()
     seed_all()
     retriever.rebuild()
+    material_processing.start()
     try:
         yield
     finally:
+        material_processing.stop()
         db.close_db()
 
 
@@ -805,6 +807,7 @@ def document_content(doc_id: str, access: document_access.Access = Depends(docum
             "created_at",
         )
     }
+    public_document["quality"] = material_processing.public_quality(document)
     return {
         "document": public_document,
         "chunks": [
@@ -877,7 +880,7 @@ async def upload_document(
         "page_count": parsed.get("page_count", 0),
         "warning": warning,
         "status": "ready" if chunks else "needs_review",
-        "meta": {"original_name": file.filename, "suffix": suffix},
+        "meta": {"original_name": file.filename, "suffix": suffix, "quality": parsed.get("quality", {})},
         "owner_username": _user["username"],
     }
     try:
@@ -902,8 +905,18 @@ async def upload_document(
         )
     await run_in_threadpool(retriever.rebuild)
     document = {k: v for k, v in doc.items() if k != "path"}
+    document["quality"] = parsed.get("quality", {})
     document.update({"chunk_count": len(chunks), "meta": None})
     return {"document": document, "warning": warning}
+
+
+@app.post("/api/documents/{doc_id}/process")
+def process_material(doc_id: str, _user: dict = Depends(require_role("manager", "admin"))):
+    try:
+        quality = material_processing.enqueue(doc_id, _user["username"])
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"quality": quality}
 
 
 # FastAPI 按声明顺序匹配路径：固定段 sample 必须先于 {doc_id} 声明，

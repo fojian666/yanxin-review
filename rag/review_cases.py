@@ -213,6 +213,10 @@ def create_case(
     case_id = db.new_id()
     stamp = db.now()
     with db.connect() as conn:
+        from .material_processing import _locked_document, BUSY
+        material = _locked_document(conn, doc_id)
+        if (json.loads(material.get("meta_json") or "{}").get("quality") or {}).get("state") in BUSY:
+            raise ValueError("材料正在处理或更新索引，请完成后再建立评审案卷")
         conn.execute(
             """
             INSERT INTO review_cases
@@ -511,7 +515,10 @@ def create_resubmission(case_id: str, doc_id: str, actor: str) -> dict[str, Any]
             raise ValueError("仅已签署退回修改的案卷可以补正重审")
         if conn.execute("SELECT 1 FROM review_case_rounds WHERE previous_case_id = ?", (case_id,)).fetchone():
             raise ValueError("该轮次已创建补正重审案卷")
-        doc = conn.execute("SELECT id, kind FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        suffix = " FOR UPDATE" if db.backend() == "postgresql" else ""
+        doc = conn.execute("SELECT id, kind, meta_json FROM documents WHERE id = ?" + suffix, (doc_id,)).fetchone()
+        if doc and (json.loads(doc["meta_json"] or "{}").get("quality") or {}).get("state") in {"queued", "processing", "indexing"}:
+            raise ValueError("补正材料正在处理，请完成后再重新送审")
         if not doc or doc["kind"] not in {"proposal", "other"} or doc_id == previous["doc_id"]:
             raise ValueError("请选择不同于原材料的新申报书或项目材料")
         if previous["dossier_id"] and not conn.execute(

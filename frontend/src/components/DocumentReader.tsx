@@ -8,6 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useMotionPreference } from "../motion";
+import { materialBusy, QUALITY_LABELS } from "../materialQuality";
 import type { DocItem, DocumentContent } from "../types";
 
 interface DocumentReaderProps {
@@ -31,6 +32,8 @@ interface DocumentReaderProps {
   onDelete: (doc: DocItem) => void;
   onRetry: () => void;
   onAccess?: () => void;
+  onProcess?: () => void;
+  processing?: boolean;
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -63,6 +66,8 @@ export function DocumentReader({
   onDelete,
   onRetry,
   onAccess,
+  onProcess,
+  processing,
 }: DocumentReaderProps) {
   const reduce = useMotionPreference();
   const waiting = loading || (!content && !error);
@@ -87,14 +92,18 @@ export function DocumentReader({
       <header className="document-reader-head">
         <div>
           <span className="document-kind">{KIND_LABELS[selected.kind] ?? "资料"}</span>
-          <h2>{selected.name}</h2>
-          {selected.warning && <p className="document-reader-warning">{selected.warning}</p>}
+          <h2 title={selected.name}>{selected.name}</h2>
+          {selected.warning && !selected.quality && <p className="document-reader-warning">{selected.warning}</p>}
         </div>
         <span className="document-folio">PAGE {String(position).padStart(2, "0")} / {String(total).padStart(2, "0")}</span>
       </header>
 
+
       <div className="document-reader-actions">
         {onAccess && <button type="button" className="btn btn-ghost btn-sm" onClick={onAccess}>阅读权限</button>}
+        {onProcess && <button type="button" className="btn btn-ghost btn-sm" onClick={onProcess} disabled={processing || materialBusy(selected.quality?.state)}>
+          {materialBusy(selected.quality?.state) ? "处理中" : selected.quality?.state === "failed" ? "重试处理" : "处理原文"}
+        </button>}
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAsk(selected)}>
           <MessageSquareText size={14} />文档问答
         </button>
@@ -126,6 +135,19 @@ export function DocumentReader({
         animate={{ rotateY: 0, x: 0, opacity: 1 }}
         transition={{ duration: reduce ? 0 : 0.54, ease: [0.22, 1, 0.36, 1] }}
       >
+      {selected.quality && (
+        <section className="material-quality" tabIndex={0} aria-label="材料处理质量" aria-live={materialBusy(selected.quality.state) ? "polite" : "off"}>
+          <div className="material-quality-status">
+            <strong>{QUALITY_LABELS[selected.quality.state] || "待核验"}</strong>
+            {!!selected.quality.total_pages && <span>{selected.quality.processed_pages ?? 0}/{selected.quality.total_pages} 页</span>}
+            {!!selected.quality.ocr_pages && <span>OCR {selected.quality.ocr_pages} 页</span>}
+            {selected.quality.indexed_chars !== undefined && <span>{selected.quality.indexed_chars.toLocaleString()} 字</span>}
+          </div>
+          {materialBusy(selected.quality.state) && <progress aria-label="本地处理进度" max={Math.max(1, selected.quality.total_pages ?? 1)} value={selected.quality.state === "queued" ? 0 : selected.quality.processed_pages ?? 0} />}
+          <p>{selected.quality.note || selected.warning || "仅处理提取文字，图片、签字和印章需人工核对。"}</p>
+        </section>
+      )}
+
         {waiting ? (
           <div className="document-reader-loading" role="status">
             <Loader2 size={22} className="spin" />

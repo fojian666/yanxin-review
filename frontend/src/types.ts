@@ -44,6 +44,20 @@ export interface Health {
 }
 
 export interface DocItem {
+  material_category?: string;
+  quality?: {
+    state: string;
+    revision?: string;
+    complete?: boolean;
+    processed_pages?: number;
+    total_pages?: number;
+    ocr_pages?: number;
+    indexed_chars?: number;
+    missing_pages?: number;
+    truncated?: boolean;
+    note?: string;
+    updated_at?: string;
+  };
   can_check?: boolean;
   id: string;
   name: string;

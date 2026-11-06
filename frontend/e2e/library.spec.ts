@@ -1,5 +1,62 @@
 import { test, expect, navigate, proposalText, downloadText } from './fixtures';
 
+test('长材料重建文本、年度筛选与处理质量在桌面手机均可读', async ({ app: page, context }, testInfo) => {
+  const text = '研究内容与技术路线。自然资源数据质量核验。\n'.repeat(3600);
+  expect(text.length).toBeGreaterThan(60000);
+  const uploaded = await context.request.post('/api/documents', { multipart: {
+    file: { name: '长材料回归.txt', mimeType: 'text/plain', buffer: Buffer.from(text) },
+    kind: 'proposal', year: '2025',
+  } });
+  expect(uploaded.ok()).toBeTruthy();
+  const { document } = await uploaded.json();
+  expect(document.text_len).toBe(text.trim().length);
+  let oldView = true;
+  await page.route(`**/api/documents/${document.id}/content`, async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    if (oldView) data.chunks[0].text = '旧的解析正文占位符';
+    await route.fulfill({ response, json: data });
+  });
+  // 强制在POST返回前处理完成，复现ready→ready、轮询看不到中间态的竞态。
+  await page.route(`**/api/documents/${document.id}/process`, async route => {
+    const response = await route.fetch();
+    await expect.poll(async () => {
+      const docs = (await (await context.request.get('/api/documents')).json()).documents;
+      const target = docs.find((doc: { id: string }) => doc.id === document.id);
+      return target?.quality?.revision ? target.quality.state : '';
+    }, { timeout: 20000 }).toBe('ready');
+    await route.fulfill({ response });
+  });
+  await page.goto(`/library?doc=${document.id}`);
+  await expect(page.locator('.document-prose')).toContainText('旧的解析正文占位符');
+  await expect(page.getByRole('region', { name: '材料处理质量', exact: true })).toContainText('文字已提取');
+  oldView = false;
+  await page.getByRole('button', { name: '处理原文', exact: true }).click();
+  await expect(page.locator('.toast').last()).toContainText('已加入本地处理队列');
+  await expect.poll(async () => {
+    const docs = (await (await context.request.get('/api/documents')).json()).documents;
+    return docs.find((doc: { id: string }) => doc.id === document.id)?.quality?.state;
+  }, { timeout: 20000 }).toBe('ready');
+  await expect(page.getByRole('button', { name: '处理原文', exact: true })).toBeEnabled({ timeout: 12000 });
+  await expect(page.locator('.document-prose')).not.toContainText('旧的解析正文占位符');
+  await expect(page.locator('.document-prose')).toContainText('研究内容与技术路线');
+  for (const [width, height] of [[1440, 900], [390, 844], [640, 400]] as const) {
+    await page.setViewportSize({ width, height });
+    const quality = page.getByRole('region', { name: '材料处理质量', exact: true });
+    await expect(quality).toBeVisible();
+    await expect(quality).toContainText('图片、签字和印章');
+    await expect.poll(() => page.locator('.document-reader-body').evaluate(el => el.clientHeight)).toBeGreaterThan(70);
+    const toggle = page.locator('.document-directory-toggle');
+    if (await toggle.isVisible()) await toggle.click();
+    await page.getByLabel('材料年度', { exact: true }).selectOption('2025');
+    const items = page.locator('.document-directory-group > button');
+    await expect(items).toHaveCount(1);
+    await expect(items).toContainText('长材料回归');
+    if (await toggle.isVisible()) await toggle.click();
+    await page.screenshot({ path: testInfo.outputPath(`processing-${width}.png`) });
+  }
+});
+
 test('文档正文与文献数据独立切换并保持可阅读', async ({ app: page }, testInfo) => {
   for (const [width, height] of [[1440, 900], [720, 450], [375, 812]] as const) {
     await page.setViewportSize({ width, height });
@@ -42,7 +99,7 @@ test('@smoke 文档上传、索引、问答跳转、预审跳转与删除闭环'
   let item = page.locator('.document-directory').getByRole('button', { name: /E2E上传闭环/ });
   await expect(page).toHaveURL(/\/library\?doc=/);
   await item.click();
-  await expect(item).toContainText('已索引');
+  await expect(item).toContainText('文字已提取');
   await expect(page.locator('.document-reader-head')).toContainText('E2E上传闭环');
   await page.getByRole('button', { name: '文档问答', exact: true }).click();
   await expect(page).toHaveURL(/\/chat$/);

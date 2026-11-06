@@ -724,11 +724,23 @@ def list_documents() -> list[dict[str, Any]]:
         rows = conn.execute(
             """
             SELECT id, name, kind, year, source, text_len, page_count, chunk_count,
-                   status, warning, created_at
+                   status, warning, created_at, meta_json
             FROM documents ORDER BY created_at DESC
             """
         ).fetchall()
-    return [dict(r) for r in rows]
+    from .material_processing import public_quality
+    result = []
+    for row in rows:
+        item = _row(row)
+        quality = public_quality(item)
+        category = (item.get("meta") or {}).get("material_category")
+        item.pop("meta", None)
+        if category in {"科研课题", "科技项目"}:
+            item["material_category"] = category
+        if quality:
+            item["quality"] = quality
+        result.append(item)
+    return result
 
 
 def get_document(doc_id: str) -> dict[str, Any] | None:

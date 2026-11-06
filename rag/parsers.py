@@ -225,6 +225,8 @@ def parse_pdf(path: Path) -> dict:
         raise ParseError(f"PDF 解析失败：{msg or 'pdftotext 返回错误'}")
     raw = proc.stdout.decode("utf-8", errors="ignore")
     pages_raw = raw.split("\f")
+    if pages_raw and not pages_raw[-1].strip():
+        pages_raw.pop()
     pages: list[dict] = []
     empty = 0
     for i, page_text in enumerate(pages_raw):
@@ -236,10 +238,10 @@ def parse_pdf(path: Path) -> dict:
     full_len = sum(len(p["text"]) for p in pages)
     warning = ""
     if full_len < 20:
-        warning = "未提取到可复制文本，可能是扫描件。当前版本未启用 OCR，请上传可复制文本的 PDF 或 DOCX。"
+        warning = "未提取到可复制文本，可能是扫描件。可由管理人员在文档中心运行本地 OCR，或提供可复制文本的 PDF/DOCX。"
     elif empty and empty >= max(2, len(pages_raw) // 3):
         warning = f"有 {empty} 页未提取到文本，可能是扫描页；建议人工核对。"
-    page_count = max((p["page"] for p in pages), default=0)
+    page_count = len(pages_raw)
     if config.MAX_PDF_PAGES > 0 and page_count >= config.MAX_PDF_PAGES:
         limit_note = f"仅解析前 {config.MAX_PDF_PAGES} 页；如需完整内容请拆分文件。"
         warning = f"{warning} {limit_note}".strip() if warning else limit_note
@@ -248,6 +250,7 @@ def parse_pdf(path: Path) -> dict:
         "page_count": page_count,
         "warning": warning,
         "text_len": full_len,
+        "missing_pages": [i + 1 for i, value in enumerate(pages_raw) if len(re.sub(r"\s+", "", value)) < 80],
     }
 
 
@@ -493,7 +496,7 @@ def parse_ofd(path: Path) -> dict:
     return {
         "pages": pages,
         "page_count": len(page_members),
-        "warning": "" if text_len else "OFD 可能是扫描页或缺少可复制文本，当前版本未启用 OCR。",
+        "warning": "" if text_len else "OFD 可能是扫描页或缺少可复制文本；当前本地 OCR 仅支持 PDF，OFD 扫描页需先转换为 PDF 再处理。",
         "text_len": text_len,
     }
 
@@ -730,7 +733,22 @@ def parse_upload(path: Path) -> dict:
         raise ParseError("CSV 请使用“文献导入”，不要作为普通文档上传")
     else:
         raise ParseError(f"不支持的文件类型：{suffix or '未知'}")
-    return apply_content_limit(result)
+    limited = apply_content_limit(result)
+    missing = result.get("missing_pages", [])
+    truncated = result.get("text_len", 0) > limited.get("text_len", 0)
+    usable = bool(limited.get("text_len"))
+    limited["quality"] = {
+        "state": "partial" if truncated or missing or not usable else "ready",
+        "complete": usable and not truncated and not missing,
+        "source_chars": result.get("text_len", 0),
+        "indexed_chars": limited.get("text_len", 0),
+        "total_pages": result.get("page_count", 0),
+        "processed_pages": limited.get("page_count", 0),
+        "missing_pages": len(missing), "ocr_pages": 0,
+        "truncated": truncated,
+        "note": limited.get("warning") or ("仅检查已提取文字；图片、签字和印章不在文字检查范围。" if usable else "未提取到有效文字，请核对原件或运行本地处理。"),
+    }
+    return limited
 
 
 def _norm_header(h: str) -> str:

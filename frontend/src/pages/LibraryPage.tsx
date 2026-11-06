@@ -19,6 +19,7 @@ import { DocumentAccessDialog } from "../components/DocumentAccessDialog";
 import { EmptyState } from "../components/EmptyState";
 import { Markdown } from "../components/Markdown";
 import { EASE } from "../motion";
+import { materialBusy } from "../materialQuality";
 import type { DocItem, DocumentContent, ReviewArtifact } from "../types";
 
 const KIND_RANK: Record<string, number> = {
@@ -71,6 +72,19 @@ export function LibraryPage() {
   );
   const [documentQuery, setDocumentQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState("");
+  const hasProcessing = docs.some((doc) => materialBusy(doc.quality?.state));
+  useEffect(() => {
+    if (!hasProcessing) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try { await refreshDocs(); } catch { /* 保留当前快照，下轮重试 */ }
+      if (!cancelled) timer = setTimeout(poll, 4000);
+    };
+    timer = setTimeout(poll, 4000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [hasProcessing, refreshDocs]);
   const [accessDocument, setAccessDocument] = useState<DocItem | null>(null);
   const [content, setContent] = useState<DocumentContent | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
@@ -226,7 +240,7 @@ export function LibraryPage() {
         if (active && requestId === contentRequest.current) setLoadingContent(false);
       });
     return () => { active = false; };
-  }, [selected?.id]);
+  }, [selected?.id, selected?.quality?.state, selected?.quality?.revision]);
 
   const chooseDocument = (doc: DocItem) => {
     const current = selected ? orderedDocs.findIndex((item) => item.id === selected.id) : -1;
@@ -425,7 +439,7 @@ export function LibraryPage() {
           total={orderedDocs.length}
           previous={previous}
           next={next}
-          canReview={can("precheck") && selected?.can_check !== false}
+          canReview={can("precheck") && selected?.can_check !== false && (selected?.chunk_count ?? 0) > 0}
           canDelete={can("delete-doc")}
           deleting={deletingId === selected?.id}
           missingMessage={requestedMissing ? "未找到该文档，可能已被删除或无权访问。" : undefined}
@@ -435,6 +449,16 @@ export function LibraryPage() {
           onReview={openForReview}
           onDelete={(doc) => void deleteDocument(doc)}
           onAccess={can("delete-doc") && selected ? () => setAccessDocument(selected) : undefined}
+          processing={processingId === selected?.id}
+          onProcess={can("upload") && selected?.source === "upload" ? () => {
+            const id = selected.id;
+            setProcessingId(id);
+            void api.processDocument(id).then(async () => {
+              toast("已加入本地处理队列");
+              try { await refreshDocs(); } catch { toast("任务已排队，列表暂未刷新", "error"); }
+            }).catch((err) => toast((err as Error).message, "error"))
+              .finally(() => { if (mounted.current) setProcessingId(""); });
+          } : undefined}
           onRetry={() => {
             if (!selected) return;
             const requestId = ++contentRequest.current;

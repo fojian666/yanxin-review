@@ -175,14 +175,15 @@ def test_offline_review_reports_limitations(monkeypatch):
     assert any("字面重合" in item for item in report["limitations"])
 
 
-def test_llm_review_drops_limitations(monkeypatch):
+def test_llm_review_preserves_actual_scope_without_offline_limitations(monkeypatch):
     _fake_db(monkeypatch)
     monkeypatch.setattr(
         review_service, "llm", SimpleNamespace(configured=True, chat=lambda *a, **k: LLM_JSON)
     )
     report = review_service.review_document("d1")
     assert report["mode"] == "qwen"
-    assert report["limitations"] == []
+    assert not set(report["limitations"]) & set(review_service.OFFLINE_LIMITATIONS)
+    assert any("关键段落" in item and "并非逐页" in item for item in report["limitations"])
     assert report["sections"]
 
 

@@ -54,7 +54,7 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
         await page.getByRole('tab', { name: '趋势图表', exact: true }).click();
         const chartPanels = page.locator('.trend-chart-page .chart-panel');
         await expect(chartPanels).toHaveCount(2);
-        const chartMetrics = await chartPanels.evaluateAll(panels => panels.map(panel => ({
+        const metrics = () => chartPanels.evaluateAll(panels => panels.map(panel => ({
           clientHeight: panel.clientHeight,
           width: panel.getBoundingClientRect().width,
           contentBottom: panel.getBoundingClientRect().bottom
@@ -62,8 +62,11 @@ test('桌面放大时各工作区保持可操作且不横向溢出', async ({ ap
             - parseFloat(getComputedStyle(panel).borderBottomWidth),
           childBottom: Math.max(...Array.from(panel.children).map(child => child.getBoundingClientRect().bottom)),
         })));
-        expect(chartMetrics.every(panel => panel.width >= 180 && panel.clientHeight >= 100), `${scale}x 趋势图表被压缩`).toBeTruthy();
-        expect(chartMetrics.every(panel => panel.childBottom <= panel.contentBottom + 1), `${scale}x 趋势图表内容裁切`).toBeTruthy();
+        await expect.poll(async () => {
+          const values = await metrics();
+          return values.length === 2 && values.every(panel => panel.width >= 180 && panel.clientHeight >= 100);
+        }, `${scale}x 趋势图表被压缩`).toBeTruthy();
+        await expect.poll(async () => (await metrics()).every(panel => panel.childBottom <= panel.contentBottom + 1), `${scale}x 趋势图表内容裁切`).toBeTruthy();
       }
       const upload = page.getByRole('button', { name: '上传文档' }).first();
       await expect(upload).toBeVisible();

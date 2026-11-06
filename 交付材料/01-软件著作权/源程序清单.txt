@@ -1,36 +1,38 @@
 源程序清单（首期原型 V2.0）
 
 后端（Python）
-   1451 app.py
+   1464 app.py
       1 rag/__init__.py
     220 rag/auth.py
     331 rag/config.py
     272 rag/corpus.py
-   1276 rag/db.py
+   1288 rag/db.py
     293 rag/demo_proposals.py
-    220 rag/document_access.py
+    221 rag/document_access.py
     450 rag/dossiers.py
     362 rag/embeddings.py
-    380 rag/experts.py
+    382 rag/experts.py
      33 rag/ingest.py
     145 rag/keyword_graph.py
     294 rag/llm.py
-    790 rag/parsers.py
+    321 rag/material_processing.py
+    139 rag/ocr.py
+    808 rag/parsers.py
     193 rag/qa.py
     285 rag/retrieval.py
-    486 rag/review.py
-   1132 rag/review_cases.py
+    489 rag/review.py
+   1139 rag/review_cases.py
     253 rag/review_scoring.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     292 rag/trends.py
     353 rag/vector_stores.py
-  10294 total
+  10810 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     378 frontend/src/AppContext.tsx
-    407 frontend/src/api.ts
+    409 frontend/src/api.ts
       1 frontend/src/branding.ts
     365 frontend/src/charts/TrendCharts.tsx
     143 frontend/src/components/AdaptivePager.tsx
@@ -38,8 +40,8 @@
      93 frontend/src/components/ChatModelControls.tsx
      81 frontend/src/components/CitationTrace.tsx
      81 frontend/src/components/DocumentAccessDialog.tsx
-    127 frontend/src/components/DocumentDirectory.tsx
-    177 frontend/src/components/DocumentReader.tsx
+    140 frontend/src/components/DocumentDirectory.tsx
+    199 frontend/src/components/DocumentReader.tsx
     259 frontend/src/components/DossierModal.tsx
     487 frontend/src/components/DossierWorkbench.tsx
      14 frontend/src/components/DuplicateSource.tsx
@@ -63,12 +65,13 @@
      16 frontend/src/generation.ts
     137 frontend/src/login.css
      13 frontend/src/main.tsx
+      5 frontend/src/materialQuality.ts
      57 frontend/src/motion.ts
     131 frontend/src/pages/AdminPage.tsx
     584 frontend/src/pages/ChatPage.tsx
     253 frontend/src/pages/ExpertReviewPage.tsx
     535 frontend/src/pages/KnowledgeGraphPage.tsx
-    603 frontend/src/pages/LibraryPage.tsx
+    627 frontend/src/pages/LibraryPage.tsx
     108 frontend/src/pages/LoginPage.tsx
     524 frontend/src/pages/MatchPage.tsx
     646 frontend/src/pages/ReviewCasePage.tsx
@@ -76,11 +79,11 @@
     232 frontend/src/pages/TrendPage.tsx
     238 frontend/src/pages/WelcomePage.tsx
      61 frontend/src/simpleMode.ts
-   8173 frontend/src/styles.css
+   8201 frontend/src/styles.css
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
-    570 frontend/src/types.ts
-  19266 total
+    584 frontend/src/types.ts
+  19374 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
@@ -89,21 +92,23 @@
     388 tests/test_dossiers.py
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
-    470 tests/test_llm_provider.py
+    471 tests/test_llm_provider.py
+    209 tests/test_material_processing.py
     417 tests/test_retrieval_embedding.py
     367 tests/test_review_cases.py
     167 tests/test_review_scoring.py
    1450 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   4294 total
+   4504 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
     506 tools/fetch_corpus.py
     130 tools/migrate_sqlite_to_postgres.py
+     39 tools/process_materials.py
     198 tools/smoke_postgres.py
     174 tools/soft_copyright.py
-   1437 total
+   1476 total
 浏览器回归（TypeScript/Python）
     294 frontend/e2e/auth.spec.ts
     250 frontend/e2e/button-surfaces.spec.ts
@@ -113,7 +118,7 @@
     148 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
     259 frontend/e2e/knowledge-document.spec.ts
-    231 frontend/e2e/library.spec.ts
+    288 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
     320 frontend/e2e/review-case.spec.ts
     476 frontend/e2e/review-match.spec.ts
@@ -122,11 +127,11 @@
     322 frontend/e2e/themes.spec.ts
      89 frontend/e2e/trend-zoom.spec.ts
     160 frontend/e2e/workspace-sizing.spec.ts
-    105 frontend/e2e/zoom-layout.spec.ts
+    108 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3819 total
+   3879 total
 合计
-  39110 total（115 个文件）
+  40043 total（120 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

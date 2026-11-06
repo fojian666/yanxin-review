@@ -161,6 +161,8 @@ export const api = {
   setDocumentAccess: (docId: string, policy: DocumentAccessPolicy) => request<{ access: DocumentAccessPolicy }>(`/documents/${encodeURIComponent(docId)}/access`, { ...jsonOptions(policy), method: "PUT" }),
   documentContent: (docId: string) =>
     request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),
+  processDocument: (docId: string) =>
+    request<{ quality: DocItem["quality"] }>(`/documents/${encodeURIComponent(docId)}/process`, jsonOptions({})),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
   dossiers: () => request<{ dossiers: Dossier[] }>("/dossiers"),
   dossierOptions: () => request<DossierOptions>("/dossiers/options"),

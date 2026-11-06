@@ -1,4 +1,6 @@
 import { ChevronRight, FileText } from "lucide-react";
+import { useState } from "react";
+import { QUALITY_LABELS } from "../materialQuality";
 import type { DocItem, Dossier, DossierOption } from "../types";
 
 const REFERENCE_GROUPS = [
@@ -28,9 +30,12 @@ export function DocumentDirectory({
   onSelect,
 }: DocumentDirectoryProps) {
   const normalized = query.trim().toLocaleLowerCase();
-  const visible = normalized
-    ? docs.filter((doc) => doc.name.toLocaleLowerCase().includes(normalized))
-    : docs;
+  const [year, setYear] = useState("");
+  const [category, setCategory] = useState("");
+  const visible = docs.filter((doc) => (!normalized || doc.name.toLocaleLowerCase().includes(normalized))
+    && (!year || String(doc.year) === year) && (!category || doc.material_category === category));
+  const years = [...new Set(docs.map((doc) => doc.year).filter(Boolean))].sort((a, b) => b! - a!);
+  const categoriesAvailable = [...new Set(docs.map((doc) => doc.material_category).filter(Boolean))];
 
   // 一个文档可属于多个卷宗、承担不同角色；每个角色内只列一次。
   const rolesByDoc = new Map<string, Set<string>>();
@@ -79,6 +84,14 @@ export function DocumentDirectory({
           aria-label="筛选文档"
         />
       </label>
+      <div className="document-directory-filters">
+        <select aria-label="材料年度" value={year} onChange={(event) => setYear(event.target.value)}>
+          <option value="">全部年度</option>{years.map((value) => <option key={value} value={String(value)}>{value}年</option>)}
+        </select>
+        {!!categoriesAvailable.length && <select aria-label="材料类别" value={category} onChange={(event) => setCategory(event.target.value)}>
+          <option value="">全部类别</option>{categoriesAvailable.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>}
+      </div>
       {visible.length === 0 ? (
         <div className="document-directory-empty">
           <FileText size={24} aria-hidden="true" />
@@ -107,7 +120,7 @@ export function DocumentDirectory({
                         <span className="document-directory-copy">
                           <strong>{doc.name}</strong>
                           <small>
-                            {doc.status === "ready" ? "已索引" : "待处理"}
+                            {doc.quality ? QUALITY_LABELS[doc.quality.state] || "待核验" : doc.status === "ready" ? "已索引" : "待处理"}
                             {doc.year ? ` · ${doc.year}` : ""}
                             {doc.source === "public" ? " · 公开" : ""}
                           </small>

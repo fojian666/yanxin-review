@@ -347,6 +347,9 @@ def review_document(doc_id: str) -> dict:
     doc = db.get_document(doc_id)
     if not doc:
         raise ValueError("文档不存在")
+    quality = (doc.get("meta") or {}).get("quality") or {}
+    if quality.get("state") in {"queued", "processing", "indexing"}:
+        raise ValueError("材料正在处理，请更新索引后再预审")
     chunks = db.get_chunks(doc_id)
     text = "\n".join(c["text"] for c in chunks)
     if not text.strip():
@@ -481,6 +484,6 @@ def review_document(doc_id: str) -> dict:
             llm, status="fallback" if llm.configured else "complete"
         ),
         "warning": warning,
-        "limitations": [] if mode == "qwen" else list(OFFLINE_LIMITATIONS),
+        "limitations": ([] if mode == "qwen" else list(OFFLINE_LIMITATIONS)) + ([f"规则检查文字范围：{quality.get('indexed_chars', doc.get('text_len', 0))} 字；{quality.get('note', '')}"] if quality else []) + (["模型补充只读取选取的关键段落，并非逐页审读；图片、表格关系、签字和印章仍需人工核对。"] if mode == "qwen" else []) + ([doc["warning"]] if doc.get("warning") else []),
         "disclaimer": DISCLAIMER,
     }

@@ -44,7 +44,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(128 * 1024 * 1024)))
-MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "60000"))
+MAX_CONTENT_CHARS = int(os.getenv("MAX_CONTENT_CHARS", "500000"))
 MAX_DOCX_UNCOMPRESSED_BYTES = int(
     os.getenv("MAX_DOCX_UNCOMPRESSED_BYTES", str(256 * 1024 * 1024))
 )

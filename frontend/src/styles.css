@@ -3423,6 +3423,20 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   background: #fffdf8;
   font-size: 12px;
 }
+.document-directory-filters { display: flex; gap: 6px; margin-top: 8px; }
+.document-directory-filters select { flex: 1 1 0; min-width: 0; width: 0; min-height: 36px; padding: 4px 6px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; font-size: 12px; }
+.material-quality { flex: 0 0 auto; max-height: 112px; overflow-y: auto; margin: 0 16px 6px; padding: 7px 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); font-size: 12px; line-height: 1.5; }
+.material-quality-status { display: flex; gap: 5px 12px; flex-wrap: wrap; align-items: center; }
+.material-quality-status strong { color: var(--ink); }
+.material-quality p { margin: 4px 0 0; }
+.material-quality progress { display: block; width: 100%; height: 6px; margin-top: 6px; accent-color: var(--teal); }
+@media (max-width: 680px) {
+  .document-directory-filters select { min-height: 44px; }
+  .material-quality { margin-left: 10px; margin-right: 10px; max-height: 100px; }
+  .library-page .document-reader-actions { flex-wrap: wrap; }
+  .library-page .document-reader-actions .btn { min-height: 44px; height: auto; }
+}
+@media (max-height: 550px) { .material-quality { max-height: 64px; } }
 .document-directory-category { margin-top: 16px; }
 .document-directory-category > summary { display: flex; align-items: center; min-height: 30px; cursor: pointer; list-style: none; }
 .document-directory-category > summary::-webkit-details-marker { display: none; }
@@ -8171,3 +8185,17 @@ html.entering::-webkit-scrollbar-track { background: #0b1a23; }
   .review-scoring, .review-score-critical, .review-score-dimensions { break-inside: auto; }
   .review-score-dimensions > div { break-inside: avoid; }
 }
+
+/* 材料质量与正文共用阅读滚动面，矮屏不能被质量提示挤掉正文。 */
+.library-page .document-reader-body .material-quality { margin-top: 8px; }
+@media (max-height: 550px) {
+  .workspace-home:has(.library-page .material-quality) > .workspace-ledger { display: none; }
+  .library-page:has(.material-quality) .document-reader-head { padding: 4px 10px; }
+  .library-page:has(.material-quality) .document-reader-head h2 { display: block; margin: 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .library-page:has(.material-quality) .document-kind,
+  .library-page:has(.material-quality) .document-folio { display: none; }
+  .library-page:has(.material-quality) .document-reader-actions { flex-wrap: nowrap; padding: 2px 6px; }
+  .library-page:has(.material-quality) .document-reader-actions .btn { min-height: 44px; height: auto; }
+}
+
+@media (max-width: 680px) { .library-page .document-reader-actions .btn svg { display: none; } }

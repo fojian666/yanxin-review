@@ -77,7 +77,8 @@ class Access:
         return [{**doc, "can_check": self.can_check(doc["id"])} for doc in self.docs.values() if self.can_read(doc["id"])]
 
     def can_check(self, doc_id: str) -> bool:
-        return self.can_read(doc_id) and (self.manager or self.user.get("role") == "reviewer" or self.policy(doc_id)["owner_username"] == self.username)
+        quality = (self.docs.get(doc_id, {}).get("quality") or {})
+        return quality.get("state") not in {"queued", "processing", "indexing"} and self.can_read(doc_id) and (self.manager or self.user.get("role") == "reviewer" or self.policy(doc_id)["owner_username"] == self.username)
 
     def can_dossier(self, dossier_id: str) -> bool:
         if self.manager:
