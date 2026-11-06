@@ -136,7 +136,9 @@ def test_pdf_text_limit_keeps_true_total_and_never_claims_complete(materials, mo
 
 @pytest.mark.parametrize("backend", [("vision-test", "offline"), ("tesseract-test", "offline_tesseract")])
 def test_ocr_cache_is_page_scoped_and_does_not_call_engine_again(materials, monkeypatch, backend):
+    monkeypatch.delattr(hashlib, "file_digest", raising=False)
     digest = hashlib.sha256(materials.read_bytes()).hexdigest()
+    assert ocr.file_sha256(materials) == digest
     calls = []
     def run(cmd, **kwargs):
         calls.append(cmd)

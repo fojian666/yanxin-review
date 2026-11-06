@@ -20,6 +20,15 @@ class OCRUnavailable(RuntimeError):
     pass
 
 
+def file_sha256(path: Path) -> str:
+    """流式校验原件，兼容项目最低支持的 Python 3.10。"""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 _VISION_SOURCE = r'''
 import Foundation
 import Vision

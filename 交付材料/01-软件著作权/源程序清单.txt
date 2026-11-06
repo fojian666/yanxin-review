@@ -15,8 +15,8 @@
      33 rag/ingest.py
     145 rag/keyword_graph.py
     294 rag/llm.py
-    321 rag/material_processing.py
-    139 rag/ocr.py
+    319 rag/material_processing.py
+    148 rag/ocr.py
     808 rag/parsers.py
     193 rag/qa.py
     285 rag/retrieval.py
@@ -28,7 +28,7 @@
     294 rag/text.py
     292 rag/trends.py
     353 rag/vector_stores.py
-  10810 total
+  10817 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     378 frontend/src/AppContext.tsx
@@ -93,13 +93,13 @@
      64 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
     471 tests/test_llm_provider.py
-    209 tests/test_material_processing.py
+    211 tests/test_material_processing.py
     417 tests/test_retrieval_embedding.py
     367 tests/test_review_cases.py
     167 tests/test_review_scoring.py
    1450 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   4504 total
+   4506 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -131,7 +131,7 @@
      27 frontend/playwright.config.ts
    3879 total
 合计
-  40043 total（120 个文件）
+  40052 total（120 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

@@ -101,8 +101,7 @@ def _pdf(path: Path, progress) -> dict:
             if not pages:
                 raise
             engine_note = str(exc)
-    with path.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    digest = ocr.file_sha256(path)
     ocr_pages = 0
     uncertain = []
     errors = []
@@ -169,9 +168,8 @@ def process_document(doc_id: str) -> None:
         path = Path(doc["path"])
         expected = (doc.get("meta") or {}).get("sha256")
         if expected:
-            with path.open("rb") as stream:
-                if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
-                    raise ValueError("原件完整性校验不一致")
+            if ocr.file_sha256(path) != expected:
+                raise ValueError("原件完整性校验不一致")
         parsed = _pdf(path, progress) if path.suffix.lower() == ".pdf" else parse_upload(path)
         chunks = chunk_document(parsed["pages"], config.CHUNK_SIZE, config.CHUNK_OVERLAP)
         if not chunks:
