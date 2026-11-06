@@ -81,10 +81,11 @@ def duplicate_coverage(chunks: list[dict], candidates: list[list[dict]], *, avai
 
 def _item(key: str, label: str, maximum: float, ratio: float | None, detail: str, evidence: str = "") -> dict:
     earned = round(maximum * max(0, min(1, ratio)), 2) if ratio is not None else 0.0
+    bounded = evidence if len(evidence) <= 4096 else evidence[:2000] + "\n[依据过长，中间内容已省略，请核对原文]\n" + evidence[-2000:]
     return {"key": key, "label": label, "maximum": maximum, "earned": earned,
             "pending_points": maximum if ratio is None else 0,
             "status": "pending" if ratio is None else "pass" if earned == maximum else "fail" if earned == 0 else "partial",
-            "detail": detail, "evidence": truncate(evidence, 240), "evidence_full": evidence}
+            "detail": detail, "evidence": truncate(evidence, 240), "evidence_full": bounded, "evidence_truncated": len(evidence) > 4096}
 
 
 def _evidence(text: str, pattern: str) -> str:
@@ -131,45 +132,46 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
         values = {Decimal(m[1]) * (10000 if m[2] == "万元" else 1) for m in hits}
         valid = len(values) == 1 and len(hits) == len(mentions)
         return (next(iter(values)), hits[0][0], False) if valid else (None, "", bool(mentions))
-    total, total_evidence, total_ambiguous = money("总经费|经费总额|预算总额|项目总预算|经费合计|预算合计")
+    total, total_evidence, total_ambiguous = money("(?:本项目|项目)?(?:总经费|经费总额|预算总额|经费合计|预算合计)|项目总预算")
     leaf = [money(label) for label in ("设备费", "业务费", "劳务费", "间接费用")]
     # 任意无法归入已知口径的金额，都可能是额外科目或资金来源；不能凭
     # 已识别子集断言合计冲突。单价只是测算依据，不属于预算合计科目。
     known = {"总经费", "经费总额", "预算总额", "项目总预算", "经费合计", "预算合计",
+             "项目总经费", "本项目总经费", "项目预算总额", "本项目预算总额", "项目经费总额", "本项目经费总额",
              "设备费", "业务费", "劳务费", "间接费用", "财政补助", "财政拨款", "财政资金",
              "自筹资金", "自筹经费", "自筹"}
     labeled = list(re.finditer(r"([\u4e00-\u9fffA-Za-z]{1,30})\s*[:：]\s*(-?\d+(?:\.\d+)?)\s*(万元|元)?", block))
-    ambiguous_amount = any(
-        match[1] not in known and match[1] != "单价"
-        and (match[3] is not None or not block[match.end():].lstrip() or block[match.end():].lstrip()[0] in "；;\n")
-        for match in labeled
-    )
-    for value in re.finditer(r"(?<!\d)-?\d+(?:\.\d+)?\s*(?:万元|元)", block):
-        if any(match.start(2) == value.start() for match in labeled):
+    ambiguous_amount = any(match[1] not in known and match[1] != "单价" for match in labeled)
+    for value in re.finditer(r"(?<![\d.])-?\d+(?:\.\d+)?", block):
+        if any(match.start(2) <= value.start() < match.end(2) for match in labeled):
             continue
         context = block[max(0, value.start() - 8):value.start()]
+        suffix = block[value.end():].lstrip()
+        if re.search(r"(?:数量|工时|人月|人数|次数|时长)\s*[:：]?\s*$", context) and re.match(r"(?:次|人|月|年|项|个|套|小时|天|%|％)", suffix):
+            continue
         if not re.search(r"单价\s*[:：]?\s*$", context):
             ambiguous_amount = True
     # Require the explicit flat detail marker; nested tables are deliberately pending.
     fee_labels = set(re.findall(r"([\u4e00-\u9fff]{1,20}(?:支出|费用|费))\s*[:：]", block))
-    unknown_fees = fee_labels - {"设备费", "业务费", "劳务费", "间接费用", "总经费"}
+    unknown_fees = fee_labels - known
     flat = bool(re.search(r"(?:预算明细|经费明细)\s*[:：]", block)) and not re.search(r"其中|直接费用|小计", block) and not unknown_fees and not ambiguous_amount
     parts = [value for value, _, _ in leaf if value is not None]
     critical: list[dict] = []
     ratio = None
     detail = "仅支持明确标注元/万元、带冒号的总额与平铺设备费/业务费/劳务费/间接费用明细；多级预算、缺单位或口径不清时待核验。"
-    if flat and not total_ambiguous and not any(ambiguous for _, _, ambiguous in leaf) and total is not None and all(value is not None for value, _, _ in leaf[:3]):
+    parsed_complete = flat and not total_ambiguous and not any(ambiguous for _, _, ambiguous in leaf) and total is not None and all(value is not None for value, _, _ in leaf[:3])
+    if parsed_complete:
         difference = sum(parts) - total
         ratio = float(abs(difference) <= Decimal("0.01") and all(value >= 0 for value in [total, *parts]))
         detail = f"明细合计{sum(parts):.2f}元，总额{total:.2f}元，差额{difference:.2f}元；允许尾差0.01元。"
         if not ratio:
             critical.append({"key": "budget_conflict", "label": "预算金额不一致", "detail": detail, "evidence": total_evidence})
     rows = [_item("budget_sum", "预算明细与总额一致", 5, ratio, detail, block)]
-    fiscal, _, _ = money("财政补助|财政拨款|财政资金")
-    own, _, _ = money("自筹资金|自筹经费|自筹")
+    fiscal, _, fiscal_ambiguous = money("财政补助|财政拨款|财政资金")
+    own, _, own_ambiguous = money("自筹资金|自筹经费|自筹")
     funding_labels = set(re.findall(r"([\u4e00-\u9fff]{1,20}(?:资金|拨款|补助|经费来源))\s*[:：]", block))
-    unknown_sources = funding_labels - {"财政补助", "财政拨款", "财政资金", "自筹资金"}
-    source_ratio = None if total is None or fiscal is None or own is None or unknown_sources or ambiguous_amount else float(abs(fiscal + own - total) <= Decimal("0.01") and fiscal >= 0 and own >= 0)
+    unknown_sources = funding_labels - known
+    source_ratio = None if not parsed_complete or fiscal is None or own is None or fiscal_ambiguous or own_ambiguous or unknown_sources else float(abs(fiscal + own - total) <= Decimal("0.01") and fiscal >= 0 and own >= 0)
     source_detail = "需明确财政资金、自筹资金、预算总额及各自单位，未识别完整时待核验。"
     if source_ratio is not None:
         source_detail = f"资金来源合计{fiscal + own:.2f}元，总额{total:.2f}元。"
@@ -178,6 +180,18 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
     rows.append(_item("budget_sources", "资金来源合计一致", 4, source_ratio, source_detail, block))
     rows.append(_item("budget_tasks", "任务与经费对应", 3, None, "任务经费的合理性和对应关系需管理人员核验，模型不自动给分。", block))
     basis = _evidence(block, r"(?:测算依据|测算说明|单价|人月|工时|费用标准).*[0-9]")
+    if len(basis) > 4096:
+        triggers = list(re.finditer(r"(?:单价|人月|工时|费用标准|测算依据|测算说明).{0,80}?\d+(?:\.\d+)?", basis))
+        if triggers:
+            position = triggers[-1].start()
+            start = max(0, position - 1800)
+            basis = ("[前文省略]" if start else "") + basis[start:start + 4000] + ("[后文省略]" if start + 4000 < len(basis) else "")
+        else:
+            keyword = re.search(r"测算依据|测算说明|单价|人月|工时|费用标准", basis)
+            number = re.search(r"\d", basis[keyword.end():]) if keyword else None
+            if keyword and number:
+                number_pos = keyword.end() + number.start()
+                basis = basis[max(0, keyword.start() - 100):keyword.start() + 1000] + "\n[中间内容省略，请核对原文]\n" + basis[max(0, number_pos - 1400):number_pos + 1400]
     rows.append(_item("budget_basis", "提供经费测算依据", 3, float(bool(basis)), "识别带数值的单价、工时或测算依据表述；不证明费用合理或报价真实。" if basis else "未识别到带数值的测算依据。", basis))
     return rows, critical
 
@@ -207,6 +221,8 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
     targets = []
     for line in re.split(r"[；;\n]", indicator_block):
         line = re.sub(r"^\s*(?:[（(]\s*[一二三四五六七八九十\d]+\s*[）)]|[一二三四五六七八九十\d]+[、.．])\s*", "", line.strip())
+        if len(line) <= 50 and not re.search(r"[:：。\d]", line) and re.match(r"^(?:考核指标|预期成果|成果形式|提交成果)", line):
+            continue
         line = re.sub(r"^(?:考核指标(?:与预期成果)?|预期成果(?:及考核指标)?|成果形式|提交成果)\s*[:：]?\s*", "", line)
         if len(line) > 8 and line not in targets:
             targets.append(line)

@@ -167,6 +167,42 @@ def test_unknown_budget_amount_never_claims_conflict(extra):
     assert not any(issue["key"] in {"budget_conflict", "funding_conflict"} for issue in result["critical_issues"])
 
 
+@pytest.mark.parametrize("extra", ["其他支出 1万", "其他资金 1万", "其他支出 1", "材料费 1万"])
+def test_unparsed_budget_numbers_remain_pending(extra):
+    result = score(f"研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告\n经费预算\n总经费：10万元\n预算明细：设备费：2万元；业务费：3万元；劳务费：4万元；{extra}\n财政资金：7万元；自筹资金：2万元")
+    assert item(result, "budget_sum")["status"] == "pending"
+    assert item(result, "budget_sources")["status"] == "pending"
+    assert not any(issue["key"] in {"budget_conflict", "funding_conflict"} for issue in result["critical_issues"])
+
+
+@pytest.mark.parametrize("label", ["总经费", "项目总经费", "项目预算总额", "本项目总经费"])
+def test_budget_total_aliases_are_consistent(label):
+    result = score(f"研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告\n经费预算\n{label}：10万元\n预算明细：设备费：2万元；业务费：3万元；劳务费：5万元\n财政资金：8万元；自筹资金：2万元")
+    assert item(result, "budget_sum")["status"] == "pass"
+    assert item(result, "budget_sources")["status"] == "pass"
+
+
+def test_extended_indicator_heading_does_not_change_score():
+    text = "研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告3份，2027年验收\n经费预算\n待补充"
+    baseline = score(text)
+    variant = score(text.replace("考核指标\n", "（三）考核指标及预期成果与验收方式\n"))
+    assert (baseline["earned"], baseline["upper_bound"], baseline["risk_level"]) == (variant["earned"], variant["upper_bound"], variant["risk_level"])
+
+
+def test_large_evidence_is_bounded_and_keeps_basis_trigger():
+    import json
+    text = "研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告\n经费预算\n预算明细：" + "预算说明" * 60000 + "单价100元" + "附加说明" * 60000
+    result = score(text)
+    items = [item for dimension in result["dimensions"] for item in dimension["items"]]
+    assert all(len(item.get("evidence_full", "")) <= 4096 for item in items)
+    assert any(item.get("evidence_truncated") for item in items)
+    assert "单价100元" in item(result, "budget_basis")["evidence_full"]
+    assert len(json.dumps(result, ensure_ascii=False)) < 50000
+    distant = score("经费预算\n测算说明：" + "说明" * 5000 + "100元")
+    excerpt = item(distant, "budget_basis")["evidence_full"]
+    assert "测算说明" in excerpt and "100元" in excerpt and "省略" in excerpt
+
+
 @pytest.mark.parametrize("lower,upper,expected", [(0, 59.99, "高"), (59.99, 60, "待核验"), (60, 79.99, "中"), (79.99, 80, "待核验"), (80, 100, "低"), (100, 100, "低")])
 def test_score_risk_boundaries_and_critical_override(lower, upper, expected):
     assert risk_band(lower, upper, [])[0] == expected
