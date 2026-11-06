@@ -140,7 +140,7 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
     known = total_labels | {"设备费", "业务费", "劳务费", "间接费用", "财政补助", "财政拨款", "财政资金",
              "自筹资金", "自筹经费", "自筹"}
     # 仅豁免有明确非金额字段名和完整非金额值的字段，未知数字仍保守待核验。
-    nonmoney = list(re.finditer(r"(?<![\u4e00-\u9fff])[\u4e00-\u9fff]{0,20}(?:数量|人数|人员|次数|工时|人月|时长|执行期|年度|年份|日期|序号|比例|编号)\s*[:：]\s*[\d年月日时分秒次人台个套项天小时%％.\-—–/ ]+(?=\s*(?:[；;，,\n]|$))", block))
+    nonmoney = list(re.finditer(r"(?<![\u4e00-\u9fff])[\u4e00-\u9fff]{0,20}(?:数量|人数|人员|次数|工时|人月|时长|执行期|实施期|周期|工期|期限|年度|年份|日期|序号|比例|编号)\s*[:：]\s*[\d年月日时分秒次人台个套项天小时件份名至到%％.\-—–~～/ ]+(?:[（(][^\d元万；;，,\n()（）]{1,40}[）)])?(?=\s*(?:[；;，,\n]|$))", block))
     def exempt(position: int) -> bool:
         return any(match.start() <= position < match.end() for match in nonmoney)
     labeled = list(re.finditer(r"([\u4e00-\u9fffA-Za-z]{1,30})\s*[:：]\s*(-?\d+(?:\.\d+)?)\s*(万元|元)?", block))
@@ -224,7 +224,7 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
     targets = []
     for line in re.split(r"[；;\n]", indicator_block):
         line = re.sub(r"^\s*(?:[（(]\s*[一二三四五六七八九十\d]+\s*[）)]|[一二三四五六七八九十\d]+[、.．])\s*", "", line.strip())
-        heading = re.sub(r"[（(]?\s*20\d{2}\s*年\s*[）)]?", "", line).strip()
+        heading = re.sub(r"[（(]?\s*20\d{2}\s*(?:年\s*(?:[-—–~～至到]\s*20\d{2}\s*年)?|[-—–~～至到]\s*20\d{2}\s*年)\s*[）)]?", "", line).strip()
         if len(heading) <= 50 and not re.search(r"[:：。\d]", heading) and re.match(r"^(?:考核指标|预期成果|成果形式|提交成果)", heading):
             continue
         line = re.sub(r"^(?:考核指标(?:与预期成果)?|预期成果(?:及考核指标)?|成果形式|提交成果)\s*[:：]?\s*", "", line)

@@ -184,18 +184,22 @@ def test_budget_total_aliases_are_consistent(label):
 
 def test_budget_nonmonetary_fields_do_not_mask_or_create_conflicts():
     text = "研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告\n经费预算\n总经费：10万元\n预算明细：设备费：2万元；业务费：3万元；劳务费：5万元\n财政资金：8万元；自筹资金：2万元"
-    for field in ("数量：10次", "执行期：2026-2028年", "预算年度：2026年", "序号：1", "设备数量：2台", "人员：5人", "编制日期：2026年10月", "间接费用比例：5%", "项目编号：2026-001"):
+    for field in ("数量：10次", "执行期：2026-2028年", "预算年度：2026年", "序号：1", "设备数量：2台", "人员：5人", "编制日期：2026年10月", "间接费用比例：5%", "项目编号：2026-001", "数量：10件", "数量：10份", "人员：5名", "项目周期：3年", "工期：12个月", "研究期限：3年", "实施期：2026年1月至2028年12月", "执行期：2026年1月至2028年12月", "数量：10台（备用）", "设备数量：2套(拟采购)", "执行期：2026年到2028年", "执行期：2026年～2028年"):
         result = score(text + "\n" + field)
         assert item(result, "budget_sum")["status"] == "pass", field
         assert item(result, "budget_sources")["status"] == "pass", field
         conflict = score(text.replace("劳务费：5万元", "劳务费：4万元") + "\n" + field + "；其他支出：1万")
         assert item(conflict, "budget_sum")["status"] == "pending", field
+    for field in ("数量：10台（其他支出1万元）", "数量：10万元", "执行期：2026年至2028年（额外支出1万）", "数量：10台；材料费 1万"):
+        result = score(text + "\n" + field)
+        assert item(result, "budget_sum")["status"] == "pending", field
+        assert item(result, "budget_sources")["status"] == "pending", field
 
 
 def test_extended_indicator_heading_does_not_change_score():
     text = "研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告3份，2027年验收\n经费预算\n待补充"
     baseline = score(text)
-    for heading in ("（三）考核指标及预期成果与验收方式", "（三）考核指标及预期成果（2028年）", "（三）2028年考核指标及预期成果", "2028年考核指标"):
+    for heading in ("（三）考核指标及预期成果与验收方式", "（三）考核指标及预期成果（2028年）", "（三）2028年考核指标及预期成果", "2028年考核指标", "（三）考核指标（2028—2030年）", "（三）考核指标及预期成果（2026-2028年）", "2026年至2028年考核指标", "考核指标（2026年～2028年）"):
         variant = score(text.replace("考核指标\n", heading + "\n"))
         assert (baseline["earned"], baseline["upper_bound"], baseline["risk_level"]) == (variant["earned"], variant["upper_bound"], variant["risk_level"]), heading
 
