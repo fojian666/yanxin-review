@@ -175,18 +175,29 @@ def test_unparsed_budget_numbers_remain_pending(extra):
     assert not any(issue["key"] in {"budget_conflict", "funding_conflict"} for issue in result["critical_issues"])
 
 
-@pytest.mark.parametrize("label", ["总经费", "项目总经费", "项目预算总额", "本项目总经费"])
+@pytest.mark.parametrize("label", ["总经费", "项目总经费", "项目预算总额", "本项目总经费", "本项目总预算", "项目经费合计"])
 def test_budget_total_aliases_are_consistent(label):
     result = score(f"研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告\n经费预算\n{label}：10万元\n预算明细：设备费：2万元；业务费：3万元；劳务费：5万元\n财政资金：8万元；自筹资金：2万元")
     assert item(result, "budget_sum")["status"] == "pass"
     assert item(result, "budget_sources")["status"] == "pass"
 
 
+def test_budget_nonmonetary_fields_do_not_mask_or_create_conflicts():
+    text = "研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告\n经费预算\n总经费：10万元\n预算明细：设备费：2万元；业务费：3万元；劳务费：5万元\n财政资金：8万元；自筹资金：2万元"
+    for field in ("数量：10次", "执行期：2026-2028年", "预算年度：2026年", "序号：1", "设备数量：2台", "人员：5人", "编制日期：2026年10月", "间接费用比例：5%", "项目编号：2026-001"):
+        result = score(text + "\n" + field)
+        assert item(result, "budget_sum")["status"] == "pass", field
+        assert item(result, "budget_sources")["status"] == "pass", field
+        conflict = score(text.replace("劳务费：5万元", "劳务费：4万元") + "\n" + field + "；其他支出：1万")
+        assert item(conflict, "budget_sum")["status"] == "pending", field
+
+
 def test_extended_indicator_heading_does_not_change_score():
     text = "研究内容\n监测\n技术路线\n测量\n考核指标\n形成报告3份，2027年验收\n经费预算\n待补充"
     baseline = score(text)
-    variant = score(text.replace("考核指标\n", "（三）考核指标及预期成果与验收方式\n"))
-    assert (baseline["earned"], baseline["upper_bound"], baseline["risk_level"]) == (variant["earned"], variant["upper_bound"], variant["risk_level"])
+    for heading in ("（三）考核指标及预期成果与验收方式", "（三）考核指标及预期成果（2028年）", "（三）2028年考核指标及预期成果", "2028年考核指标"):
+        variant = score(text.replace("考核指标\n", heading + "\n"))
+        assert (baseline["earned"], baseline["upper_bound"], baseline["risk_level"]) == (variant["earned"], variant["upper_bound"], variant["risk_level"]), heading
 
 
 def test_large_evidence_is_bounded_and_keeps_basis_trigger():
