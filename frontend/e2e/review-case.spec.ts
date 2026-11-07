@@ -23,6 +23,7 @@ test('重审迟到响应不会切回已离开的案卷', async ({ app: page, doc
     await route.fulfill({ json: { case: { ...created[0], id: 'new-round', stage: 'pre_review', round: 2 } } });
   });
   await page.goto(`/review-cases?case=${created[0].id}`);
+  await page.getByRole('tab', { name: '终审' }).click();
   await page.getByLabel('补正材料').selectOption(documents[1].id);
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '创建补正重审' }).click();
@@ -73,6 +74,8 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.locator('.review-case-boundaries').getByText(/查重相似度不等于抄袭/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('review-case-pre-complete.png') });
   await page.unroute('**/api/review-cases/*/run');
+  await page.reload();
+  await expect(page.getByRole('tab', { name: '预审' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: '专家审核' }).click();
   const firstCandidate = page.locator('.review-candidate-list label').first();
   await expect(firstCandidate).toBeVisible();
@@ -121,6 +124,8 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
     await route.fulfill({ response, json: body });
   });
   await navigate(page, '专家审核');
+  await expect(page.getByLabel('当前课题')).toHaveCount(0);
+  await expect(page.locator('.workspace-ledger')).toHaveCount(0);
   await expect(page.locator('.expert-task-tabs button')).toHaveCount(1);
   await expect(page.locator('.expert-task-summary')).toContainText('管理员调试');
   await expect(page.getByRole('heading', { name: longCaseTitle })).toBeVisible();

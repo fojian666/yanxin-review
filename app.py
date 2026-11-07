@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -106,6 +107,12 @@ async def lifespan(_app: FastAPI):
     db.init_db()
     seed_all()
     retriever.rebuild()
+    threading.Thread(
+        target=keyword_graph.prewarm_terms,
+        args=(retriever.chunks,),
+        name="keyword-graph-prewarm",
+        daemon=True,
+    ).start()
     material_processing.start()
     try:
         yield
@@ -590,7 +597,7 @@ def knowledge_keywords(limit: int = Query(100, ge=1, le=500), dossier_id: str | 
         if not access.can_dossier(dossier_id):
             raise document_access.DocumentAccessDenied("未找到该卷宗或无权读取")
         doc_ids = doc_ids & {item["doc_id"] for item in db.list_dossier_documents(dossier_id)}
-    result = keyword_graph.build_keyword_graph(limit, doc_ids)
+    result = keyword_graph.build_keyword_graph(limit, doc_ids, retriever.chunks)
     access.audit([source["doc_id"] for node in result.get("nodes") or [] for source in node.get("sources") or []], "keyword-evidence")
     return result
 

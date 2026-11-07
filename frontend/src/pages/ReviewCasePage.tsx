@@ -194,7 +194,8 @@ export function ReviewCasePage() {
       .then((result) => {
         if (!active) return;
         setCurrent(result.case);
-        setStage(stageForCase(result.case));
+        // 服务端阶段决定可用操作，但进入页面始终从预审证据开始展示。
+        setStage("pre_review");
         setFinalComment(result.case.final_comment || "");
         setDecision(result.case.final_decision || "approved");
         const nextParams = new URLSearchParams(params);

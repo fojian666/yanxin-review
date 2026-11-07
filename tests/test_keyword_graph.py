@@ -1,6 +1,19 @@
 from rag import keyword_graph
 
 
+def test_chunk_terms_avoids_expensive_part_of_speech_tagging(monkeypatch):
+    captured = {}
+
+    def fake_extract_tags(text, **kwargs):
+        captured.update(kwargs)
+        return ["耕地", "监测"]
+
+    monkeypatch.setattr(keyword_graph.jieba.analyse, "extract_tags", fake_extract_tags)
+    keyword_graph._chunk_terms.cache_clear()
+    assert keyword_graph._chunk_terms("耕地遥感监测") == ("耕地", "监测")
+    assert "allowPOS" not in captured
+
+
 def test_keyword_graph_uses_actual_context_and_ignores_orphans(monkeypatch):
     docs = [{"id": "one", "name": "演示文档"}]
     chunks = [
@@ -44,6 +57,17 @@ def test_keyword_graph_scope_excludes_unrelated_documents(monkeypatch):
     monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: (text,))
     assert [node["name"] for node in keyword_graph.build_keyword_graph(doc_ids={"a"})["nodes"]] == ["甲文"]
     assert keyword_graph.build_keyword_graph(doc_ids=set())["nodes"] == []
+
+
+def test_keyword_graph_can_reuse_retriever_chunk_snapshot(monkeypatch):
+    monkeypatch.setattr(keyword_graph.db, "list_documents", lambda: [{"id": "one", "name": "快照文档"}])
+    monkeypatch.setattr(keyword_graph.db, "get_chunks", lambda: (_ for _ in ()).throw(AssertionError("不应重复读取数据库")))
+    monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: ("耕地", "监测") if text else ())
+    result = keyword_graph.build_keyword_graph(
+        limit=10,
+        chunks=[{"doc_id": "one", "idx": 0, "text": "耕地遥感监测"}],
+    )
+    assert {node["name"] for node in result["nodes"]} == {"耕地", "监测"}
 
 
 def test_clusters_follow_strong_links_and_leave_isolated_terms_unclassified():
