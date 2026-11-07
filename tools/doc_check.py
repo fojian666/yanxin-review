@@ -104,7 +104,7 @@ def pytest_parameter_count() -> int | None:
             env=env,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):

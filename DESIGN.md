@@ -627,6 +627,7 @@ components:
   `idle-ink on idle-surface` 5.50、`role-viewer #575f58 on #eee9df` 5.45。
   演示数据徽章（`badge-sample` 10.5px）用于标记样本数据。
 - 问答输入框的 `title` 和无障碍名称提示 Enter 发送、Shift+Enter 换行；界面保留人工复核提示。
+- 问答必须先使用检索到的平台资料回答项目事实并添加 `[n]` 引用；资料不足或与资料无关时，已配置模型可以回答通用知识，但回答开头必须注明“以下为通用知识回答，未使用项目资料”，不得生成不存在的引用。离线模式没有通用知识兜底。
 - 焦点：全局 `:focus-visible` 2px `primary` 环 + offset 2px；指针触发的焦点不显示 UA 环形，
   但**不得**移除键盘焦点样式。
 - skip link：每页第一个 Tab 是"跳到主要内容"；路由切换后焦点移交 `<main id="main" tabindex="-1">`

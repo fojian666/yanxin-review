@@ -1006,6 +1006,8 @@ def chat_stream(payload: ChatRequest, access: document_access.Access = Depends(d
                 "citations": citations,
                 "mode": "qwen" if use_model else "offline",
                 "warning": prepared["warning"],
+                "grounding": prepared.get("grounding", "documents" if prepared["citations"] else "none"),
+                "qa_policy": prepared.get("qa_policy", {}),
                 "provider": client.status(),
             }
         )

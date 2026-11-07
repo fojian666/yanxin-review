@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 92 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（240 个测试函数，参数化展开 281 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（245 个测试函数，参数化展开 286 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -47,12 +47,12 @@ rag/
   embeddings.py        嵌入后端 local/api/none（auto 逐级降级，本地加载失败改走 API）；公网端点受
                        ALLOW_EXTERNAL_EMBED 门禁 + 拒绝跟随重定向；向量按「后端|端点|模型 + 单条文本」
                        哈希缓存（新增文档不重算整库），查询向量不落盘
-  qa.py                RAG 问答：系统提示含防注入；无 LLM 时离线摘录式回答
+  qa.py                RAG 问答：系统提示含防注入；有资料时优先引证，无相关资料时由已配置模型提供通用知识并明确“未使用项目资料”；无 LLM 时离线摘录
   review.py            预审：固定规则计分 + 系统证据 + 可选模型补充意见（失败回退规则）
   review_scoring.py    precheck-v1 规范性检查：六维100分、21个子项、待核验区间、关键问题与候选字面覆盖
   experts.py           专家匹配：硬约束过滤（不可评审/在研≥5/同单位/回避）→
                        0.55·语义 + 0.30·关键词 + 0.15·学科 − 负载惩罚；查重分级 ≥0.55 高 / 0.30–0.55 关注
-  trends.py            文献趋势：相关性筛选 + 年度统计 + 规则/千问摘要
+  trends.py            文献趋势：仅在年份窗口内比较文献标题/作者关键词/摘要（字符2–3gram TF-IDF + 直接词命中）；零命中表示当前文献集合无匹配，不等于现实中无相关研究；年度统计 + 规则/千问摘要
   llm.py               OpenAI 兼容客户端（DashScope/DeepSeek/内网 vLLM/SGLang/Ollama）；
                        思考参数按方言发送（Qwen 的 enable_thinking / DeepSeek 的 thinking.type）
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）

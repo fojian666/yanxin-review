@@ -190,7 +190,7 @@ def test_llm_review_preserves_actual_scope_without_offline_limitations(monkeypat
 
 def test_offline_answer_says_what_it_did_not_do():
     empty = qa_service.fallback_answer("研究内容是什么", [])
-    assert "不足以回答" in empty
+    assert "无法提供通用知识回答" in empty
     body = qa_service.fallback_answer(
         "研究内容是什么",
         [{"doc_id": "d1", "section": "研究内容", "score": 0.5, "idx": 0,
@@ -198,6 +198,62 @@ def test_offline_answer_says_what_it_did_not_do():
     )
     assert "原文摘录" in body
     assert "未做归纳" in body
+
+
+def test_qa_prompt_allows_general_knowledge_without_document_citations(monkeypatch):
+    monkeypatch.setattr(qa_service.retriever, "search", lambda *args, **kwargs: [])
+    prepared = qa_service.prepare("什么是光合作用", scope=[])
+    assert prepared["citations"] == []
+    assert prepared["messages"]
+    prompt = "\n".join(message["content"] for message in prepared["messages"])
+    assert "通用知识" in prompt
+    assert "未使用项目资料" in prompt
+    assert "不要生成任何引用编号" in prompt
+
+
+def test_qa_drops_low_score_tfidf_candidates_without_direct_term_hits(monkeypatch):
+    monkeypatch.setattr(
+        qa_service.retriever,
+        "search",
+        lambda *args, **kwargs: [
+            {"doc_id": "d1", "doc_name": "无关材料", "section": "技术路线", "text": "量子安全密钥分发", "score": 0.3},
+            {"doc_id": "d2", "doc_name": "无关材料二", "section": "研究内容", "text": "项目实施方案", "score": 0.2},
+        ],
+    )
+    monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
+    prepared = qa_service.prepare("量子纠缠", scope=[])
+    assert prepared["citations"] == []
+    assert "通用知识" in prepared["messages"][0]["content"]
+
+
+def test_qa_keeps_low_score_tfidf_candidates_that_contain_question_terms(monkeypatch):
+    monkeypatch.setattr(
+        qa_service.retriever,
+        "search",
+        lambda *args, **kwargs: [
+            {"doc_id": "d1", "doc_name": "相关材料", "section": "机制", "text": "水生光合作用可形成稳定碳汇。", "score": 0.09},
+            {"doc_id": "d2", "doc_name": "无关材料", "section": "技术路线", "text": "一般性研究说明", "score": 0.081},
+        ],
+    )
+    monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
+    prepared = qa_service.prepare("什么是光合作用", scope=[])
+    assert [citation["doc_id"] for citation in prepared["citations"]] == ["d1"]
+
+
+def test_configured_model_can_answer_general_question_without_citations(monkeypatch):
+    monkeypatch.setattr(qa_service.retriever, "search", lambda *args, **kwargs: [])
+    seen = {}
+
+    def chat(messages, **_kwargs):
+        seen["messages"] = messages
+        return "以下为通用知识回答，未使用项目资料。光合作用是把光能转化为化学能的过程。"
+
+    client = SimpleNamespace(configured=True, chat=chat, info={"provider": "qwen", "label": "测试模型"}, model="test-model", strength="default")
+    result = qa_service.answer("什么是光合作用", scope=[], client=client)
+    assert result["mode"] == "qwen"
+    assert result["citations"] == []
+    assert "未使用项目资料" in result["answer"]
+    assert seen["messages"][0]["role"] == "system"
 
 
 def test_deepseek_never_reuses_qwen_key(monkeypatch):

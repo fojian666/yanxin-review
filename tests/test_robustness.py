@@ -43,6 +43,28 @@ def test_trends_empty_library_returns_empty_result(monkeypatch):
     assert result["papers"] == []
 
 
+def test_trend_relevance_compares_literature_text_and_explains_no_match(monkeypatch):
+    papers = [
+        {
+            "id": f"T{i}",
+            "title": f"科研管理与诚信治理研究 {i}",
+            "year": 2024,
+            "keywords": "科研;诚信",
+            "abstract": "围绕科研管理、科研诚信和数据治理开展研究。",
+            "is_sample": 0,
+        }
+        for i in range(3)
+    ]
+    monkeypatch.setattr(trends.db, "list_papers", lambda: papers)
+    matched = trends.analyze_trends("科研", 2024, 2024)
+    assert matched["no_match"] is False
+    assert matched["stats"]["total"] == 3
+    unmatched = trends.analyze_trends("人文", 2024, 2024)
+    assert unmatched["no_match"] is True
+    assert unmatched["stats"]["total"] == 0
+    assert "当前文献库共 3 篇" in unmatched["summary"]
+
+
 def test_spa_rejects_path_traversal(tmp_path, monkeypatch):
     """The SPA fallback must never serve files outside frontend/dist."""
     dist = tmp_path / "dist"
