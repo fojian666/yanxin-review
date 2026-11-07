@@ -124,11 +124,12 @@ LLM_JSON = (
 
 
 def _fake_db(monkeypatch):
-    from rag import db as db_module
+    from rag import db as db_module, document_access as document_access_module
 
     monkeypatch.setattr(db_module, "get_document", lambda doc_id: dict(FAKE_DOC))
     monkeypatch.setattr(db_module, "get_chunks", lambda doc_id: [dict(c) for c in FAKE_CHUNKS])
     monkeypatch.setattr(db_module, "list_documents", lambda: [dict(FAKE_DOC)])
+    monkeypatch.setattr(document_access_module, "public_ids", lambda: set())
     monkeypatch.setattr(
         review_service.retriever, "similarity_between_docs", lambda doc_id, top_k=5: []
     )
