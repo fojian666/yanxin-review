@@ -12,6 +12,8 @@ import jieba.analyse
 from . import db
 from .text import STOPWORDS, normalize_text
 
+SOURCE_DOCUMENT_LIMIT = 8
+
 
 @lru_cache(maxsize=50_000)
 def _chunk_terms(text: str) -> tuple[str, ...]:
@@ -100,9 +102,11 @@ def build_keyword_graph(
 ) -> dict:
     """按分块出现次数选词，再按词的分块共现余弦计算关联。"""
     docs = {doc["id"]: doc for doc in db.list_documents() if doc_ids is None or doc["id"] in doc_ids}
-    contexts = []
+    contexts: list[tuple[str, dict, tuple[str, ...]]] = []
     counts: Counter[str] = Counter()
     sources: dict[str, list[dict]] = defaultdict(list)
+    source_documents: dict[str, set[str]] = defaultdict(set)
+    term_documents: dict[str, set[str]] = defaultdict(set)
     indexed_documents: set[str] = set()
     # 正常服务复用检索器已加载的分块；测试或索引尚未构建时回退数据库。
     chunk_rows = chunks or db.get_chunks()
@@ -114,25 +118,31 @@ def build_keyword_graph(
         terms = _chunk_terms(text)
         if not terms:
             continue
-        contexts.append(terms)
+        contexts.append((doc["id"], chunk, terms))
         indexed_documents.add(doc["id"])
         counts.update(terms)
-        for term in terms:
-            if len(sources[term]) < 4:
-                offset = text.find(term)
-                start = max(0, offset - 55) if offset >= 0 else 0
-                sources[term].append({
-                    "doc_id": doc["id"], "doc_name": doc["name"],
-                    "chunk_idx": chunk["idx"], "section": chunk.get("section") or "",
-                    "page": chunk.get("page"), "excerpt": text[start:start + 150],
-                })
     limit = max(1, min(limit, 500))
     chosen = sorted(counts, key=lambda term: (-counts[term], term))[:limit]
     selected = set(chosen)
     pairs: Counter[tuple[str, str]] = Counter()
-    for terms in contexts:
+    for doc_id, chunk, terms in contexts:
         present = sorted(set(terms) & selected)
         pairs.update(combinations(present, 2))
+        for term in present:
+            term_documents[term].add(doc_id)
+            # 每个关键词优先返回不同文档的原文片段；同一文档只占一个位置，
+            # 避免四个片段全部来自一份材料而让人误以为只同步了少量文档。
+            if len(sources[term]) >= SOURCE_DOCUMENT_LIMIT or doc_id in source_documents[term]:
+                continue
+            source_documents[term].add(doc_id)
+            text = chunk.get("text") or ""
+            offset = text.find(term)
+            start = max(0, offset - 55) if offset >= 0 else 0
+            sources[term].append({
+                "doc_id": doc_id, "doc_name": docs[doc_id]["name"],
+                "chunk_idx": chunk["idx"], "section": chunk.get("section") or "",
+                "page": chunk.get("page"), "excerpt": text[start:start + 150],
+            })
     candidates: dict[str, list[tuple[float, str, int]]] = defaultdict(list)
     for (a, b), common in pairs.items():
         score = common / math.sqrt(counts[a] * counts[b])
@@ -149,7 +159,17 @@ def build_keyword_graph(
         links.append({"source": a, "target": b, "similarity": round(common / math.sqrt(counts[a] * counts[b]), 3), "shared_chunks": common})
     clusters = _cluster_terms(chosen, links)
     return {
-        "nodes": [{"id": term, "name": term, "chunk_count": counts[term], "sources": sources[term], "cluster": clusters[term]} for term in chosen],
+        "nodes": [
+            {
+                "id": term,
+                "name": term,
+                "chunk_count": counts[term],
+                "source_document_count": len(term_documents[term]),
+                "sources": sources[term],
+                "cluster": clusters[term],
+            }
+            for term in chosen
+        ],
         "links": links,
         "method": "分块关键词共现余弦",
         "document_count": len(indexed_documents),

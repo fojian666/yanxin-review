@@ -13,7 +13,7 @@
     362 rag/embeddings.py
     382 rag/experts.py
      33 rag/ingest.py
-    157 rag/keyword_graph.py
+    177 rag/keyword_graph.py
     294 rag/llm.py
     356 rag/material_processing.py
     148 rag/ocr.py
@@ -28,7 +28,7 @@
     294 rag/text.py
     292 rag/trends.py
     353 rag/vector_stores.py
-  11005 total
+  11025 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     380 frontend/src/AppContext.tsx
@@ -90,7 +90,7 @@
      42 tests/test_docs.py
     342 tests/test_document_access.py
     388 tests/test_dossiers.py
-     88 tests/test_keyword_graph.py
+    103 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
     472 tests/test_llm_provider.py
     309 tests/test_material_processing.py
@@ -100,7 +100,7 @@
     269 tests/test_review_scoring.py
    1450 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   4811 total
+   4826 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -118,7 +118,7 @@
     267 frontend/e2e/dossier.spec.ts
     148 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    259 frontend/e2e/knowledge-document.spec.ts
+    263 frontend/e2e/knowledge-document.spec.ts
     320 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
     359 frontend/e2e/review-case.spec.ts
@@ -130,9 +130,9 @@
     160 frontend/e2e/workspace-sizing.spec.ts
     108 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3975 total
+   3979 total
 合计
-  40656 total（121 个文件）
+  40695 total（121 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

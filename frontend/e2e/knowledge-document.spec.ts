@@ -226,7 +226,11 @@ test('文档关键词星图显示真实关键词和来源，上传后更新', as
     await expect(page.locator('.keyword-list button')).toHaveCount(100);
   }
   await expect(page.locator('.keyword-source a').first()).toBeVisible();
-  await expect(page.locator('.keyword-detail-body')).toContainText(/出现在 \d+ 个文本分块/);
+  await expect(page.locator('.keyword-detail-body')).toContainText(/出现在 \d+ 个文本分块中 · 覆盖 \d+ 份文档/);
+  const sourceDocuments = await page.locator('.keyword-source a').evaluateAll((links) =>
+    Array.from(new Set(links.map((link) => (link as HTMLAnchorElement).href)))
+  );
+  expect(sourceDocuments.length).toBeGreaterThan(1);
   await expect(page.locator('.keyword-detail-body')).not.toContainText('聚类');
   await expect(page.locator('.keyword-caveat')).toContainText('不代表因果');
   const sources = page.locator('.keyword-graph .kg-stats span').last().locator('strong');

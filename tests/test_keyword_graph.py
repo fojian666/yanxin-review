@@ -59,6 +59,21 @@ def test_keyword_graph_scope_excludes_unrelated_documents(monkeypatch):
     assert keyword_graph.build_keyword_graph(doc_ids=set())["nodes"] == []
 
 
+def test_keyword_graph_prioritizes_distinct_source_documents(monkeypatch):
+    docs = [{"id": f"d{index}", "name": f"文档{index}"} for index in range(10)]
+    chunks = [
+        {"doc_id": f"d{index}", "idx": 0, "text": f"共同主题 文档{index}", "section": "正文", "page": None}
+        for index in range(10)
+    ]
+    monkeypatch.setattr(keyword_graph.db, "list_documents", lambda: docs)
+    monkeypatch.setattr(keyword_graph.db, "get_chunks", lambda: chunks)
+    monkeypatch.setattr(keyword_graph, "_chunk_terms", lambda text: ("共同主题",))
+    node = keyword_graph.build_keyword_graph(limit=1)["nodes"][0]
+    assert node["source_document_count"] == 10
+    assert len(node["sources"]) == keyword_graph.SOURCE_DOCUMENT_LIMIT
+    assert len({source["doc_id"] for source in node["sources"]}) == keyword_graph.SOURCE_DOCUMENT_LIMIT
+
+
 def test_keyword_graph_can_reuse_retriever_chunk_snapshot(monkeypatch):
     monkeypatch.setattr(keyword_graph.db, "list_documents", lambda: [{"id": "one", "name": "快照文档"}])
     monkeypatch.setattr(keyword_graph.db, "get_chunks", lambda: (_ for _ in ()).throw(AssertionError("不应重复读取数据库")))

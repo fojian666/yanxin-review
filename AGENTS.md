@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 92 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（239 个测试函数，参数化展开 280 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（240 个测试函数，参数化展开 281 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -40,7 +40,7 @@ rag/
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
   ocr.py               本地逐页OCR、页码/原件哈希缓存、置信度与识别超时
   material_processing.py 持久化处理队列、进度、重启续跑、原子文本替换与正式评审材料保护
-  keyword_graph.py     本地提取分块关键词，按分块频次取最多500个；共现余弦连线、自动聚类和来源摘录；省略昂贵的词性标注并按分块内容缓存提词，不出网
+  keyword_graph.py     本地提取分块关键词，按分块频次取最多500个；共现余弦连线、自动聚类和来源摘录；省略昂贵的词性标注并按分块内容缓存提词；每个词统计覆盖文档数并优先展示最多8份不同文档的来源，不出网
   retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
                        keyword/章节加权与文档间段落查重（查重固定走 TF-IDF，理由见下）
   vector_stores.py     NumPy/pgvector/Milvus 三种向量存储，统一 index/score/clear 接口
