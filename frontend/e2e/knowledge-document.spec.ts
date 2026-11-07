@@ -110,7 +110,7 @@ test("平板任务态让知识图谱优先进入首屏", async ({ app: page }, t
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/graph");
   const ledger = page.locator(".workspace-ledger");
-  expect((await ledger.boundingBox())?.height).toBeLessThan(100);
+  await expect(ledger).toHaveCount(0);
   const canvasBox = await page.locator(".kg-canvas-panel").boundingBox();
   expect(canvasBox && canvasBox.y).toBeLessThan(460);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();

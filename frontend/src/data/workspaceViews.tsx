@@ -47,6 +47,7 @@ export interface WorkspaceView {
   description: string;
   icon: LucideIcon;
   permission?: string;
+  showWorkspaceContext?: boolean;
   component: WorkspaceComponent;
 }
 
@@ -56,6 +57,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     title: "智能问答",
     description: "根据资料回答，可查看引用依据",
     icon: MessageSquareText,
+    showWorkspaceContext: false,
     component: ChatPanel,
   },
   {
@@ -64,6 +66,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     description: "预审、专家审核与终审一条龙",
     icon: GitPullRequest,
     permission: "review-case",
+    showWorkspaceContext: false,
     component: ReviewCasePanel,
   },
   {
@@ -72,6 +75,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     description: "查看本人任务并提交独立审核意见",
     icon: UserRoundCheck,
     permission: "expert-review",
+    showWorkspaceContext: false,
     component: ExpertReviewPanel,
   },
   {
@@ -103,6 +107,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     description: "管理专家资料和评审账号绑定",
     icon: Users,
     permission: "tool",
+    showWorkspaceContext: false,
     component: ExpertLibraryPanel,
   },
   {
@@ -110,6 +115,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     title: "知识图谱",
     description: "探索科研治理概念与关系",
     icon: Network,
+    showWorkspaceContext: false,
     component: KnowledgeGraphPanel,
   },
   {
@@ -117,6 +123,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     title: "文献趋势",
     description: "查看文献数量和主题变化",
     icon: TrendingUp,
+    showWorkspaceContext: false,
     component: TrendPanel,
   },
   {
@@ -124,6 +131,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     title: "文档中心",
     description: "阅读并管理申报书、政策与文献",
     icon: FolderOpen,
+    showWorkspaceContext: false,
     component: LibraryPanel,
   },
   {
@@ -132,6 +140,7 @@ export const WORKSPACE_VIEWS: WorkspaceView[] = [
     description: "账号与角色管理（仅管理员可见）",
     icon: UserCog,
     permission: "admin",
+    showWorkspaceContext: false,
     component: AdminPanel,
   },
 ];

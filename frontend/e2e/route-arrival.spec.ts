@@ -31,18 +31,18 @@ test('桌面步骤栏随高度均匀展开并保持可操作', async ({ app: pag
   }
 });
 
-test('单页工作区切换功能时保留卷宗上下文', async ({ app: page }) => {
-  const ledger = await page.locator('.workspace-ledger').elementHandle();
-  expect(ledger).not.toBeNull();
+test('单页工作区按页面职责显示资料上下文', async ({ app: page }) => {
+  await expect(page.locator('.workspace-ledger')).toBeVisible();
   await page.locator('.nav').getByRole('link', { name: '智能问答', exact: true }).click();
   await expect(page).toHaveURL(/\/chat$/);
   await expect(page.locator('.nav-item[aria-current="page"]')).toContainText('智能问答');
-  expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
+  await expect(page.locator('.workspace-ledger')).toHaveCount(0);
   await page.locator('.nav').getByRole('link', { name: '文档中心', exact: true }).click();
   await expect(page).toHaveURL(/\/library$/);
   await expect(page.locator('.nav-item[aria-current="page"]')).toContainText('文档中心');
-  expect(await ledger!.evaluate(element => element.isConnected)).toBeTruthy();
+  await expect(page.locator('.workspace-ledger')).toHaveCount(0);
   await navigate(page, '项目预审');
+  await expect(page.locator('.workspace-ledger')).toBeVisible();
   const runTab = page.getByRole('tab', { name: '运行预审', exact: true });
   await runTab.focus();
   await runTab.press('ArrowRight');

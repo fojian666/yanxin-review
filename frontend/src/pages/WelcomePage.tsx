@@ -106,7 +106,7 @@ export function WelcomePage() {
   const showBadge = named && Boolean(role);
   const primaryPath = defaultPath;
   const isOverview = location.pathname === "/welcome";
-  const hideWorkspaceLedger = ["/review-cases", "/expert-review", "/experts", "/graph"].includes(location.pathname);
+  const hideWorkspaceLedger = location.pathname !== "/welcome" && requested?.showWorkspaceContext === false;
   const selectWorkspaceDocument = (nextDocId: string) => {
     setSelectedDocs(nextDocId ? [nextDocId] : []);
     setChatMessages([]);

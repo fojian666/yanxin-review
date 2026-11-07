@@ -36,11 +36,14 @@ test('所有路由共享文档中心的紧凑工作区外壳', async ({ app: pag
     }
 
     const taskShells = shells.filter(shell => shell.task);
-    const ledgerShells = taskShells.filter(shell => shell.path !== '/review-cases');
+    const contextRoutes = new Set(['/dossiers', '/review', '/match']);
+    const ledgerShells = taskShells.filter(shell => contextRoutes.has(shell.path));
+    const noLedgerShells = taskShells.filter(shell => !contextRoutes.has(shell.path));
     const unique = (values: number[]) => Math.max(...values) - Math.min(...values) <= 1;
     expect(unique(shells.map(shell => shell.topbar.y)), `${width}px 顶栏起点应一致`).toBeTruthy();
     expect(unique(shells.map(shell => shell.topbar.height)), `${width}px 顶栏高度应一致`).toBeTruthy();
-    expect(taskShells.find(shell => shell.path === '/review-cases')?.ledger, '项目评审不应保留多余卷宗栏').toBeNull();
+    expect(noLedgerShells.every(shell => shell.ledger === null), '独立任务页不应保留多余卷宗栏').toBeTruthy();
+    expect(ledgerShells.every(shell => shell.ledger !== null), '依赖当前资料的页面应保留卷宗栏').toBeTruthy();
     expect(unique(ledgerShells.map(shell => shell.ledger!.height)), `${width}px 卷宗栏高度应一致`).toBeTruthy();
     expect(unique(ledgerShells.map(shell => shell.stage.y)), `${width}px 工作面起点应一致`).toBeTruthy();
     expect(unique(ledgerShells.map(shell => shell.stage.height)), `${width}px 工作面高度应一致`).toBeTruthy();

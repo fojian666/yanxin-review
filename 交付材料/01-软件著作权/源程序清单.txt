@@ -60,7 +60,7 @@
      30 frontend/src/components/WorkspaceRouteLoader.tsx
     421 frontend/src/data/knowledge.ts
      59 frontend/src/data/proposalWorkflow.ts
-    143 frontend/src/data/workspaceViews.tsx
+    152 frontend/src/data/workspaceViews.tsx
       1 frontend/src/echarts-gl.d.ts
      16 frontend/src/generation.ts
     137 frontend/src/login.css
@@ -83,7 +83,7 @@
      44 frontend/src/theme.ts
     689 frontend/src/themes.css
     585 frontend/src/types.ts
-  19411 total
+  19420 total
 测试（Python）
      35 tests/conftest.py
     292 tests/test_corpus.py
@@ -127,12 +127,12 @@
      52 frontend/e2e/server.py
     322 frontend/e2e/themes.spec.ts
      89 frontend/e2e/trend-zoom.spec.ts
-    160 frontend/e2e/workspace-sizing.spec.ts
+    163 frontend/e2e/workspace-sizing.spec.ts
     108 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   3987 total
+   3990 total
 合计
-  40745 total（121 个文件）
+  40757 total（121 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
