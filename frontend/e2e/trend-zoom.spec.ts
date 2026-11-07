@@ -55,7 +55,7 @@ test('趋势页在 25%–500% 全部标准缩放下保持可用', async ({ app: 
         };
       });
       console.log(`TREND_ZOOM ${scale} ${tab} ${JSON.stringify(metrics)}`);
-      if (scale <= 0.5 && tab === '趋势图表') {
+      if ((scale <= 0.5 || scale >= 2.5) && tab === '趋势图表') {
         await expect(page.getByRole('button', { name: '3D', exact: true })).toBeDisabled();
         await expect(page.locator('.mode-badge').first()).toHaveText('2D');
       }

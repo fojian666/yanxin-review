@@ -13,6 +13,21 @@ interface EChartProps {
   onClick?: (params: unknown) => void;
 }
 
+function scrollableAncestor(element: HTMLElement): HTMLElement | null {
+  let parent = element.parentElement;
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    if (
+      ["auto", "scroll"].includes(style.overflowY) &&
+      parent.scrollHeight > parent.clientHeight + 1
+    ) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+}
+
 export function EChart({ option, height = 360, className = "", disableWheelZoom = false, ariaLabel, autoRotate, onClick }: EChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
@@ -106,15 +121,22 @@ export function EChart({ option, height = 360, className = "", disableWheelZoom 
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || !disableWheelZoom) return;
+    if (!el) return;
     const onWheel = (event: WheelEvent) => {
       if (event.ctrlKey) return;
-      // Keep ordinary wheel gestures for page scrolling instead of chart zoom.
+      const scroller = scrollableAncestor(el);
+      if (!disableWheelZoom && !scroller) return;
+      // When the chart is inside a clipped page pane, an ordinary wheel gesture
+      // scrolls that pane. At normal sizes the event remains available for zoom.
       event.preventDefault();
       event.stopPropagation();
       const factor =
         event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? el.clientHeight : 1;
-      window.scrollBy(0, event.deltaY * factor);
+      if (scroller) {
+        scroller.scrollTop += event.deltaY * factor;
+      } else {
+        window.scrollBy(0, event.deltaY * factor);
+      }
     };
     el.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => el.removeEventListener("wheel", onWheel, { capture: true });

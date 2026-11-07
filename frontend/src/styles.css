@@ -1737,7 +1737,16 @@ a, img, svg, canvas,
     transition: transform .28s cubic-bezier(.22, 1, .36, 1), visibility 0s;
   }
   .app-shell .brand,
-  .app-shell.sidebar-collapsed .brand { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 0 6px 22px; }
+  .app-shell.sidebar-collapsed .brand {
+    box-sizing: border-box;
+    flex: 0 0 68px;
+    height: 68px;
+    min-height: 68px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 0 6px;
+  }
   .app-shell .nav,
   .app-shell.sidebar-collapsed .nav { flex: 1 1 auto; min-height: 0; padding-bottom: 22px; }
   .brand-name { font-size: 13.5px; }
