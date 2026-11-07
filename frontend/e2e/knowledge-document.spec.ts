@@ -209,6 +209,8 @@ test('文档二级分类按卷宗角色展示，跨卷宗同角色不重复', as
 test('文档关键词星图显示真实关键词和来源，上传后更新', async ({ app: page, server }, testInfo) => {
   expect((await fetch(`${server.url}/api/knowledge/keywords`)).status).toBe(401);
   await navigate(page, '知识图谱');
+  await expect(page.getByLabel('当前课题')).toHaveCount(0);
+  await expect(page.locator('.workspace-ledger')).toHaveCount(0);
   await expect(page.locator('.keyword-graph .kg-stats')).toContainText('100关键词');
   await expect(page.locator('.keyword-list button')).toHaveCount(100);
   await page.getByLabel('关键词数量').selectOption('20');
@@ -218,13 +220,19 @@ test('文档关键词星图显示真实关键词和来源，上传后更新', as
   await page.getByLabel('关键词数量').selectOption('100');
   await expect(page.locator('.keyword-list button')).toHaveCount(100);
   const scope = page.getByLabel('查看范围');
-  if (await scope.locator('option').count() > 1) {
-    const dossierId = await scope.locator('option').nth(1).getAttribute('value');
-    await scope.selectOption(dossierId!);
+  const dossierOption = scope.locator('optgroup[label="历史课题"] option').first();
+  if (await dossierOption.count()) {
+    await scope.selectOption(await dossierOption.getAttribute('value'));
     await expect(page.getByText('包含历史课题内所有版本的材料')).toBeVisible();
     await scope.selectOption('');
     await expect(page.locator('.keyword-list button')).toHaveCount(100);
   }
+  const documentOption = scope.locator('optgroup[label="申报书与项目材料"] option').first();
+  await expect(documentOption).toHaveCount(1);
+  await scope.selectOption(await documentOption.getAttribute('value'));
+  await expect(page.getByText(/仅统计《.+》的 \d+ 个文本分块/)).toBeVisible();
+  await expect(page.locator('.keyword-graph .kg-stats span').last()).toContainText('1');
+  await scope.selectOption('');
   await expect(page.locator('.keyword-source a').first()).toBeVisible();
   await expect(page.locator('.keyword-detail-body')).toContainText(/出现在 \d+ 个文本分块中 · 覆盖 \d+ 份文档/);
   const sourceDocuments = await page.locator('.keyword-source a').evaluateAll((links) =>

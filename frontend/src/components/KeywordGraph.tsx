@@ -17,17 +17,26 @@ export function KeywordGraph() {
   const [selected, setSelected] = useState("");
   const [retry, setRetry] = useState(0);
   const [limit, setLimit] = useState(100);
-  const [dossierId, setDossierId] = useState("");
+  const [scope, setScope] = useState("");
   const [compactPane, setCompactPane] = useState<"graph" | "list" | "detail">("graph");
+  const dossierId = scope.startsWith("dossier:") ? scope.slice("dossier:".length) : "";
+  const documentId = scope.startsWith("doc:") ? scope.slice("doc:".length) : "";
+  const selectedDossier = dossiers.find((dossier) => dossier.id === dossierId);
+  const selectedDocument = docs.find((doc) => doc.id === documentId);
+  const projectDocs = docs.filter((doc) => doc.chunk_count > 0 && (doc.kind === "proposal" || doc.kind === "other"));
+  const referenceDocs = docs.filter((doc) => doc.chunk_count > 0 && doc.kind !== "proposal" && doc.kind !== "other");
   // 文档列表变化时重读；服务端按分块内容缓存提词，删除后不会保留旧节点。
   const revision = docs.map((doc) => `${doc.id}:${doc.chunk_count}:${doc.status}`).sort().join("|");
-  const materialsRevision = dossiers.find((dossier) => dossier.id === dossierId)?.materials.map((item) => item.doc_id).sort().join("|") ?? "";
+  const materialsRevision = selectedDossier?.materials.map((item) => item.doc_id).sort().join("|") ?? "";
+  useEffect(() => {
+    if ((dossierId && !selectedDossier) || (documentId && !selectedDocument)) setScope("");
+  }, [documentId, dossierId, selectedDocument, selectedDossier]);
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
     setData(null);
-    api.keywordGraph(limit, dossierId).then((result) => {
+    api.keywordGraph(limit, dossierId, documentId).then((result) => {
       if (!active) return;
       setData(result);
       setSelected((current) => result.nodes.some((node) => node.id === current) ? current : result.nodes[0]?.id ?? "");
@@ -35,7 +44,7 @@ export function KeywordGraph() {
       if (active) { setError((err as Error).message); setData(null); }
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [revision, materialsRevision, limit, dossierId, retry]);
+  }, [revision, materialsRevision, limit, dossierId, documentId, retry]);
   const activeNode = data?.nodes.find((node) => node.id === selected);
   const visible = data?.nodes.filter((node) => node.name.toLowerCase().includes(query.trim().toLowerCase())) ?? [];
   const links = (data?.links.filter((link) => link.source === selected || link.target === selected) ?? [])
@@ -79,11 +88,23 @@ export function KeywordGraph() {
       <div className="kg-summary-title"><span className="kg-summary-icon" aria-hidden="true"><Network size={22} /></span><div><strong>文档关键词星图</strong><span>连线表示词语在文本分块中共同出现。</span></div></div>
       <div className="kg-stats"><span><strong>{data?.nodes.length ?? "—"}</strong>关键词</span><span><strong>{data?.links.length ?? "—"}</strong>关联</span><span><strong>{data?.document_count ?? "—"}</strong>来源文档</span></div>
     <div className="keyword-graph-controls" aria-label="星图范围与数量">
-      <label><span>查看范围</span><select className="select" value={dossierId} onChange={(event) => setDossierId(event.target.value)}><option value="">整个知识库</option>{dossiers.map((dossier) => <option key={dossier.id} value={dossier.id}>{dossier.name}</option>)}</select></label>
+      <label><span>查看范围</span><select className="select" value={scope} onChange={(event) => setScope(event.target.value)}>
+        <option value="">整个知识库（{docs.length} 份）</option>
+        <optgroup label="历史课题">
+          {dossiers.map((dossier) => <option key={dossier.id} value={`dossier:${dossier.id}`}>{dossier.name}</option>)}
+        </optgroup>
+        <optgroup label="申报书与项目材料">
+          {projectDocs.map((doc) => <option key={doc.id} value={`doc:${doc.id}`}>{doc.name}</option>)}
+        </optgroup>
+        {referenceDocs.length > 0 && <optgroup label="政策与文献">
+          {referenceDocs.map((doc) => <option key={doc.id} value={`doc:${doc.id}`}>{doc.name}</option>)}
+        </optgroup>}
+      </select></label>
       <label><span>关键词数量</span><select className="select" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>{[10, 20, 50, 100, 200, 500].map((count) => <option key={count} value={count}>最多 {count} 个</option>)}</select></label>
     </div>
     </section>
-    {dossierId && <p className="keyword-scope-note">包含历史课题内所有版本的材料</p>}
+    {selectedDossier && <p className="keyword-scope-note">包含历史课题内所有版本的材料</p>}
+    {selectedDocument && <p className="keyword-scope-note">仅统计《{selectedDocument.name}》的 {selectedDocument.chunk_count} 个文本分块</p>}
     {error ? <div className="panel keyword-graph-message" role="alert">图谱读取失败：{error} <button type="button" className="link-btn" onClick={() => setRetry((n) => n + 1)}>重试</button></div> : loading || !data ? <div className="panel keyword-graph-message" role="status">正在整理文档关键词…</div> : !data.nodes.length ? <div className="panel keyword-graph-message">当前范围暂无可提取的关键词，请先添加可读取文本的文档。</div> : <>
     <div className="kg-compact-switch" role="group" aria-label="关键词图谱区域">
       <button type="button" aria-pressed={compactPane === "graph"} onClick={() => setCompactPane("graph")}>关键词星图</button>

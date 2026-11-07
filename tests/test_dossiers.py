@@ -351,7 +351,16 @@ def test_dossier_api_permissions_and_contract(tmp_path, monkeypatch):
         assert graph.status_code == 200 and graph.json()["limit"] == 20
         assert graph.json()["document_count"] == 1
         assert {source["doc_id"] for node in graph.json()["nodes"] for source in node["sources"]} == {"graph-in"}
+        document_graph = client.get("/api/knowledge/keywords", params={"limit": 20, "document_id": "graph-out"})
+        assert document_graph.status_code == 200
+        assert document_graph.json()["document_count"] == 1
+        assert {source["doc_id"] for node in document_graph.json()["nodes"] for source in node["sources"]} == {"graph-out"}
         assert client.get("/api/knowledge/keywords", params={"dossier_id": "missing"}).status_code == 404
+        assert client.get("/api/knowledge/keywords", params={"document_id": "missing"}).status_code == 403
+        assert client.get(
+            "/api/knowledge/keywords",
+            params={"dossier_id": dossier_id, "document_id": "graph-in"},
+        ).status_code == 400
         assert client.get("/api/knowledge/keywords", params={"limit": 501}).status_code == 422
         assert client.get(f"/api/dossiers/{dossier_id}/checklist").status_code == 200
         assert client.patch(

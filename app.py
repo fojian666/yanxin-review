@@ -589,7 +589,14 @@ def create_user(payload: CreateUserRequest):
 
 
 @app.get("/api/knowledge/keywords")
-def knowledge_keywords(limit: int = Query(100, ge=1, le=500), dossier_id: str | None = None, access: document_access.Access = Depends(document_reader)):
+def knowledge_keywords(
+    limit: int = Query(100, ge=1, le=500),
+    dossier_id: str | None = None,
+    document_id: str | None = None,
+    access: document_access.Access = Depends(document_reader),
+):
+    if dossier_id is not None and document_id is not None:
+        raise HTTPException(status_code=400, detail="卷宗与单个文档范围不能同时指定")
     doc_ids = access.readable
     if dossier_id is not None:
         if access.manager and not db.get_dossier(dossier_id):
@@ -597,6 +604,10 @@ def knowledge_keywords(limit: int = Query(100, ge=1, le=500), dossier_id: str | 
         if not access.can_dossier(dossier_id):
             raise document_access.DocumentAccessDenied("未找到该卷宗或无权读取")
         doc_ids = doc_ids & {item["doc_id"] for item in db.list_dossier_documents(dossier_id)}
+    if document_id is not None:
+        if document_id not in access.readable:
+            raise document_access.DocumentAccessDenied("未找到该材料或无权读取")
+        doc_ids = doc_ids & {document_id}
     result = keyword_graph.build_keyword_graph(limit, doc_ids, retriever.chunks)
     access.audit([source["doc_id"] for node in result.get("nodes") or [] for source in node.get("sources") or []], "keyword-evidence")
     return result
