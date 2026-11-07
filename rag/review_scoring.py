@@ -139,21 +139,64 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
     # 已识别子集断言合计冲突。单价只是测算依据，不属于预算合计科目。
     known = total_labels | {"设备费", "业务费", "劳务费", "间接费用", "财政补助", "财政拨款", "财政资金",
              "自筹资金", "自筹经费", "自筹"}
-    # 仅豁免有明确非金额字段名和完整非金额值的字段，未知数字仍保守待核验。
-    nonmoney = list(re.finditer(r"(?<![\u4e00-\u9fff])[\u4e00-\u9fff]{0,20}(?:数量|人数|人员|次数|工时|人月|时长|执行期|实施期|周期|工期|期限|年度|年份|日期|序号|比例|编号)\s*[:：]\s*[\d年月日时分秒次人台个套项天小时件份名至到%％.\-—–~～/ ]+(?:[（(][^\d元万；;，,\n()（）]{1,40}[）)])?(?=\s*(?:[；;，,\n]|$))", block))
-    def exempt(position: int) -> bool:
-        return any(match.start() <= position < match.end() for match in nonmoney)
-    labeled = list(re.finditer(r"([\u4e00-\u9fffA-Za-z]{1,30})\s*[:：]\s*(-?\d+(?:\.\d+)?)\s*(万元|元)?", block))
-    ambiguous_amount = any(match[1] not in known and match[1] != "单价" and not exempt(match.start()) for match in labeled)
-    for value in re.finditer(r"(?<![\d.])-?\d+(?:\.\d+)?", block):
-        if exempt(value.start()) or any(match.start(2) <= value.start() < match.end(2) for match in labeled):
+    nonmoney_label = re.compile(
+        r"(?:数量|人数|人员|样本|数据量|工作量|次数|频次|工时|人月|时长|"
+        r"执行期|实施期|研究期|项目周期|周期|工期|期限|年限|年度|年份|日期|时间|"
+        r"序号|编号|比例|百分比|坐标|范围|面积|体积|容量|重量|距离|长度|高度)"
+    )
+    monetary_label = re.compile(
+        r"(?:总经费|总预算|经费|预算|费用|支出|资金|拨款|补助|金额|成本|"
+        r"材料费|设备费|业务费|劳务费|配套|合计|小计|总计)"
+    )
+    basis_label = re.compile(r"(?<![\u4e00-\u9fff])(?:单价|测算依据|测算说明|费用标准)\s*(?:[:：]|\s)*$")
+    known_label = re.compile(
+        r"(?<![\u4e00-\u9fff])(?:" + "|".join(sorted((re.escape(value) for value in known), key=len, reverse=True))
+        + r")\s*(?:[:：]|\s)*$"
+    )
+    explicit_money = re.compile(
+        r"(?<![\d.])(-?\d+(?:\.\d+)?)\s*(亿元|万元|千元|元|万(?![\u4e00-\u9fffA-Za-z]))"
+    )
+    classification_block = re.sub(r"([:：])\s*\n\s*", r"\1", block)
+
+    def segment_before(position: int) -> str:
+        return re.split(r"[；;，,\n]", classification_block[max(0, position - 80):position])[-1]
+
+    # 预算块里的非金额字段不做枚举豁免。只有明确金额、未知金额字段或无标签
+    # 数值才进入待核验，因此吨、批、公顷、GB 等自然资源场景单位无需持续追加白名单。
+    ambiguous_amount = False
+    for match in explicit_money.finditer(classification_block):
+        before = segment_before(match.start())
+        if basis_label.search(before) or known_label.search(before):
             continue
-        context = block[max(0, value.start() - 8):value.start()]
-        suffix = block[value.end():].lstrip()
-        if re.search(r"(?:数量|工时|人月|人数|次数|时长)\s*[:：]?\s*$", context) and re.match(r"(?:次|人|月|年|项|个|套|小时|天|%|％)", suffix):
-            continue
-        if not re.search(r"单价\s*[:：]?\s*$", context):
+        ambiguous_amount = True
+        break
+
+    if not ambiguous_amount:
+        for segment in re.split(r"[；;，,\n]", classification_block):
+            if not re.search(r"(?<!\d)-?\d+(?:\.\d+)?", segment):
+                continue
+            if re.search(r"(?:亿元|万元|千元|元|万(?![\u4e00-\u9fffA-Za-z]))", segment):
+                continue
+            field = re.search(r"([\u4e00-\u9fffA-Za-z]{1,30})\s*[:：]", segment)
+            label = field[1] if field else ""
+            if label and (nonmoney_label.search(label) or basis_label.search(label + "：")):
+                continue
+            if label and monetary_label.search(label):
+                ambiguous_amount = True
+                break
+            # 无冒号金额行（例如“其他支出 1”）同样是无法可靠归集的口径。
+            if re.search(r"(?:总经费|总预算|经费|预算|费用|支出|资金|拨款|补助|金额|成本|配套|合计|小计|总计)\s+-?\d", segment):
+                ambiguous_amount = True
+                break
+            # 明确的日期、时间、比例、编号、序号或数量/单位无需阻断预算核验。
+            date = r"20\d{2}(?:\s*年(?:\s*\d{1,2}\s*月)?|\s*[./]\s*\d{1,2}\s*月?)?"
+            cleaned = re.sub(rf"{date}\s*(?:[-—–~～至到]\s*{date})?", "", segment)
+            cleaned = re.sub(r"(?<![\d.])\d+(?:\.\d+)?\s*(?:年|月|日|时|分|秒|次|人|名|台|套|个|项|篇|份|件|处|期|吨|批|幅|公里|千米|公顷|平方米|GB|TB|%|％)", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"(?:第\s*)?\d+(?:\.\d+)?\s*(?:章|节|条|项)", "", cleaned)
+            if not re.search(r"(?<!\d)\d+(?:\.\d+)?(?!\d)", cleaned):
+                continue
             ambiguous_amount = True
+            break
     # Require the explicit flat detail marker; nested tables are deliberately pending.
     fee_labels = set(re.findall(r"([\u4e00-\u9fff]{1,20}(?:支出|费用|费))\s*[:：]", block))
     unknown_fees = fee_labels - known
@@ -224,9 +267,32 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
     targets = []
     for line in re.split(r"[；;\n]", indicator_block):
         line = re.sub(r"^\s*(?:[（(]\s*[一二三四五六七八九十\d]+\s*[）)]|[一二三四五六七八九十\d]+[、.．])\s*", "", line.strip())
-        heading = re.sub(r"[（(]?\s*20\d{2}\s*(?:年\s*(?:[-—–~～至到]\s*20\d{2}\s*年)?|[-—–~～至到]\s*20\d{2}\s*年)\s*[）)]?", "", line).strip()
-        if len(heading) <= 50 and not re.search(r"[:：。\d]", heading) and re.match(r"^(?:考核指标|预期成果|成果形式|提交成果)", heading):
-            continue
+        # 章节标题先整体剥离，再判断是否还有指标正文。这样无需枚举
+        # “2026—2028”“2026至2028”“2026年1月—2028年12月”等日期写法。
+        date = r"20\d{2}(?:\s*年(?:\s*\d{1,2}\s*月)?|\s*[./]\s*\d{1,2}\s*月?)?"
+        heading = re.sub(
+            rf"[（(]?\s*{date}\s*(?:[-—–~～至到]\s*{date})?\s*(?:年度)?\s*[）)]?",
+            "",
+            line,
+        ).strip()
+        heading = re.sub(r"^[年度]{1,2}\s*", "", heading)
+        heading = re.sub(r"^[（(]\s*[）)]\s*", "", heading).strip()
+        prefix = (
+            r"^(?:考核指标(?:(?:及|与)预期成果)?(?:(?:及|与)(?:验收方式|验证方式))?"
+            r"|预期成果(?:(?:及|与)考核指标)?(?:(?:及|与)(?:验收方式|验证方式))?"
+            r"|成果形式|提交成果)"
+        )
+        heading_body = heading
+        if re.match(prefix, heading_body):
+            heading_body = re.sub(prefix, "", heading_body).strip()
+            heading_body = heading_body.strip("（）()[]【】:：-—–~～ ")
+            heading_body = re.sub(
+                r"^(?:(?:及|与|和)?(?:验收方式|验证方式|说明|预期成果))+$",
+                "",
+                heading_body,
+            )
+            if not heading_body:
+                continue
         line = re.sub(r"^(?:考核指标(?:与预期成果)?|预期成果(?:及考核指标)?|成果形式|提交成果)\s*[:：]?\s*", "", line)
         if len(line) > 8 and line not in targets:
             targets.append(line)

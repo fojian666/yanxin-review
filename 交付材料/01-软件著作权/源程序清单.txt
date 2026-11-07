@@ -22,13 +22,13 @@
     285 rag/retrieval.py
     491 rag/review.py
    1150 rag/review_cases.py
-    293 rag/review_scoring.py
+    359 rag/review_scoring.py
     107 rag/schemas.py
     381 rag/seed.py
     294 rag/text.py
     292 rag/trends.py
     353 rag/vector_stores.py
-  10920 total
+  10986 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     380 frontend/src/AppContext.tsx
@@ -97,10 +97,10 @@
      77 tests/test_permission_regressions.py
     417 tests/test_retrieval_embedding.py
     370 tests/test_review_cases.py
-    262 tests/test_review_scoring.py
+    269 tests/test_review_scoring.py
    1450 tests/test_robustness.py
     167 tests/test_vector_stores.py
-   4779 total
+   4786 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -132,7 +132,7 @@
      27 frontend/playwright.config.ts
    3970 total
 合计
-  40533 total（121 个文件）
+  40606 total（121 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；
