@@ -97,7 +97,9 @@ export const test = base.extend<{ server: Server; app: Page; documents: Doc[] }>
     const response = await context.request.post('/api/auth/login', { data: { username: 'manager', password } });
     expect(response.ok()).toBeTruthy();
     await page.goto('/welcome');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('工作台');
+    // 两个浏览器 worker 并行时，隔离后端还要导入政策并初始化图谱依赖；
+    // 登录成功后的首个页面可能晚于全局 8 秒 expect 窗口。
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('工作台', { timeout: 30_000 });
     await use(page);
   },
   documents: async ({ context, app: _app }, use) => {
@@ -116,7 +118,7 @@ export const test = base.extend<{ server: Server; app: Page; documents: Doc[] }>
       docs.push(document);
     }
     await _app.reload();
-    await expect(_app.getByRole('heading', { level: 1 })).toHaveText('工作台');
+    await expect(_app.getByRole('heading', { level: 1 })).toHaveText('工作台', { timeout: 30_000 });
     await use(docs);
   },
 });

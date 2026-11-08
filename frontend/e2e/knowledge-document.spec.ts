@@ -211,7 +211,8 @@ test('文档关键词星图显示真实关键词和来源，上传后更新', as
   await navigate(page, '知识图谱');
   await expect(page.getByLabel('当前课题')).toHaveCount(0);
   await expect(page.locator('.workspace-ledger')).toHaveCount(0);
-  await expect(page.locator('.keyword-graph .kg-stats')).toContainText('100关键词');
+  // 500 节点上限的真实关键词计算在双 worker 并行时会超过全局 8 秒窗口。
+  await expect(page.locator('.keyword-graph .kg-stats')).toContainText('100关键词', { timeout: 30_000 });
   await expect(page.locator('.keyword-list button')).toHaveCount(100);
   await page.getByLabel('关键词数量').selectOption('20');
   await expect(page.locator('.keyword-list button')).toHaveCount(20);

@@ -94,7 +94,7 @@
     397 tests/test_dossiers.py
     103 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
-    851 tests/test_llm_provider.py
+    852 tests/test_llm_provider.py
     280 tests/test_material_audit.py
     333 tests/test_material_processing.py
      77 tests/test_permission_regressions.py
@@ -104,7 +104,7 @@
    1489 tests/test_robustness.py
     117 tests/test_scoring_audit.py
     167 tests/test_vector_stores.py
-   6072 total
+   6073 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -121,9 +121,9 @@
     319 frontend/e2e/chat-trend.spec.ts
     171 frontend/e2e/document-access.spec.ts
     267 frontend/e2e/dossier.spec.ts
-    148 frontend/e2e/fixtures.ts
+    150 frontend/e2e/fixtures.ts
      10 frontend/e2e/infrastructure.spec.ts
-    271 frontend/e2e/knowledge-document.spec.ts
+    272 frontend/e2e/knowledge-document.spec.ts
     348 frontend/e2e/library.spec.ts
     174 frontend/e2e/mobile.spec.ts
     362 frontend/e2e/review-case.spec.ts
@@ -135,9 +135,9 @@
     163 frontend/e2e/workspace-sizing.spec.ts
     110 frontend/e2e/zoom-layout.spec.ts
      27 frontend/playwright.config.ts
-   4330 total
+   4333 total
 合计
-  43369 total（126 个文件）
+  43373 total（126 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

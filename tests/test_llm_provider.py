@@ -393,6 +393,7 @@ def test_llm_public_status_omits_internal_endpoint(monkeypatch):
         "model": "local-model",
     }
     monkeypatch.setattr(application, "llm", client)
+    monkeypatch.setattr(application.db, "stats", lambda: {"documents": 0})
     assert application.health()["llm"] == status
 
 
