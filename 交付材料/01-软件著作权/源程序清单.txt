@@ -6,7 +6,7 @@
     220 rag/auth.py
     334 rag/config.py
     272 rag/corpus.py
-   1317 rag/db.py
+   1325 rag/db.py
     293 rag/demo_proposals.py
     232 rag/document_access.py
     459 rag/dossiers.py
@@ -17,18 +17,18 @@
     303 rag/llm.py
     447 rag/material_processing.py
     148 rag/ocr.py
-    909 rag/parsers.py
-    370 rag/qa.py
+    917 rag/parsers.py
+    378 rag/qa.py
     291 rag/retrieval.py
     491 rag/review.py
    1207 rag/review_cases.py
     419 rag/review_scoring.py
     107 rag/schemas.py
     381 rag/seed.py
-    294 rag/text.py
+    296 rag/text.py
     309 rag/trends.py
     353 rag/vector_stores.py
-  11699 total
+  11725 total
 前端（TypeScript/TSX/CSS）
     203 frontend/src/App.tsx
     380 frontend/src/AppContext.tsx
@@ -86,7 +86,7 @@
   19792 total
 测试（Python）
      35 tests/conftest.py
-    108 tests/test_audit_followups.py
+    126 tests/test_audit_followups.py
     159 tests/test_audit_qa_p3.py
     292 tests/test_corpus.py
      42 tests/test_docs.py
@@ -94,17 +94,17 @@
     397 tests/test_dossiers.py
     103 tests/test_keyword_graph.py
      93 tests/test_llm_payload.py
-    852 tests/test_llm_provider.py
-    280 tests/test_material_audit.py
+    874 tests/test_llm_provider.py
+    304 tests/test_material_audit.py
     333 tests/test_material_processing.py
      77 tests/test_permission_regressions.py
     417 tests/test_retrieval_embedding.py
     498 tests/test_review_cases.py
     269 tests/test_review_scoring.py
    1489 tests/test_robustness.py
-    117 tests/test_scoring_audit.py
+    144 tests/test_scoring_audit.py
     167 tests/test_vector_stores.py
-   6073 total
+   6164 total
 工具（Python）
     307 tools/doc_check.py
     122 tools/eval_retrieval.py
@@ -137,7 +137,7 @@
      27 frontend/playwright.config.ts
    4352 total
 合计
-  43392 total（126 个文件）
+  43509 total（126 个文件）
 说明
 - 以上为项目自有源代码，不含第三方依赖包、node_modules、构建产物（frontend/dist）；
 - 本文件由 `python3 -m tools.soft_copyright` 生成，勿手改；

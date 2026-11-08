@@ -56,6 +56,30 @@ def test_docx_content_controls_are_parsed(tmp_path):
     assert "自定义XML正文" in text
 
 
+def test_docx_tracked_deletions_are_not_parsed_as_current_text(tmp_path):
+    path = tmp_path / "tracked-changes.docx"
+    xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body>
+        <w:p>
+          <w:r><w:t>当前保留正文</w:t></w:r>
+          <w:del><w:r><w:delText>已删除的旧正文</w:delText></w:r></w:del>
+          <w:ins><w:r><w:t>修订新增正文</w:t></w:r></w:ins>
+        </w:p>
+        <w:del><w:p><w:r><w:t>整段已删除内容</w:t></w:r></w:p></w:del>
+      </w:body>
+    </w:document>"""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("word/document.xml", xml)
+
+    result = parsers.parse_docx(path)
+    text = result["pages"][0]["text"]
+    assert "当前保留正文" in text
+    assert "修订新增正文" in text
+    assert "已删除的旧正文" not in text
+    assert "整段已删除内容" not in text
+
+
 def test_office_archive_size_checks_once_per_package(tmp_path, monkeypatch):
     path = tmp_path / "many.odt"
     content = """<?xml version="1.0" encoding="UTF-8"?>

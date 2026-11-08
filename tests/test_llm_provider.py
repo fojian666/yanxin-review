@@ -241,6 +241,28 @@ def test_qa_keeps_low_score_tfidf_candidates_that_contain_question_terms(monkeyp
     assert [citation["doc_id"] for citation in prepared["citations"]] == ["d1"]
 
 
+def test_qa_reference_fallback_drops_weak_unrelated_candidate(monkeypatch):
+    monkeypatch.setattr(
+        qa_service.retriever,
+        "search",
+        lambda *args, **kwargs: [
+            {
+                "doc_id": "policy-1",
+                "doc_name": "科研诚信政策汇编",
+                "section": "基本要求",
+                "text": "科研诚信是申报和评审的基本要求。",
+                "score": 0.02,
+                "idx": 0,
+            }
+        ],
+    )
+    monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
+    prepared = qa_service.prepare("这个项目的研究内容是什么", scope=["policy-1"])
+    assert prepared["citations"] == []
+    assert prepared["grounding"] == "none"
+    assert "未检索到可引用的项目资料" in prepared["warning"]
+
+
 def test_qa_keeps_business_term_hit_when_full_alias_phrase_is_absent(monkeypatch):
     monkeypatch.setattr(
         qa_service.retriever,

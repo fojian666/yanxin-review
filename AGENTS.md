@@ -14,7 +14,7 @@ python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
 cd frontend && npm run test:e2e:types && npm run test:e2e      # 104 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（288 个测试函数，参数化展开 348 项，默认不联网）
+python3 -m pytest tests/ -q                                 # 回归测试（292 个测试函数，参数化展开 352 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -36,7 +36,7 @@ rag/
   db.py                SQLite/PostgreSQL 双适配：documents/document_access/document_access_events/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
   review_cases.py      项目评审状态机：预审、专家指派、回避/意见、终审、不可覆盖操作留痕、SHA256 归档、读取时完整性校验、删除来源快照与角色隔离
   dossiers.py          历史课题材料角色、计划类型/阶段体检、版本与人工确认规则
-  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；DOCX 内容控件/修订容器、RTF 非 BMP、HTML 字符集、压缩包总时限与大 PDF 哨兵页；50万字安全上限与范围提示
+  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；DOCX 内容控件/修订容器（保留插入、排除已删除正文）、RTF 非 BMP、HTML 字符集、压缩包总时限与大 PDF 哨兵页；50万字安全上限与范围提示
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
   ocr.py               本地逐页OCR、页码/原件哈希缓存、置信度与识别超时
   material_processing.py 持久化处理队列、进度、重启续跑、取消与执行代次、OCR 页预算/子进程总时限、原子文本替换与正式评审材料保护
@@ -121,10 +121,12 @@ frontend/src/
 - 卷宗体检只核对本地材料角色、当前版本、人工确认和可读取文本线索；同角色新材料自动成为当前版本。不得把“文件已上传”表述为公章、签字真实，也不得把本地检查表述为官方受理、评审、验收或结题状态。
 - 承诺书、合同、自评表、评价表和评价意见是实际卷宗材料，自动识别为 `other` 并允许归入所选材料角色；只有名称含“模板”的空白文件才识别为 `template`。模板不进入归卷候选。
 - `/api/dossiers*` 的列表、详情与材料体检四角色均有只读入口，但非管理人员仅能读取归属、明确授权或本人专家任务所关联的卷宗，可见材料仍按阅读权限过滤；`/dossiers` 页面必须同步对所有登录角色开放，viewer 只隐藏新建、编辑、归卷、切换版本和人工确认入口。材料写入必须校验角色白名单和文档 kind 匹配，非法角色返回 400，不能在 DB 层静默收录。
+- “移除演示本子”批量删除前必须同时检查 `review_cases.doc_id` 与 `dossier_documents.doc_id`；任一评审案卷或历史课题仍引用演示材料时整批返回 409，不得静默删除案卷归属或卷宗材料关联。
 - 已进入 `review_cases` 的文档不能直接删除；案卷阶段按 `pre_review → expert_review → final_review → completed` 推进。预审完成后一键归档预审与查重匹配，专家任务必须全部结束且至少一份意见提交后才能进入终审，终审必须由 manager/admin 签署。
 - 专家同单位及配置回避单位仅做排版空白、全半角字符和括号归一后等值比较；保留英文词间空格及括号内容，原名不改写；简称、别名、上下级单位仍需人工核对。
 - 申报单位/负责人未识别时专家匹配会**明确提示回避约束未生效**（不误报“未发现冲突”）；预审风险环是纯分类色，规范性检查分及待核验区间另行展示。
 - 预审固定规则为 `precheck-v1`：材料20、任务路线20、指标20、预算15、诚信10、复用15。未知项计为 `pending`，展示 `earned` 至 `upper_bound=earned+pending_points` 的区间，未决项不得当通过。60/80为未经专家标注校准的试行分界；上下界同档才定档，跨档显示待核验，关键问题独立提示并可将风险标为高。正文不足1500字仅提示解析/长度边界，不单独触发高风险。历史归档缺计分即显示未记录，不重算补写。规则详见 `docs/预审计分标准.md`。
+- 结构分块不得删除带章节标题的短块；`研究内容\n监测`、`技术路线\n测量` 等短章节必须保留到预审计分和证据链，不能仅因正文少于12字就误报关键章节缺失。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
 - XML 实体扫描会同时检查原始字节和 UTF-8/UTF-16/UTF-32 解码结果，不能只做 ASCII 正则；RTF 控制字使用带位置的正则线性解析，并受 `RTF_PARSE_TIMEOUT_SECONDS` 限制。历史课题已关联评审案卷时禁止删除，避免 `SET NULL` 静默破坏案卷归属。
 - 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示且不得写死回退值；上传走 XHR 以显示真实进度。原件以 `0600` 权限独占写入，流式计算并保存 SHA256，断连或失败时清理半截文件；可选 `import_batch` 写入 `meta.import_batch`。Office 压缩文档只做一次包级体积校验并限制条目数、单条体积、解压总量、压缩比和 `OFFICE_PARSE_TIMEOUT_SECONDS` 总时限；PDF 用 `MAX_PDF_PAGES+1` 哨兵区分“恰好达到上限”和“超过上限”；本地处理按 `OCR_MAX_PAGES` 限制 OCR 页数、按 `MATERIAL_PROCESS_TIMEOUT_SECONDS` 终止超时子进程，并支持取消任务、保留旧正文；旧版 DOC 多个本机转换器共享 `DOC_PARSE_TIMEOUT_SECONDS` 总预算，macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
@@ -151,7 +153,7 @@ frontend/src/
 
 右上角上传按钮：≤680px统一44px图标按钮并隐藏文字、padding为0；不要让图标按钮宽度与文字隐藏使用不同断点。移动端回归覆盖420/421和680/681边界。
 
-模型标识契约：顶栏不展示模型配置；`/api/health` 与 SSE 的模型公开状态只含 configured/provider/label/model，不返回 `base_url`、密钥、主机或端口。智能问答问题最长 4000 字，发送给模型的历史最多 12 条且合计不超过 12000 字；SSE 离线回显截断问题，不按小片休眠。回答与预审及其 Markdown 导出使用独立 `generation` 快照（provider/label/model/status），回退标离线、中断保留实际来源，缺记录不猜测。服务端确定性添加通用知识来源标记、清理越界引用；模型正常结束但零 token 必须回退。SSE 首 token 前发来源事件、done 给最终状态；旧 mode=qwen 仅作兼容，不能据此称供应商为千问。旧 QWEN_* 自动接口仅对已知官方端点显示具体供应商。
+模型标识契约：顶栏不展示模型配置；`/api/health` 与 SSE 的模型公开状态只含 configured/provider/label/model，不返回 `base_url`、密钥、主机或端口。智能问答问题最长 4000 字，发送给模型的历史最多 12 条且合计不超过 12000 字；SSE 离线回显截断问题，不按小片休眠。回答与预审及其 Markdown 导出使用独立 `generation` 快照（provider/label/model/status），回退标离线、中断保留实际来源，缺记录不猜测。服务端确定性添加通用知识来源标记、清理越界引用；模型正常结束但零 token 必须回退。SSE 首 token 前发来源事件、done 给最终状态；旧 mode=qwen 仅作兼容，不能据此称供应商为千问。旧 QWEN_* 自动接口仅对已知官方端点显示具体供应商。TF-IDF 指代问题若无直接词项命中，只有最高候选达到低置信下限 `0.065` 才可保留并提示核对；更弱候选不得借此附加无关引用。
 
 智能问答模型与强度只在输入区选择，以请求级独立客户端生效，不修改全局客户端或预审/趋势；选择器目录由 `GET /api/chat/options` 下发，不返回密钥或接口地址。后台按供应商独立密钥和出口门禁验证白名单，未知模型/强度拒绝，模型缺能力或显式方言不匹配只开放默认。切页保持会话选择，退出/刷新重置。
 

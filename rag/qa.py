@@ -12,6 +12,7 @@ from .text import extract_terms, truncate
 GENERAL_GROUNDING_PREFIX = "以下为通用知识回答，未使用项目资料"
 CITATION_RE = re.compile(r"\[(\d+)\]")
 PARTIAL_CITATION_RE = re.compile(r"\[\d*$")
+TFIDF_LOW_CONFIDENCE_SCORE = 0.065
 
 SYSTEM_PROMPT = f"""你是“江苏省自然资源科研诚信智慧治理平台”的知识助手。服务重点是江苏省自然资源科研管理、科研诚信与项目评审，也可以回答与平台业务无关的一般知识问题。
 必须遵守以下规则：
@@ -284,13 +285,20 @@ def prepare(question: str, history: list[dict] | None = None, scope: list[str] |
                 r"(?:这个|该|本|这份|这篇).*(?:项目|本子|材料|文档|课题)",
                 question,
             ):
-                citations = citations[:1]
-                low_confidence_anchor = True
+                candidate = citations[0]
+                if float(candidate.get("score") or 0) >= TFIDF_LOW_CONFIDENCE_SCORE:
+                    citations = [candidate]
+                    low_confidence_anchor = True
+                else:
+                    # A referential question with no lexical anchor must not
+                    # attach an arbitrarily weak document merely because it
+                    # happened to be the only search candidate.
+                    citations = []
             else:
                 citations = []
     max_score = max([c.get("score", 0) for c in citations], default=0)
     warning = ""
-    if citations and max_score < 0.065:
+    if citations and max_score < TFIDF_LOW_CONFIDENCE_SCORE:
         warning = "检索置信度较低，建议补充关键词或上传更相关的文档。"
     if citations and low_confidence_anchor:
         warning = "问题中的指代未直接命中原文，已保留最高相关候选，请核对引用内容。"

@@ -1155,11 +1155,19 @@ def delete_sample_documents() -> int:
         if not ids:
             return 0
         marks = ",".join("?" for _ in ids)
-        linked = int(conn.execute(
+        linked_review_cases = int(conn.execute(
             f"SELECT COUNT(*) FROM review_cases WHERE doc_id IN ({marks})", ids
         ).fetchone()[0])
-        if linked:
-            raise ValueError(f"有 {linked} 个评审案卷仍关联演示本子，不能批量移除")
+        linked_dossiers = int(conn.execute(
+            f"SELECT COUNT(DISTINCT dossier_id) FROM dossier_documents WHERE doc_id IN ({marks})", ids
+        ).fetchone()[0])
+        if linked_review_cases or linked_dossiers:
+            links = []
+            if linked_review_cases:
+                links.append(f"{linked_review_cases} 个评审案卷")
+            if linked_dossiers:
+                links.append(f"{linked_dossiers} 个历史课题")
+            raise ValueError(f"有 {'、'.join(links)}仍关联演示本子，不能批量移除")
         conn.execute(f"DELETE FROM chunks WHERE doc_id IN ({marks})", ids)
         cur = conn.execute(f"DELETE FROM documents WHERE id IN ({marks})", ids)
         return int(cur.rowcount)

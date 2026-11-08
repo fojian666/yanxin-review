@@ -1,6 +1,7 @@
 import pytest
 
 from rag.review_scoring import build_scorecard, duplicate_coverage
+from rag.text import chunk_document
 
 
 def score(text: str, *, available=True, candidates=None):
@@ -115,3 +116,29 @@ def test_short_text_reuse_items_remain_pending():
 def test_negated_data_source_does_not_earn_points(value):
     result = score(f"研究内容：测试\n技术路线：测试\n考核指标：完成报告1份\n数据来源：{value}")
     assert item(result, "data_sources")["earned"] == 0
+
+
+def test_short_titled_sections_survive_chunking_and_do_not_report_missing():
+    chunks = chunk_document([{
+        "page": 1,
+        "text": """项目名称：短章节测试
+申报单位：测试单位
+申报年度：2026
+研究内容
+监测
+技术路线
+测量
+考核指标
+报告1份
+""",
+    }])
+    assert any(chunk["section"] == "研究内容" and "监测" in chunk["text"] for chunk in chunks)
+    assert any(chunk["section"] == "技术路线" and "测量" in chunk["text"] for chunk in chunks)
+
+    result = build_scorecard(
+        chunks,
+        duplicate_coverage(chunks, [], available=False),
+    )
+    critical_keys = {issue["key"] for issue in result["critical_issues"]}
+    assert "missing_content" not in critical_keys
+    assert "missing_method" not in critical_keys

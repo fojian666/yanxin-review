@@ -205,11 +205,13 @@ def chunk_document(pages: list[dict], chunk_size: int = 700, overlap: int = 100)
             flush()
         else:
             buffer = ""
-    # Drop tiny fragments, but keep at least one chunk for short documents.
+    # Drop tiny unsectioned fragments, but keep short titled sections. A valid
+    # application may contain a one-word subsection such as "研究内容\n监测";
+    # dropping it makes scoring report a missing chapter and loses evidence.
     cleaned = []
     for c in chunks:
         body = c["text"].strip()
-        if len(body) < 12:
+        if len(body) < 12 and not c.get("section"):
             continue
         cleaned.append(c)
     if not cleaned and chunks:

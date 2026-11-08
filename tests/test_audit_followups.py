@@ -81,6 +81,24 @@ def test_sample_documents_cannot_be_deleted_while_review_cases_reference_them(au
     assert db.get_document(demo_id) is not None
 
 
+def test_sample_documents_cannot_be_deleted_while_dossiers_reference_them(audit_app, monkeypatch):
+    from rag import seed
+
+    monkeypatch.setattr(config, "SEED_DEMO_PROPOSALS", True)
+    seed.seed_demo_proposals()
+    demo_id = next(doc["id"] for doc in db.list_documents() if doc["source"] == "demo")
+    dossier = db.insert_dossier({"name": "演示材料归卷", "year": 2026})
+    db.attach_dossier_document(dossier["id"], demo_id, "proposal_text")
+
+    with pytest.raises(ValueError, match="历史课题"):
+        db.delete_sample_documents()
+    response = audit_app.delete("/api/documents/sample")
+    assert response.status_code == 409
+    assert "历史课题" in response.json()["detail"]
+    assert db.get_document(demo_id) is not None
+    assert db.list_dossier_documents(dossier["id"])[0]["doc_id"] == demo_id
+
+
 def test_dossier_and_keyword_scope_audit_every_disclosed_document(audit_app, monkeypatch):
     _insert_document("doc-a", "材料甲")
     _insert_document("doc-b", "材料乙")

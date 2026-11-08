@@ -125,14 +125,22 @@ def apply_content_limit(parsed: dict, max_chars: int | None = None) -> dict:
 
 def _docx_paragraph_text(p: ET.Element) -> str:
     parts: list[str] = []
-    for node in p.iter():
+
+    def visit(node: ET.Element, deleted: bool = False) -> None:
         tag = node.tag.split("}")[-1]
-        if tag in {"t", "delText"}:
+        deleted = deleted or tag == "del"
+        if tag == "t" and not deleted:
             parts.append(node.text or "")
-        elif tag == "tab":
+        elif tag == "delText":
+            pass
+        elif tag == "tab" and not deleted:
             parts.append("\t")
-        elif tag in {"br", "cr"}:
+        elif tag in {"br", "cr"} and not deleted:
             parts.append("\n")
+        for child in node:
+            visit(child, deleted)
+
+    visit(p)
     return "".join(parts).strip()
 
 
@@ -163,7 +171,7 @@ def _docx_body_blocks(container: ET.Element) -> list[str]:
             text = _docx_table_text(child)
             if text:
                 blocks.append(text)
-        elif tag in {"sdt", "sdtContent", "customXml", "ins", "del"}:
+        elif tag in {"sdt", "sdtContent", "customXml", "ins"}:
             blocks.extend(_docx_body_blocks(child))
     return blocks
 
