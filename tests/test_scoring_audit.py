@@ -1,5 +1,8 @@
+import zipfile
+
 import pytest
 
+from rag import parsers
 from rag.review_scoring import build_scorecard, duplicate_coverage
 from rag.text import chunk_document
 
@@ -118,20 +121,27 @@ def test_negated_data_source_does_not_earn_points(value):
     assert item(result, "data_sources")["earned"] == 0
 
 
-def test_short_titled_sections_survive_chunking_and_do_not_report_missing():
-    chunks = chunk_document([{
-        "page": 1,
-        "text": """项目名称：短章节测试
-申报单位：测试单位
-申报年度：2026
-研究内容
-监测
-技术路线
-测量
-考核指标
-报告1份
-""",
-    }])
+def test_short_titled_sections_survive_parse_chunk_and_do_not_report_missing(tmp_path):
+    path = tmp_path / "short-sections.docx"
+    xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body>
+        <w:p><w:r><w:t>项目名称：短章节测试</w:t></w:r></w:p>
+        <w:p><w:r><w:t>申报单位：测试单位</w:t></w:r></w:p>
+        <w:p><w:r><w:t>申报年度：2026</w:t></w:r></w:p>
+        <w:p><w:r><w:t>研究内容</w:t></w:r></w:p>
+        <w:p><w:r><w:t>监测</w:t></w:r></w:p>
+        <w:p><w:r><w:t>技术路线</w:t></w:r></w:p>
+        <w:p><w:r><w:t>测量</w:t></w:r></w:p>
+        <w:p><w:r><w:t>考核指标</w:t></w:r></w:p>
+        <w:p><w:r><w:t>报告1份</w:t></w:r></w:p>
+      </w:body>
+    </w:document>"""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("word/document.xml", xml)
+
+    parsed = parsers.parse_docx(path)
+    chunks = chunk_document(parsed["pages"])
     assert any(chunk["section"] == "研究内容" and "监测" in chunk["text"] for chunk in chunks)
     assert any(chunk["section"] == "技术路线" and "测量" in chunk["text"] for chunk in chunks)
 
