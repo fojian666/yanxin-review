@@ -105,6 +105,30 @@ def test_processing_permission_and_local_path_are_enforced(materials, monkeypatc
         processing.enqueue("material", "manager")
 
 
+def test_upload_hash_does_not_require_python_311_file_digest(materials, monkeypatch):
+    assert auth.create_user("manager-upload", "testing123", "manager")
+    content = b"Python 3.10 upload compatibility"
+    monkeypatch.delattr(hashlib, "file_digest", raising=False)
+    with TestClient(application.app) as client:
+        assert client.post(
+            "/api/auth/login",
+            json={"username": "manager-upload", "password": "testing123"},
+        ).status_code == 200
+        response = client.post(
+            "/api/documents",
+            files={"file": ("python310.txt", content, "text/plain")},
+            data={"kind": "other", "title": "Python 3.10 上传"},
+        )
+    assert response.status_code == 200
+    uploaded = next(
+        document
+        for document in db.list_documents()
+        if document["name"] == "Python 3.10 上传"
+    )
+    stored = db.get_document(uploaded["id"])
+    assert stored["meta"]["sha256"] == hashlib.sha256(content).hexdigest()
+
+
 def test_pdf_merges_ocr_by_page_preserves_text_and_flags_uncertainty(materials, monkeypatch):
     monkeypatch.setattr(processing, "parse_pdf", lambda _: {"pages": [{"page": 1, "text": "已有文字" * 50}], "page_count": 3})
     monkeypatch.setattr(processing.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess([], 0, b"Pages: 3\n", b""))
@@ -275,7 +299,7 @@ def test_delayed_old_process_cannot_reclaim_after_resume(materials, monkeypatch)
 
 def test_upload_pdf_page_limit_does_not_claim_complete(tmp_path, monkeypatch):
     monkeypatch.setattr(config, 'MAX_PDF_PAGES', 2)
-    monkeypatch.setattr(parsers.subprocess, 'run', lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout=(('文本' * 80 + '\f') * 2).encode(), stderr=b''))
+    monkeypatch.setattr(parsers.subprocess, 'run', lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout=(('文本' * 80 + '\f') * 3).encode(), stderr=b''))
     result = parsers.parse_upload(tmp_path / 'synthetic.pdf')
     assert result['quality']['truncated'] is True
     assert result['quality']['complete'] is False

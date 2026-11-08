@@ -292,15 +292,17 @@ test('旧管理请求的迟到401不能退出新登录的查看者会话', async
   const held = new Promise<void>(resolve => { release = resolve; });
   let markCaptured!: () => void;
   const captured = new Promise<void>(resolve => { markCaptured = resolve; });
-  let first = true;
+  let documentRequests = 0;
   await page.route('**/api/documents', async route => {
-    if (route.request().method() !== 'GET' || !first) return route.continue();
-    first = false;
+    if (route.request().method() !== 'GET') return route.continue();
+    documentRequests += 1;
+    // 第 1 条是页面初始化；第 2 条由失效深链触发，作为可稳定放行的旧会话刷新。
+    if (documentRequests !== 2) return route.continue();
     markCaptured();
     await held;
     await route.fulfill({ status: 401, json: { detail: '旧会话已失效' } });
   });
-  await page.reload();
+  await page.goto('/library?doc=missing-session-race');
   await captured;
   await page.locator('.user-trigger').click();
   await page.getByRole('menuitem', { name: '退出登录' }).click();
@@ -308,10 +310,10 @@ test('旧管理请求的迟到401不能退出新登录的查看者会话', async
   await page.getByPlaceholder('请输入密码', { exact: true }).fill(password);
   await page.getByRole('button', { name: '登 录', exact: true }).click();
   await expect(page.locator('.user-trigger')).toContainText('viewer');
-  await navigate(page, '文档中心');
   const expiredResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/documents' && response.status() === 401);
   release();
   await expiredResponse;
+  await navigate(page, '文档中心');
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect(page.locator('.user-trigger')).toContainText('viewer');
   await expect(page.getByPlaceholder('请输入用户名')).toHaveCount(0);

@@ -152,7 +152,12 @@ export function UploadModal() {
       const result = await api.uploadDocument(file, { kind, year, title }, setProgress);
       setProgress(100);
       setDone(true);
-      await Promise.all([refreshDocs(), refreshPapers()]);
+      let refreshWarning = "";
+      try {
+        await Promise.all([refreshDocs(), refreshPapers()]);
+      } catch (err) {
+        refreshWarning = `目录刷新失败：${(err as Error).message}`;
+      }
       window.dispatchEvent(new CustomEvent("yanxin:document-uploaded", { detail: result.document }));
       if (location.pathname === "/library") {
         navigate(`/library?doc=${encodeURIComponent(result.document.id)}`);
@@ -160,7 +165,10 @@ export function UploadModal() {
       if (!prefersReducedMotion()) {
         await new Promise((resolve) => window.setTimeout(resolve, 420));
       }
-      toast(result.warning || "文档已上传并建立索引");
+      const successMessage = result.warning
+        ? `文档已上传并建立索引；${result.warning}`
+        : "文档已上传并建立索引";
+      toast(refreshWarning ? `${successMessage}；${refreshWarning}` : successMessage, refreshWarning ? "error" : "info");
       setUploadOpen(false);
     } catch (err) {
       toast(`上传失败：${(err as Error).message}`, "error");

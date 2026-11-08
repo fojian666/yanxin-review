@@ -472,5 +472,5 @@ test('受控模型模式保留真实政策原文展开与导出引用', async ({
   expect(text).toContain(item.label);
   expect(text).toContain(item.evidence);
   expect(text).toContain('人工核对');
-  await page.screenshot({ path: testInfo.outputPath('model-policy-evidence.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('model-policy-evidence.png') });
 });

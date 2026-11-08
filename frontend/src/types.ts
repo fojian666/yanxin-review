@@ -18,7 +18,6 @@ export interface LlmStatus {
   provider: string;
   label: string;
   model: string;
-  base_url: string;
 }
 
 export interface Health {
@@ -138,6 +137,7 @@ export interface ChatMessage {
   error?: string;
   streaming?: boolean;
   generation?: GenerationInfo;
+  grounding?: "documents" | "documents_and_general" | "general_knowledge" | "none";
 }
 
 export interface TrendSeries {
@@ -181,6 +181,7 @@ export interface TrendData {
   warning: string;
   sample: boolean;
   no_match: boolean;
+  window_empty?: boolean;
   stats: TrendStats;
 }
 
@@ -314,7 +315,7 @@ export interface ReviewScoring {
   final_score: number | null;
   risk_level: "低" | "中" | "高" | "待核验";
   risk_reason: string;
-  critical_issues: Array<{ key: string; label: string; detail: string; evidence: string }>;
+  critical_issues?: Array<{ key: string; label: string; detail: string; evidence: string }>;
   dimensions: Array<{
     key: string;
     label: string;
@@ -383,12 +384,23 @@ export interface ChatHistoryItem {
   content: string;
 }
 
+export type ChatGrounding =
+  | "documents"
+  | "documents_and_general"
+  | "general_knowledge"
+  | "none";
+
 export interface StreamHandlers {
-  onMeta: (payload: { citations: Citation[]; mode: string; warning: string }) => void;
+  onMeta: (payload: {
+    citations: Citation[];
+    mode: string;
+    warning: string;
+    grounding: ChatGrounding;
+  }) => void;
   onGeneration?: (generation: GenerationInfo) => void;
   onToken: (text: string) => void;
   onWarning: (message: string) => void;
-  onDone: (generation?: GenerationInfo) => void;
+  onDone: (generation?: GenerationInfo, grounding?: ChatGrounding) => void;
 }
 
 
@@ -490,10 +502,15 @@ export interface ReviewArtifact {
   format: "markdown";
   content: string;
   payload: Record<string, unknown>;
-  source_doc_id: string;
+  source_doc_id: string | null;
+  source_doc_name?: string;
+  source_doc_missing?: boolean;
   created_by: string;
   created_at: string;
   sha256: string;
+  integrity_verified?: boolean;
+  integrity_status?: "verified" | "mismatch" | "unrecorded" | "redacted_copy";
+  original_integrity_status?: "verified" | "mismatch" | "unrecorded";
   case_title?: string;
   doc_name?: string;
 }
@@ -579,7 +596,7 @@ export interface ReviewerOption {
   expert_institution: string;
 }
 
-export interface KeywordGraphSource { doc_id: string; doc_name: string; chunk_idx: number; section: string; page: number | null; excerpt: string; }
+export interface KeywordGraphSource { doc_id: string; doc_name: string; chunk_idx: number; section: string; page: number | null; excerpt: string; excerpt_missing?: boolean; }
 export interface KeywordGraphNode { id: string; name: string; chunk_count: number; source_document_count: number; sources: KeywordGraphSource[]; cluster: number | null; }
 export interface KeywordGraphLink { source: string; target: string; similarity: number; shared_chunks: number; }
 export interface KeywordGraphData { nodes: KeywordGraphNode[]; links: KeywordGraphLink[]; method: string; document_count: number; limit: number; }

@@ -164,6 +164,8 @@ export const api = {
     request<DocumentContent>(`/documents/${encodeURIComponent(docId)}/content`),
   processDocument: (docId: string) =>
     request<{ quality: DocItem["quality"] }>(`/documents/${encodeURIComponent(docId)}/process`, jsonOptions({})),
+  cancelDocumentProcessing: (docId: string) =>
+    request<{ quality: DocItem["quality"] }>(`/documents/${encodeURIComponent(docId)}/process/cancel`, jsonOptions({})),
   papers: () => request<{ papers: Paper[]; count: number }>("/papers"),
   dossiers: () => request<{ dossiers: Dossier[] }>("/dossiers"),
   dossierOptions: () => request<DossierOptions>("/dossiers/options"),
@@ -369,6 +371,13 @@ export async function streamChat(
         citations: (event.citations as Citation[]) ?? [],
         mode: String(event.mode ?? "offline"),
         warning: String(event.warning ?? ""),
+        grounding:
+          (event.grounding as
+            | "documents"
+            | "documents_and_general"
+            | "general_knowledge"
+            | "none"
+            | undefined) ?? "none",
       });
     } else if (event.type === "generation" && event.generation) {
       handlers.onGeneration?.(event.generation as GenerationInfo);
@@ -381,7 +390,15 @@ export async function streamChat(
     } else if (event.type === "done") {
       if (!done) {
         done = true;
-        handlers.onDone(event.generation as GenerationInfo | undefined);
+        handlers.onDone(
+          event.generation as GenerationInfo | undefined,
+          event.grounding as
+            | "documents"
+            | "documents_and_general"
+            | "general_knowledge"
+            | "none"
+            | undefined,
+        );
       }
     }
   };

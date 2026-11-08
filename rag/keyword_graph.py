@@ -135,13 +135,15 @@ def build_keyword_graph(
             if len(sources[term]) >= SOURCE_DOCUMENT_LIMIT or doc_id in source_documents[term]:
                 continue
             source_documents[term].add(doc_id)
-            text = chunk.get("text") or ""
-            offset = text.find(term)
+            normalized = normalize_text(chunk.get("text") or "")
+            offset = normalized.find(term)
             start = max(0, offset - 55) if offset >= 0 else 0
             sources[term].append({
                 "doc_id": doc_id, "doc_name": docs[doc_id]["name"],
                 "chunk_idx": chunk["idx"], "section": chunk.get("section") or "",
-                "page": chunk.get("page"), "excerpt": text[start:start + 150],
+                "page": chunk.get("page"),
+                "excerpt": normalized[start:start + 150] if offset >= 0 else "",
+                "excerpt_missing": offset < 0,
             })
     candidates: dict[str, list[tuple[float, str, int]]] = defaultdict(list)
     for (a, b), common in pairs.items():

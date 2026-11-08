@@ -1,5 +1,7 @@
 import { test, expect, password } from './fixtures';
 
+test.use({ trace: 'off' });
+
 // 用等效 CSS 视口覆盖浏览器放大后的布局断点；这不是浏览器缩放的完整模拟。
 test('桌面放大时各工作区保持可操作且不横向溢出', async ({ app: page, documents }) => {
   test.setTimeout(120_000);

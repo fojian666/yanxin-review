@@ -66,7 +66,7 @@ function useCompactChartViewport() {
 }
 
 export function TrendPage() {
-  const { papers, refreshPapers, toast, can } = useApp();
+  const { papers, refreshPapers, toast, can, loading: appLoading } = useApp();
   const [query, setQuery] = useState("科研诚信");
   const [start, setStart] = useState(2019);
   const [end, setEnd] = useState(2025);
@@ -81,6 +81,7 @@ export function TrendPage() {
   const [section, setSection] = useState<TrendSection>("controls");
   const initialized = useRef(false);
   const loadingRef = useRef(false);
+  const paperRevisionRef = useRef("");
   const extremeViewport = useExtremeViewport();
   const compactViewport = useCompactChartViewport();
 
@@ -118,19 +119,26 @@ export function TrendPage() {
   }, [loading]);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-    void run("科研诚信", 2019, 2025, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!papers.length) return;
+    if (appLoading) return;
     const years = papers.map((p) => p.year).filter((y): y is number => Boolean(y));
-    if (!years.length) return;
-    setStart(Math.min(...years));
-    setEnd(Math.max(...years));
-  }, [papers]);
+    const revision = papers.map((paper) => `${paper.id}:${paper.year ?? ""}`).sort().join("|");
+    if (!initialized.current) {
+      initialized.current = true;
+      paperRevisionRef.current = revision;
+      const first = years.length ? Math.min(...years) : 2019;
+      const last = years.length ? Math.max(...years) : 2025;
+      setStart(first);
+      setEnd(last);
+      void run("科研诚信", first, last, false);
+      return;
+    }
+    if (revision !== paperRevisionRef.current) {
+      paperRevisionRef.current = revision;
+      toast("文献数据已更新，请重新分析趋势", "info");
+    }
+    // Initial load uses the actual literature range; later updates never overwrite a user-selected window.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appLoading, papers]);
 
   // 区间联动：起始年只能选 ≤ 结束年，结束年只能选 ≥ 起始年，杜绝倒置区间
   const startOptions = yearOptions(Math.min(2005, start), end);
@@ -142,14 +150,26 @@ export function TrendPage() {
 
   const clearSamples = async () => {
     if (!confirm("确定移除所有演示文献？导入的真实文献不受影响。")) return;
+    let result: { removed?: number };
     try {
-      const result = await api.removeSamplePapers();
-      await refreshPapers();
-      toast(`已移除 ${result.removed || 0} 篇演示文献`);
-      await run(query, start, end, false);
+      result = await api.removeSamplePapers();
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
+      return;
     }
+    const warnings: string[] = [];
+    try {
+      await refreshPapers();
+    } catch (err) {
+      warnings.push(`列表刷新失败：${(err as Error).message}`);
+    }
+    try {
+      await run(query, start, end, false);
+    } catch (err) {
+      warnings.push(`趋势重算失败：${(err as Error).message}`);
+    }
+    const success = `已移除 ${result.removed || 0} 篇演示文献`;
+    toast(warnings.length ? `${success}；${warnings.join("；")}` : success, warnings.length ? "error" : "info");
   };
 
   return (

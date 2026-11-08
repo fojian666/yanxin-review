@@ -57,7 +57,10 @@ MAX_ARCHIVE_COMPRESSION_RATIO = max(
     1.0, float(os.getenv("MAX_ARCHIVE_COMPRESSION_RATIO", "500"))
 )
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "2000"))
+OCR_MAX_PAGES = max(0, int(os.getenv("OCR_MAX_PAGES", "200")))
+MATERIAL_PROCESS_TIMEOUT_SECONDS = max(0.0, float(os.getenv("MATERIAL_PROCESS_TIMEOUT_SECONDS", "1800")))
 RTF_PARSE_TIMEOUT_SECONDS = max(0.1, float(os.getenv("RTF_PARSE_TIMEOUT_SECONDS", "20")))
+OFFICE_PARSE_TIMEOUT_SECONDS = max(0.1, float(os.getenv("OFFICE_PARSE_TIMEOUT_SECONDS", "30")))
 # 旧版 DOC 会依次尝试多个本机转换器，总时长必须有共同上限。
 DOC_PARSE_TIMEOUT_SECONDS = max(0.1, float(os.getenv("DOC_PARSE_TIMEOUT_SECONDS", "120")))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))

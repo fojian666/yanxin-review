@@ -164,6 +164,7 @@ CREATE TABLE IF NOT EXISTS review_artifacts (
     content TEXT NOT NULL,
     payload_json TEXT,
     source_doc_id TEXT,
+    source_doc_name TEXT NOT NULL DEFAULT '',
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL,
     sha256 TEXT NOT NULL,
@@ -381,6 +382,7 @@ CREATE TABLE IF NOT EXISTS review_artifacts (
     content TEXT NOT NULL,
     payload_json TEXT,
     source_doc_id TEXT,
+    source_doc_name TEXT NOT NULL DEFAULT '',
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL,
     sha256 TEXT NOT NULL,
@@ -649,11 +651,33 @@ def init_db() -> None:
         if backend() == "postgresql":
             for column in ("expert_name", "expert_institution"):
                 conn.execute(f"ALTER TABLE expert_account_history ADD COLUMN IF NOT EXISTS {column} TEXT NOT NULL DEFAULT ''")
+            conn.execute("ALTER TABLE review_artifacts ADD COLUMN IF NOT EXISTS source_doc_name TEXT NOT NULL DEFAULT ''")
+            conn.execute(
+                """
+                UPDATE review_artifacts a
+                SET source_doc_name = d.name
+                FROM documents d
+                WHERE a.source_doc_id = d.id AND a.source_doc_name = ''
+                """
+            )
         else:
             columns = {row["name"] for row in conn.execute("PRAGMA table_info(expert_account_history)").fetchall()}
             for column in ("expert_name", "expert_institution"):
                 if column not in columns:
                     conn.execute(f"ALTER TABLE expert_account_history ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+            artifact_columns = {row["name"] for row in conn.execute("PRAGMA table_info(review_artifacts)").fetchall()}
+            if "source_doc_name" not in artifact_columns:
+                conn.execute("ALTER TABLE review_artifacts ADD COLUMN source_doc_name TEXT NOT NULL DEFAULT ''")
+            conn.execute(
+                """
+                UPDATE review_artifacts
+                SET source_doc_name = COALESCE(
+                    (SELECT name FROM documents WHERE documents.id = review_artifacts.source_doc_id),
+                    ''
+                )
+                WHERE source_doc_name = ''
+                """
+            )
     _init_pgvector()
 
 
@@ -1131,6 +1155,11 @@ def delete_sample_documents() -> int:
         if not ids:
             return 0
         marks = ",".join("?" for _ in ids)
+        linked = int(conn.execute(
+            f"SELECT COUNT(*) FROM review_cases WHERE doc_id IN ({marks})", ids
+        ).fetchone()[0])
+        if linked:
+            raise ValueError(f"有 {linked} 个评审案卷仍关联演示本子，不能批量移除")
         conn.execute(f"DELETE FROM chunks WHERE doc_id IN ({marks})", ids)
         cur = conn.execute(f"DELETE FROM documents WHERE id IN ({marks})", ids)
         return int(cur.rowcount)

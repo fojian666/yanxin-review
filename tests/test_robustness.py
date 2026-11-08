@@ -832,8 +832,10 @@ def test_pdf_parser_caps_pages(monkeypatch, tmp_path):
     monkeypatch.setattr(parsers.subprocess, "run", fake_run)
     result = parsers.parse_pdf(tmp_path / "big.pdf")
     assert "-l" in calls["cmd"]
-    assert "10" in calls["cmd"]
-    assert "仅解析前" in result["warning"]
+    assert str(config.MAX_PDF_PAGES + 1) in calls["cmd"]
+    # 恰好等于上限不是截断；仅在多读一页的哨兵实际存在时才提示。
+    assert result["page_limit_reached"] is False
+    assert "仅解析前" not in result["warning"]
 
 
 def test_clean_history_ignores_non_string_content():
@@ -1059,6 +1061,20 @@ def test_login_large_body_rejected_without_echo(tmp_path, monkeypatch):
     assert "x" * 1000 not in response.text
 
 
+def test_chat_large_body_rejected_before_auth_or_parse(tmp_path, monkeypatch):
+    _tmp_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "SEED_DEMO_USERS", False)
+    from starlette.testclient import TestClient
+
+    with TestClient(app_module.app) as client:
+        response = client.post(
+            "/api/chat",
+            json={"question": "x" * 100_000},
+        )
+    assert response.status_code == 413
+    assert "x" * 1000 not in response.text
+
+
 def test_login_body_limit_counts_actual_bytes_without_content_length(tmp_path, monkeypatch):
     """省略 Content-Length 的分块请求也必须在接收过程中被截断。"""
     import asyncio
@@ -1215,11 +1231,12 @@ def test_delete_sample_documents(tmp_path, monkeypatch):
         [{"idx": 0, "page": None, "section": "", "text": "真实内容段落"}],
     )
     assert db.delete_sample_documents() == 10
-    assert db.list_documents() == [{"id": "real1", "name": "真实文档", "kind": "other",
-                                    "year": None, "source": "upload", "text_len": 6,
-                                    "page_count": 0, "chunk_count": 1, "status": "ready",
-                                    "warning": None, "created_at": db.list_documents()[0]["created_at"]}][:1] or True
-    names = [d["name"] for d in db.list_documents()]
+    rows = db.list_documents()
+    assert len(rows) == 1
+    assert rows[0]["id"] == "real1"
+    assert rows[0]["chunk_count"] == 1
+    assert db.get_chunks("real1")[0]["text"] == "真实内容段落"
+    names = [d["name"] for d in rows]
     assert names == ["真实文档"]
 
 

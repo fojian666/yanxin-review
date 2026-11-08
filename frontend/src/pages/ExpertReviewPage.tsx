@@ -30,6 +30,10 @@ export function ExpertReviewPage() {
   const [selectedId, setSelectedId] = useState(params.get("task") || "");
   const [task, setTask] = useState<ReviewTask | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const [taskError, setTaskError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [taskReloadKey, setTaskReloadKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [conflictReason, setConflictReason] = useState("");
@@ -47,6 +51,8 @@ export function ExpertReviewPage() {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setListError("");
     void api.reviewTasks()
       .then((result) => {
         if (!active) return;
@@ -54,12 +60,15 @@ export function ExpertReviewPage() {
         const requested = params.get("task");
         setSelectedId(result.tasks.find((item) => item.id === requested)?.id || result.tasks[0]?.id || "");
       })
-      .catch((error) => toast(`审核任务加载失败：${(error as Error).message}`, "error"))
+      .catch((error) => {
+        if (!active) return;
+        setListError((error as Error).message);
+        toast(`审核任务加载失败：${(error as Error).message}`, "error");
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-    // Initial load only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -68,6 +77,7 @@ export function ExpertReviewPage() {
     }
     let active = true;
     setLoading(true);
+    setTaskError("");
     void api.reviewTask(selectedId)
       .then((result) => {
         if (!active) return;
@@ -80,12 +90,16 @@ export function ExpertReviewPage() {
         next.set("task", result.task.id);
         setParams(next, { replace: true });
       })
-      .catch((error) => toast(`任务读取失败：${(error as Error).message}`, "error"))
+      .catch((error) => {
+        if (!active) return;
+        setTaskError((error as Error).message);
+        toast(`任务读取失败：${(error as Error).message}`, "error");
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
     // selectedId is the sole reload key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  }, [selectedId, taskReloadKey]);
 
   const submit = async () => {
     if (!task) return;
@@ -118,6 +132,17 @@ export function ExpertReviewPage() {
     }
   };
 
+  if (listError && !tasks.length) {
+    return (
+      <div className="expert-review-page">
+        <section className="panel expert-review-empty" role="alert">
+          <EmptyState icon={<AlertTriangle size={40} />} description={`审核任务读取失败：${listError}`} />
+          <button type="button" className="btn btn-primary" onClick={() => setReloadKey((value) => value + 1)}>重新读取</button>
+        </section>
+      </div>
+    );
+  }
+
   if (loading && !task) {
     return <div className="panel expert-review-loading"><Loader2 className="spin" size={20} />正在读取审核任务…</div>;
   }
@@ -127,6 +152,17 @@ export function ExpertReviewPage() {
       <div className="expert-review-page">
         <section className="panel expert-review-empty">
           <EmptyState icon={<ClipboardCheck size={40} />} description={adminDebug ? "当前没有可调试的审核任务。" : "当前没有分配给您的审核任务。"} />
+        </section>
+      </div>
+    );
+  }
+
+  if (taskError && !task) {
+    return (
+      <div className="expert-review-page">
+        <section className="panel expert-review-empty" role="alert">
+          <EmptyState icon={<AlertTriangle size={40} />} description={`任务详情读取失败：${taskError}`} />
+          <button type="button" className="btn btn-primary" onClick={() => setTaskReloadKey((value) => value + 1)}>重新读取</button>
         </section>
       </div>
     );

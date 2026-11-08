@@ -12,9 +12,9 @@ DISCLAIMER = "试行规范性检查分，仅衡量材料表述与可核验程度
 SECTIONS = {
     "background": ("立项背景", "研究背景", "研究目标", "研究意义"),
     "content": ("研究内容", "主要研究内容"),
-    "method": ("研究方法", "技术路线", "研究路线"),
+    "method": ("研究方法", "技术路线", "研究路线", "技术方案", "研究方案", "实施方案"),
     "innovation": ("创新点", "创新之处", "特色与创新", "创新性"),
-    "indicators": ("考核指标", "预期成果", "成果形式", "提交成果"),
+    "indicators": ("考核指标", "考核目标", "预期成果", "预期研究成果", "成果形式", "提交成果"),
     "budget": ("经费预算", "经费测算", "预算明细", "经费明细"),
     "team": ("研究基础", "承担单位", "主要研究人员", "人员分工", "团队"),
     "integrity": ("科研诚信", "科研伦理", "科技伦理", "数据安全", "保密", "知识产权", "利益冲突"),
@@ -89,7 +89,31 @@ def _item(key: str, label: str, maximum: float, ratio: float | None, detail: str
 
 
 def _evidence(text: str, pattern: str) -> str:
-    return next((line.strip() for line in text.splitlines() if re.search(pattern, line) and not re.search(r"未提供|未说明|待补充|暂无|不承诺", line)), "")
+    for line in text.splitlines():
+        if not re.search(pattern, line):
+            continue
+        if re.search(r"未提供|未说明|待补充|暂无|不承诺|尚未", line):
+            continue
+        if re.search(r"[:：]\s*(?:无|没有|暂无|待定|待补充|不适用|未知|未设置|n/?a|[-—])\s*(?:[。；;]|$)", line, re.IGNORECASE):
+            continue
+        return line.strip()
+    return ""
+
+
+def _section_present(text: str, terms: tuple[str, ...]) -> bool:
+    for line in text.splitlines():
+        for term in terms:
+            position = line.find(term)
+            if position < 0:
+                continue
+            before = line[max(0, position - 12):position]
+            after = line[position + len(term):position + len(term) + 12]
+            if re.search(r"(?:暂无|没有|未设置|未提供|无|待补充|不适用)\s*$", before):
+                continue
+            if re.match(r"^\s*(?:暂无|没有|未设置|未提供|无内容|待补充|不适用)", after):
+                continue
+            return True
+    return False
 
 
 def _block(text: str, terms: tuple[str, ...]) -> str:
@@ -129,11 +153,24 @@ def _money_checks(text: str) -> tuple[list[dict], list[dict]]:
         prefix = r"(?<![\u4e00-\u9fff])(?:" + label + ")"
         mentions = re.findall(prefix + r"\s*[:：]", block)
         hits = list(re.finditer(prefix + amount, block))
+        if len(hits) > 1:
+            # 同一标签重复出现时，不能把重复金额折叠成一个值后断言冲突。
+            return None, "", True
         values = {Decimal(m[1]) * (10000 if m[2] == "万元" else 1) for m in hits}
         valid = len(values) == 1 and len(hits) == len(mentions)
         return (next(iter(values)), hits[0][0], False) if valid else (None, "", bool(mentions))
-    total_labels = {prefix + suffix for prefix in ("", "项目", "本项目") for suffix in ("总经费", "总预算", "经费总额", "预算总额", "经费合计", "预算合计")}
-    total, total_evidence, total_ambiguous = money("(?:本项目|项目)?(?:总经费|总预算|经费总额|预算总额|经费合计|预算合计)")
+    total_names = (
+        "总经费", "项目总经费", "本项目总经费",
+        "总预算", "项目总预算", "本项目总预算", "项目预算", "预算",
+        "项目预算总额", "本项目预算总额", "项目经费合计", "本项目经费合计",
+        "总金额", "项目总金额", "金额合计", "预算总计",
+        "经费总额", "预算总额", "经费合计", "预算合计",
+        "合计", "总计",
+    )
+    total_labels = set(total_names)
+    total, total_evidence, total_ambiguous = money(
+        "(?:本项目|项目)?(?:总经费|总预算|总金额|金额合计|预算总计|项目预算|预算|合计|总计|经费总额|预算总额|经费合计|预算合计)"
+    )
     leaf = [money(label) for label in ("设备费", "业务费", "劳务费", "间接费用")]
     # 任意无法归入已知口径的金额，都可能是额外科目或资金来源；不能凭
     # 已识别子集断言合计冲突。单价只是测算依据，不属于预算合计科目。
@@ -247,7 +284,7 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
     fields = [bool(_evidence(text, pattern)) for pattern in (
         r"(?:项目名称|课题名称)\s*[:：]\s*\S+", r"(?:申报单位|承担单位)\s*[:：]\s*\S+", r"(?:申报年份|申报年度)\s*[:：]\s*20\d{2}",
     )]
-    section_hits = {key: any(term in text for term in terms) for key, terms in SECTIONS.items()}
+    section_hits = {key: _section_present(text, terms) for key, terms in SECTIONS.items()}
     critical = [{"key": "missing_" + key, "label": label + "未识别", "detail": "未识别到关键章节或对应表述，请核对原文与解析结果。", "evidence": ""}
                 for key, label in (("content", "研究内容"), ("method", "技术路线"), ("indicators", "考核指标")) if not section_hits[key]]
     materials = _dimension("materials", "材料与信息完整性", [
@@ -269,7 +306,7 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
         line = re.sub(r"^\s*(?:[（(]\s*[一二三四五六七八九十\d]+\s*[）)]|[一二三四五六七八九十\d]+[、.．])\s*", "", line.strip())
         # 章节标题先整体剥离，再判断是否还有指标正文。这样无需枚举
         # “2026—2028”“2026至2028”“2026年1月—2028年12月”等日期写法。
-        date = r"20\d{2}(?:\s*年(?:\s*\d{1,2}\s*月)?|\s*[./]\s*\d{1,2}\s*月?)?"
+        date = r"20\d{2}\s*(?:年度|年(?:\s*\d{1,2}\s*月)?|[./]\s*\d{1,2}\s*月?)?"
         heading = re.sub(
             rf"[（(]?\s*{date}\s*(?:[-—–~～至到]\s*{date})?\s*(?:年度)?\s*[）)]?",
             "",
@@ -293,6 +330,24 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
             )
             if not heading_body:
                 continue
+        compact_heading = re.sub(r"\s+", "", heading_body)
+        if (
+            compact_heading.endswith(("：", ":"))
+            and not re.search(r"\d|完成|形成|提交|取得|发表|申获|建立|构建|通过|达到", compact_heading)
+        ):
+            continue
+        if (
+            re.search(r"[|｜]", compact_heading)
+            and re.search(r"序号|指标名称|成果名称|完成时间|验收方式", compact_heading)
+            and not re.search(r"\d+\s*(?:套|项|篇|份|个|处|期|件|%|％)", compact_heading)
+        ):
+            continue
+        if re.fullmatch(r"(?:本项目|本课题|项目)?(?:拟设|设置|列明)?考核(?:指标|目标)(?:如下)?[:：]?", compact_heading):
+            continue
+        if compact_heading in {"考核指标", "预期成果", "考核目标", "预期研究成果", "成果形式", "提交成果"}:
+            continue
+        if any(term in compact_heading for term in SECTIONS["indicators"]) and not _section_present(compact_heading, SECTIONS["indicators"]):
+            continue
         line = re.sub(r"^(?:考核指标(?:与预期成果)?|预期成果(?:及考核指标)?|成果形式|提交成果)\s*[:：]?\s*", "", line)
         if len(line) > 8 and line not in targets:
             targets.append(line)
@@ -304,8 +359,11 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
         ("indicator_acceptance", "指标明确验收方式", r"验收|测试|检测|核验|评测|抽检|审查|评审|查新|检索证明|登记证书|授权证书|第三方|提交.*报告|提供.*(?:证明|报告|清单)"),
     )
     indicator_items = []
+    date_range = rf"(?:{date})\s*(?:[-—–~～至到]\s*(?:{date}))?"
+    measurable_targets = [re.sub(date_range, "", line).strip() for line in targets]
     for key, label, pattern in patterns:
-        passed = [line for line in targets if re.search(pattern, line)]
+        candidate_lines = measurable_targets if key == "indicator_quantity" else targets
+        passed = [line for line in candidate_lines if re.search(pattern, line)]
         indicator_items.append(_item(key, label, 5, len(passed) / len(targets) if targets else None,
                                      f"可识别指标/成果表述{len(targets)}条，其中{len(passed)}条满足本项；5×{len(passed)}/{len(targets)}。" if targets else "未能可靠分离指标条目，本项待核验。", "\n".join(passed)))
     budget_items, budget_critical = _money_checks(text)
@@ -318,10 +376,12 @@ def build_scorecard(chunks: list[dict], metrics: dict) -> dict[str, Any]:
     ):
         evidence = _evidence(text, pattern)
         integrity_items.append(_item(key, label, weight, float(bool(evidence)), "仅识别具体表述，不核验承诺、措施或权属真实性。" if evidence else "未识别到对应的具体承诺或措施表述。", evidence))
-    reuse_pending = metrics.get("pending_review", True)
+    reuse_insufficient = len(normalized_body(chunks)) < 24
+    reuse_pending = metrics.get("pending_review", True) or reuse_insufficient
     refs = bool(re.search(r"参考文献|\[\d{1,3}\]", text))
     reuse = _dimension("reuse", "文本复用核对", [
         _item("reuse_coverage", "字面复用范围核对", 10, None if reuse_pending else 1,
+              "正文为空或有效字符不足24个，无法可靠计算复用范围，本项待核验。" if reuse_insufficient else
               "存在疑似一致片段，尚未人工区分引用、模板和未说明复用，10分待核验，不按最高余弦扣分。" if metrics.get("matched_characters") else "候选检查尚不足以计算复用范围，本项待核验。" if reuse_pending else "在已核对的有限候选内未发现连续24字符一致片段；不代表全库无重复。"),
         _item("reference_markers", "引用标注线索", 2, float(refs), "识别到参考文献标题或编号引用；不证明引用真实、完整或适当。" if refs else "未识别到参考文献或编号引用。"),
         _item("reuse_explanation", "引用及模板复核", 3, None if reuse_pending else 1, "疑似片段的合理引用、授权和模板范围须人工核验。" if reuse_pending else "当前有限候选未产生待解释的一致片段。"),

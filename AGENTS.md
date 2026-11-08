@@ -13,8 +13,8 @@
 python3 -m uvicorn app:app --reload --port 8010             # 后端开发
 cd frontend && npm run dev                                  # 前端开发（5173，/api 代理 8010）
 cd frontend && npm run build                                # 前端构建（tsc --noEmit + vite）
-cd frontend && npm run test:e2e:types && npm run test:e2e      # 92 项浏览器回归（首次需安装 Chromium）
-python3 -m pytest tests/ -q                                 # 回归测试（245 个测试函数，参数化展开 286 项，默认不联网）
+cd frontend && npm run test:e2e:types && npm run test:e2e      # 104 项浏览器回归（首次需安装 Chromium）
+python3 -m pytest tests/ -q                                 # 回归测试（288 个测试函数，参数化展开 348 项，默认不联网）
 python3 -m tools.eval_retrieval                             # TF-IDF 与向量召回对比（需嵌入后端可用）
 python3 -m tools.migrate_sqlite_to_postgres                 # 迁移旧 SQLite（默认 data/app.db）到 PostgreSQL
 python3 -m tools.doc_check                                  # 文档漂移检查（每轮改完必跑）
@@ -34,12 +34,12 @@ rag/
   config.py            所有环境变量与默认值（分块 700/100、TOP_K 7、128MB 上限、LLM_PROVIDER 预设、INGEST_TOKEN）
   document_access.py   材料归属与阅读授权、匿名查重、受限归档副本、访问留痕；所有读出口必须使用
   db.py                SQLite/PostgreSQL 双适配：documents/document_access/document_access_events/chunks/papers/experts/dossiers/dossier_documents/review_cases/review_tasks/review_actions/review_artifacts/meta
-  review_cases.py      项目评审状态机：预审、专家指派、回避/意见、终审、不可覆盖操作留痕、SHA256 归档与角色隔离
+  review_cases.py      项目评审状态机：预审、专家指派、回避/意见、终审、不可覆盖操作留痕、SHA256 归档、读取时完整性校验、删除来源快照与角色隔离
   dossiers.py          历史课题材料角色、计划类型/阶段体检、版本与人工确认规则
-  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；50万字安全上限与范围提示
+  parsers.py           DOCX/DOC/PDF/OFD/ODT/RTF/PPTX/XLSX/HTML/TXT 解析；DOCX 内容控件/修订容器、RTF 非 BMP、HTML 字符集、压缩包总时限与大 PDF 哨兵页；50万字安全上限与范围提示
   text.py              清洗、章节识别、结构分块、jieba 关键词（领域词表已注入）
   ocr.py               本地逐页OCR、页码/原件哈希缓存、置信度与识别超时
-  material_processing.py 持久化处理队列、进度、重启续跑、原子文本替换与正式评审材料保护
+  material_processing.py 持久化处理队列、进度、重启续跑、取消与执行代次、OCR 页预算/子进程总时限、原子文本替换与正式评审材料保护
   keyword_graph.py     本地提取分块关键词，按分块频次取最多500个；共现余弦连线、自动聚类和来源摘录；省略昂贵的词性标注并按分块内容缓存提词；每个词统计覆盖文档数并优先展示最多8份不同文档的来源，不出网
   retrieval.py         检索：TF-IDF（字符 n-gram）为基线与回落，向量可用时接管打分；
                        keyword/章节加权与文档间段落查重（查重固定走 TF-IDF，理由见下）
@@ -53,7 +53,7 @@ rag/
   experts.py           专家匹配：硬约束过滤（不可评审/在研≥5/同单位/回避）→
                        0.55·语义 + 0.30·关键词 + 0.15·学科 − 负载惩罚；查重分级 ≥0.55 高 / 0.30–0.55 关注
   trends.py            文献趋势：仅在年份窗口内比较文献标题/作者关键词/摘要（字符2–3gram TF-IDF + 直接词命中）；零命中表示当前文献集合无匹配，不等于现实中无相关研究；年度统计 + 规则/千问摘要
-  llm.py               OpenAI 兼容客户端（DashScope/DeepSeek/内网 vLLM/SGLang/Ollama）；
+  llm.py               OpenAI 兼容客户端（DashScope/DeepSeek/内网 vLLM/SGLang/Ollama）；公开状态不返回端点；
                        思考参数按方言发送（Qwen 的 enable_thinking / DeepSeek 的 thinking.type）
   schemas.py + ingest.py   外部数据接入契约与推送写入（幂等去重）
   auth.py               账号密码认证（PBKDF2）+ 数据库会话 + 四角色
@@ -100,7 +100,7 @@ frontend/src/
 3. **数据不出内网**：默认只监听 `127.0.0.1`；已内置账号密码登录与四角色（`rag/auth.py`；本机演示密码 `yanxin2026`，对外需 `SEED_DEMO_USERS`+`DEMO_USER_PASSWORD`），生产接 SSO 前不应对外网开放 `HOST=0.0.0.0`。**LLM 公网端点默认被代码阻止**（回环/内网/内网域名才放行），要用公网 DashScope 必须 `ALLOW_EXTERNAL_LLM=1` 显式授权；登录失败限速 5 次/300s。**嵌入端点同一口径**：公网需 `ALLOW_EXTERNAL_EMBED=1`，且 `api` 后端会把待检索文本发出去——真实评审材料只用 `local`/内网端点。**两条出网面都拒绝跟随重定向**（307/308 会把原始 body 转到未校验地址），`auto` 嵌入降级到 API 前必须重跑门禁、不通过就退回纯 TF-IDF；改任何一处都要保住这条，用例已锁定。
 4. **隐私**：本地 `*.docx` / `*.doc` 申报材料、`2026科研课题立项流程及附件/`、根目录 `微信图片_*` 与 `交付材料/01-软件著作权/screenshots/` 可能含真实个人信息，已在 `.gitignore` 排除——**勿提交、勿解除忽略、勿在回复中复述其中的个人数据**。
 5. 评审材料不得用于模型训练（未获书面授权前）。
-6. 项目评审案卷、专家任务、操作记录和阶段归档只能追加，不得覆盖；专家任务 `(case_id, expert_id)` 唯一，任务提交和阶段推进必须使用带前置状态条件的原子 UPDATE 并校验 rowcount；reviewer 只能读取本人任务、预审依据及本人意见，API 必须裁剪 `final_decision`、`final_decision_label`、`final_comment`，已完成案卷对 reviewer 的 `status` 统一返回 `completed`，不得用 `approved/rejected` 推断决定；admin 可进入专家审核页调试并代提交，归档必须同时记录原指派账号和管理员调试标记；终审决定和完整操作日志仅 manager/admin 可读。
+6. 项目评审案卷、专家任务、操作记录和阶段归档只能追加，不得覆盖；专家任务 `(case_id, expert_id)` 唯一，任务提交和阶段推进必须使用带前置状态条件的原子 UPDATE 并校验 rowcount；reviewer 只能读取本人任务、预审依据及本人意见，案卷列表计数只能按本人任务和本人可见归档计算；API 必须裁剪 `final_decision`、`final_decision_label`、`final_comment`，已完成案卷对 reviewer 的 `status` 统一返回 `completed`，不得用 `approved/rejected` 推断决定；admin 可进入专家审核页调试并代提交，普通意见和回避归档都必须记录原指派账号和管理员调试标记；终审决定和完整操作日志仅 manager/admin 可读。归档保存来源文档名快照，来源删除后仍可读，并在读取时校验正文 SHA256、明确标记完整/不一致/未记录。
 7. 项目评审的预审和终审提交必须显示逐阶段进度动画，减少动态效果时停止轨道与脉冲但保留步骤文字；文档中心案卷数据按 `case_id` 形成可展开目录，同一申报流程不得散落为平铺记录。
 
 ## 已知边界（勿误报为 bug）
@@ -127,7 +127,7 @@ frontend/src/
 - 预审固定规则为 `precheck-v1`：材料20、任务路线20、指标20、预算15、诚信10、复用15。未知项计为 `pending`，展示 `earned` 至 `upper_bound=earned+pending_points` 的区间，未决项不得当通过。60/80为未经专家标注校准的试行分界；上下界同档才定档，跨档显示待核验，关键问题独立提示并可将风险标为高。正文不足1500字仅提示解析/长度边界，不单独触发高风险。历史归档缺计分即显示未记录，不重算补写。规则详见 `docs/预审计分标准.md`。
 - `GET /api/experts` 限 reviewer/manager/admin（最小权限）；DOCX 含 `<!DOCTYPE>/<!ENTITY>` 直接拒绝（全文扫描，不受偏移限制）；PDF 默认只解析前 2000 页；思考开关 `LLM_ENABLE_THINKING`（留空不发/0 关/1 开）；参数方言由 `LLM_THINKING_STYLE` 决定（auto 按端点推断：含 deepseek 发 `thinking.type=disabled`，其余发 `enable_thinking`）——**DeepSeek 默认开思考，JSON 任务不关就会把 max_tokens 吃光、正文为空**；HTTPS 部署设 `COOKIE_SECURE=1`。
 - XML 实体扫描会同时检查原始字节和 UTF-8/UTF-16/UTF-32 解码结果，不能只做 ASCII 正则；RTF 控制字使用带位置的正则线性解析，并受 `RTF_PARSE_TIMEOUT_SECONDS` 限制。历史课题已关联评审案卷时禁止删除，避免 `SET NULL` 静默破坏案卷归属。
-- 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示且不得写死回退值；上传走 XHR 以显示真实进度。原件以 `0600` 权限独占写入，断连或失败时清理半截文件。Office 压缩文档限制条目数、单条体积、解压总量和压缩比；旧版 DOC 多个本机转换器共享 `DOC_PARSE_TIMEOUT_SECONDS` 总预算，macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
+- 上传大小限制和格式清单分别由 `/api/health` 的 `upload_limit_mb`、`upload_types` 下发，前端同步展示且不得写死回退值；上传走 XHR 以显示真实进度。原件以 `0600` 权限独占写入，流式计算并保存 SHA256，断连或失败时清理半截文件；可选 `import_batch` 写入 `meta.import_batch`。Office 压缩文档只做一次包级体积校验并限制条目数、单条体积、解压总量、压缩比和 `OFFICE_PARSE_TIMEOUT_SECONDS` 总时限；PDF 用 `MAX_PDF_PAGES+1` 哨兵区分“恰好达到上限”和“超过上限”；本地处理按 `OCR_MAX_PAGES` 限制 OCR 页数、按 `MATERIAL_PROCESS_TIMEOUT_SECONDS` 终止超时子进程，并支持取消任务、保留旧正文；旧版 DOC 多个本机转换器共享 `DOC_PARSE_TIMEOUT_SECONDS` 总预算，macOS 可用 textutil 或 Quick Look 只读转换，原件不得被覆盖。
 
 ## 改动与提交约定
 
@@ -151,7 +151,7 @@ frontend/src/
 
 右上角上传按钮：≤680px统一44px图标按钮并隐藏文字、padding为0；不要让图标按钮宽度与文字隐藏使用不同断点。移动端回归覆盖420/421和680/681边界。
 
-模型标识契约：顶栏不展示模型配置；回答与预审及其 Markdown 导出使用独立 `generation` 快照（provider/label/model/status），回退标离线、中断保留实际来源，缺记录不猜测。SSE 首 token 前发来源事件、done 给最终状态；旧 mode=qwen 仅作兼容，不能据此称供应商为千问。旧 QWEN_* 自动接口仅对已知官方端点显示具体供应商。
+模型标识契约：顶栏不展示模型配置；`/api/health` 与 SSE 的模型公开状态只含 configured/provider/label/model，不返回 `base_url`、密钥、主机或端口。智能问答问题最长 4000 字，发送给模型的历史最多 12 条且合计不超过 12000 字；SSE 离线回显截断问题，不按小片休眠。回答与预审及其 Markdown 导出使用独立 `generation` 快照（provider/label/model/status），回退标离线、中断保留实际来源，缺记录不猜测。服务端确定性添加通用知识来源标记、清理越界引用；模型正常结束但零 token 必须回退。SSE 首 token 前发来源事件、done 给最终状态；旧 mode=qwen 仅作兼容，不能据此称供应商为千问。旧 QWEN_* 自动接口仅对已知官方端点显示具体供应商。
 
 智能问答模型与强度只在输入区选择，以请求级独立客户端生效，不修改全局客户端或预审/趋势；选择器目录由 `GET /api/chat/options` 下发，不返回密钥或接口地址。后台按供应商独立密钥和出口门禁验证白名单，未知模型/强度拒绝，模型缺能力或显式方言不匹配只开放默认。切页保持会话选择，退出/刷新重置。
 
@@ -163,7 +163,7 @@ frontend/src/
 
 预审 03“检查项”和 04“查重与追问”的证据卡占满当前工作面剩余高度；摘要保持 4 行，展开后正文不得继续裁切，长证据只在卡内滚动，分页按钮固定可见。
 
-One Page 工作区：所有受保护路由共享同一历史课题上下文，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。manager/admin 侧栏包含项目评审；reviewer 与 admin 包含专家审核，其中 admin 为调试视图并可代提交，其余旧功能继续保留并按权限过滤；侧栏、顶栏标题和卷宗栏显示规则都读取 `data/workspaceViews.tsx`，顺序与路由元数据不得在组件内另维护。任务页顶部只放一个资料选择器，同时提供历史课题与单独申报书；项目评审、独立专家审核、知识图谱、智能问答、文档中心、文献趋势、专家库和用户管理不显示该选择器，避免不影响当前任务、图谱或阅读范围的全局课题产生误导。项目预审、查重匹配和申报流程继续显示该选择器，因为当前实现依赖它确定待审、待查或当前历史课题。知识图谱使用自身“查看范围”作为唯一范围入口，覆盖整个知识库、历史课题、全部申报/项目材料和政策文献，并可只统计单份文档。常驻工作区在宽屏铺满页面内容宽度。统一 `WorkDeck` 负责章节栏、固定内容舞台、键盘方向键和 180ms 前进/后退切换。项目评审固定预审、专家审核、终审三步；进入或刷新任一案卷始终从预审证据页开始，服务端当前阶段只决定可用操作，不得自动跳到专家审核或终审。预审结论必须展示专家匹配单位比对口径、回避约束警告、工具免责声明与离线能力边界，管理员代提交在任务和终审意见处标记。专家审核是独立路由，reviewer 只显示本人任务，admin 显示全部任务。终审签署前必须二次确认。切换案卷时清空上一案卷的候选选择、决定和签署文本。历史课题按七步、预审按五步、匹配按五步（viewer材料查重三步）、趋势按四步、用户管理按三步切换。常规配置、报告和结果不得撑出视口，长列表在页内分项或窗格内滚动。文档中心通过按钮切换文档正文、文献数据和案卷数据；案卷数据按项目展示预审、查重、专家意见、回避与终审归档。
+One Page 工作区：所有受保护路由共享同一历史课题上下文，只有当前工作面替换；保留旧路由用于刷新、深链和浏览器后退。manager/admin 侧栏包含项目评审；reviewer 与 admin 包含专家审核，其中 admin 为调试视图并可代提交，其余旧功能继续保留并按权限过滤；侧栏、顶栏标题和卷宗栏显示规则都读取 `data/workspaceViews.tsx`，顺序与路由元数据不得在组件内另维护。任务页顶部只放一个资料选择器，同时提供历史课题与单独申报书；项目评审、独立专家审核、知识图谱、智能问答、文档中心、文献趋势、专家库和用户管理不显示该选择器，避免不影响当前任务、图谱或阅读范围的全局课题产生误导。项目预审、查重匹配和申报流程继续显示该选择器，因为当前实现依赖它确定待审、待查或当前历史课题。知识图谱使用自身“查看范围”作为唯一范围入口，覆盖整个知识库、历史课题、全部申报/项目材料和政策文献，并可只统计单份文档。常驻工作区在宽屏铺满页面内容宽度。统一 `WorkDeck` 负责章节栏、固定内容舞台、键盘方向键和 180ms 前进/后退切换。项目评审固定预审、专家审核、终审三步；进入或切换案卷从预审证据页开始，刷新案卷数据时保留当前工作面，不得自动跳到其他阶段。预审结论必须展示专家匹配单位比对口径、回避约束警告、工具免责声明与离线能力边界，管理员代提交在任务和终审意见处标记。专家审核是独立路由，reviewer 只显示本人任务，admin 显示全部任务。终审签署前必须显式选择决定并二次确认。切换案卷时清空上一案卷的候选选择、决定和签署文本。历史课题按七步、预审按五步、匹配按五步（viewer材料查重三步）、趋势按四步、用户管理按三步切换。常规配置、报告和结果不得撑出视口，长列表在页内分项或窗格内滚动。文档中心通过按钮切换文档正文、文献数据和案卷数据；案卷数据按项目展示预审、查重、专家意见、回避与终审归档。
 
 趋势快捷主题（含“大模型”“语义查重”等）和“移除演示文献”后的自动重算只更新分析设置页的 KPI 和当前主题，不自动切到“趋势图表”；只有显式点击“分析趋势”或输入后按 Enter 才进入图表章节。
 

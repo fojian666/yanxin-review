@@ -368,3 +368,131 @@ def test_returned_case_creates_distinct_round_and_preserves_history(tmp_path, mo
     new_case = review_cases.save_pre_results(new_case["id"], actor="manager-case", report=report, tool_result=tool)
     artifacts = review_cases.list_artifacts({"username": "manager-case", "role": "manager"})
     assert {a["round"] for a in artifacts if a["flow_id"] == case["id"]} == {1, 2}
+
+
+def test_admin_conflict_submission_is_audited_in_final_archive(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    assert auth.create_user("reviewer-second", "reviewer123", "reviewer", "第二位专家")
+    second = db.insert_expert({"name": "第二位测试专家", "institution": "第二测试机构"})
+    review_cases.bind_expert_account("reviewer-second", second, "manager-case")
+    case = review_cases.create_case(title="回避审计", doc_id="doc-case", dossier_id="", actor="manager-case")
+    report, tool = _pre_payloads()
+    tool["match"]["candidates"].append(
+        {"expert": {"id": second, "name": "第二位测试专家", "institution": "第二测试机构", "title": ""}}
+    )
+    case = review_cases.save_pre_results(case["id"], actor="manager-case", report=report, tool_result=tool)
+    case = review_cases.assign_tasks(
+        case["id"],
+        [
+            {"expert_id": 1, "username": "reviewer-case"},
+            {"expert_id": second, "username": "reviewer-second"},
+        ],
+        "manager-case",
+    )
+    conflict_task = next(task for task in case["tasks"] if task["expert_id"] == 1)
+    opinion_task = next(task for task in case["tasks"] if task["expert_id"] == second)
+    review_cases.submit_task(
+        conflict_task["id"],
+        {"username": "admin-debug", "role": "admin"},
+        recommendation="approve",
+        opinion="",
+        conflict_declared=True,
+        conflict_reason="管理员代录的回避原因",
+    )
+    review_cases.submit_task(
+        opinion_task["id"],
+        {"username": "reviewer-second", "role": "reviewer"},
+        recommendation="approve",
+        opinion="普通专家审核意见超过十个字并建议通过。",
+        conflict_declared=False,
+        conflict_reason="",
+    )
+    review_cases.advance_to_final(case["id"], "manager-case")
+    final = review_cases.finalize_case(
+        case["id"],
+        "manager-case",
+        decision="approved",
+        comment="专家回避与意见均已核对，同意通过。",
+    )
+    artifact = next(item for item in final["artifacts"] if item["artifact_type"] == "final_decision")
+    assert "管理员 admin-debug 代提交" in artifact["content"]
+    assert "原指派账号 reviewer-case" in artifact["content"]
+    audit = {entry["task_id"]: entry for entry in artifact["payload"]["task_audit"]}
+    assert audit[conflict_task["id"]]["admin_debug"] is True
+    assert audit[conflict_task["id"]]["submitted_by"] == "admin-debug"
+
+
+def test_deleted_source_artifact_remains_readable_and_integrity_is_checked(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    db.insert_document(
+        {"id": "attachment", "name": "附件快照", "kind": "other", "source": "test", "path": str(tmp_path / "attachment.txt")},
+        [],
+    )
+    case = review_cases.create_case(title="来源删除", doc_id="doc-case", dossier_id="", actor="manager-case")
+    with db.connect() as conn:
+        artifact_id = review_cases._artifact(
+            conn,
+            case_id=case["id"],
+            stage="pre_review",
+            artifact_type="tool_check",
+            title="附件归档",
+            round_number=1,
+            content="不可变归档正文",
+            payload={},
+            source_doc_id="attachment",
+            actor="manager-case",
+        )
+    db.delete_document("attachment")
+    listed = review_cases.list_artifacts({"username": "manager-case", "role": "manager"}, case["id"])
+    artifact = next(item for item in listed if item["id"] == artifact_id)
+    assert artifact["source_doc_missing"] is True
+    assert artifact["source_doc_name"] == "附件快照"
+    assert artifact["doc_name"] == "附件快照"
+    assert artifact["integrity_status"] == "verified"
+
+    with db.connect() as conn:
+        conn.execute("UPDATE review_artifacts SET content='被篡改正文' WHERE id=?", (artifact_id,))
+    changed = review_cases.get_artifact(artifact_id, {"username": "manager-case", "role": "manager"})
+    assert changed["integrity_status"] == "mismatch"
+    assert changed["integrity_verified"] is False
+
+
+def test_reviewer_case_list_only_reports_own_task_and_visible_artifacts(tmp_path, monkeypatch):
+    import json
+
+    _seed(tmp_path, monkeypatch)
+    assert auth.create_user("reviewer-second", "reviewer123", "reviewer", "第二位专家")
+    second = db.insert_expert({"name": "第二位测试专家", "institution": "第二测试机构"})
+    review_cases.bind_expert_account("reviewer-second", second, "manager-case")
+    case = review_cases.create_case(title="列表脱敏", doc_id="doc-case", dossier_id="", actor="manager-case")
+    report, tool = _pre_payloads()
+    tool["match"]["candidates"].append(
+        {"expert": {"id": second, "name": "第二位测试专家", "institution": "第二测试机构", "title": ""}}
+    )
+    case = review_cases.save_pre_results(case["id"], actor="manager-case", report=report, tool_result=tool)
+    case = review_cases.assign_tasks(
+        case["id"],
+        [
+            {"expert_id": 1, "username": "reviewer-case"},
+            {"expert_id": second, "username": "reviewer-second"},
+        ],
+        "manager-case",
+    )
+    second_task = next(task for task in case["tasks"] if task["assignee_username"] == "reviewer-second")
+    review_cases.submit_task(
+        second_task["id"],
+        {"username": "reviewer-second", "role": "reviewer"},
+        recommendation="approve",
+        opinion="第二位专家意见已经超过十个字。",
+        conflict_declared=False,
+        conflict_reason="",
+    )
+    summary = next(
+        item for item in review_cases.list_cases({"username": "reviewer-case", "role": "reviewer"})
+        if item["id"] == case["id"]
+    )
+    assert summary["task_total"] == 1
+    assert summary["submitted_count"] == 0
+    assert summary["updated_by"] == ""
+    assert summary["artifact_count"] == 3
+    assert "reviewer-second" not in json.dumps(summary, ensure_ascii=False)

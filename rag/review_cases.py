@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from typing import Any
 
@@ -104,6 +105,22 @@ def _artifact_visible(row, user: dict) -> bool:
     return False
 
 
+def _artifact_row(row) -> dict[str, Any]:
+    result = _row(row) or {}
+    expected = str(result.get("sha256") or "")
+    content = str(result.get("content") or "")
+    actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    result["integrity_verified"] = bool(expected) and hmac.compare_digest(expected, actual)
+    result["integrity_status"] = (
+        "verified" if expected and result["integrity_verified"]
+        else "mismatch" if expected
+        else "unrecorded"
+    )
+    result["source_doc_missing"] = not bool(result.get("source_doc_id"))
+    result["doc_name"] = result.get("doc_name") or result.get("source_doc_name") or "来源文档已删除或未记录"
+    return result
+
+
 def _action(transaction, case_id: str, actor: str, action: str, detail: dict | None = None, task_id: str | None = None) -> None:
     transaction.execute(
         """
@@ -148,11 +165,13 @@ def _decorate_task_audit(
 
 def list_cases(user: dict) -> list[dict[str, Any]]:
     role = user.get("role")
-    params: tuple[Any, ...] = ()
+    params: list[Any] = []
     where = ""
+    task_join = ""
     if role == "reviewer":
         where = "WHERE EXISTS (SELECT 1 FROM review_tasks mine WHERE mine.case_id = c.id AND mine.assignee_username = ?)"
-        params = (user.get("username", ""),)
+        task_join = "AND t.assignee_username = ?"
+        params.extend([user.get("username", ""), user.get("username", "")])
     elif role not in {"admin", "manager"}:
         raise PermissionError("无权访问评审案卷")
     with db.connect() as conn:
@@ -168,13 +187,27 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
             FROM review_cases c
             LEFT JOIN review_case_rounds r ON r.case_id = c.id
             JOIN documents d ON d.id = c.doc_id
-            LEFT JOIN review_tasks t ON t.case_id = c.id
+            LEFT JOIN review_tasks t ON t.case_id = c.id {task_join}
             {where}
             GROUP BY c.id, r.root_case_id, r.previous_case_id, d.name, d.kind
             ORDER BY c.updated_at DESC, c.created_at DESC
             """,
-            params,
+            tuple(params),
         ).fetchall()
+        visible_artifact_counts: dict[str, int] = {}
+        if role == "reviewer" and rows:
+            case_ids = [row["id"] for row in rows]
+            artifact_rows = conn.execute(
+                f"""
+                SELECT case_id, artifact_type, created_by, payload_json
+                FROM review_artifacts
+                WHERE case_id IN ({','.join('?' for _ in case_ids)})
+                """,
+                tuple(case_ids),
+            ).fetchall()
+            for artifact in artifact_rows:
+                if _artifact_visible(artifact, user):
+                    visible_artifact_counts[artifact["case_id"]] = visible_artifact_counts.get(artifact["case_id"], 0) + 1
     result = [_case_summary(row) for row in rows]
     if role == "reviewer":
         for item in result:
@@ -183,6 +216,8 @@ def list_cases(user: dict) -> list[dict[str, Any]]:
             item.pop("final_decision", None)
             item.pop("final_decision_label", None)
             item.pop("final_comment", None)
+            item["artifact_count"] = visible_artifact_counts.get(str(item.get("id")), 0)
+            item["updated_by"] = ""
             for key in ("round", "flow_id", "previous_case_id"):
                 item.pop(key, None)
     return result
@@ -297,7 +332,7 @@ def get_case(case_id: str, user: dict) -> dict[str, Any]:
         for key in ("round", "flow_id", "previous_case_id"):
             data.pop(key, None)
     data["tasks"] = [_row(task) for task in tasks]
-    data["artifacts"] = [_row(artifact) for artifact in artifacts]
+    data["artifacts"] = [_artifact_row(artifact) for artifact in artifacts]
     if user.get("role") == "reviewer":
         for artifact in data["artifacts"]:
             artifact.pop("round", None)
@@ -403,12 +438,16 @@ def _artifact(
 ) -> str:
     artifact_id = db.new_id()
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    source = transaction.execute(
+        "SELECT name FROM documents WHERE id = ?", (source_doc_id,)
+    ).fetchone()
+    source_doc_name = source["name"] if source else ""
     transaction.execute(
         """
         INSERT INTO review_artifacts
         (id, case_id, stage, artifact_type, title, round, format, content,
-         payload_json, source_doc_id, created_by, created_at, sha256)
-        VALUES (?, ?, ?, ?, ?, ?, 'markdown', ?, ?, ?, ?, ?, ?)
+         payload_json, source_doc_id, source_doc_name, created_by, created_at, sha256)
+        VALUES (?, ?, ?, ?, ?, ?, 'markdown', ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             artifact_id,
@@ -420,6 +459,7 @@ def _artifact(
             content,
             json.dumps(payload, ensure_ascii=False),
             source_doc_id,
+            source_doc_name,
             actor,
             db.now(),
             digest,
@@ -830,7 +870,7 @@ def get_task(task_id: str, user: dict) -> dict[str, Any]:
     _decorate_task_audit([data], [_row(item) for item in audit_artifacts])
     latest: dict[str, dict[str, Any]] = {}
     for artifact in artifacts:
-        parsed = _row(artifact) or {}
+        parsed = _artifact_row(artifact)
         if user.get("role") == "reviewer":
             parsed.pop("round", None)
             parsed.pop("flow_id", None)
@@ -1041,7 +1081,8 @@ def finalize_case(
             "",
         ]
         artifacts = [_row(row) or {} for row in conn.execute(
-            "SELECT * FROM review_artifacts WHERE case_id = ? AND artifact_type = 'expert_opinion'", (case_id,)
+            "SELECT * FROM review_artifacts WHERE case_id = ? AND artifact_type IN ('expert_opinion', 'expert_conflict')",
+            (case_id,),
         ).fetchall()]
         task_dicts = [dict(task) for task in tasks]
         _decorate_task_audit(task_dicts, artifacts)
@@ -1054,8 +1095,20 @@ def finalize_case(
                     f"{_RECOMMENDATIONS.get(task['recommendation'], task['recommendation'])}：{task['opinion']}"
                 )
             elif task["status"] == "conflict":
-                content.append(f"### {task['expert_name']}\n\n已回避：{task['conflict_reason']}")
+                debug_note = f"（管理员 {task['submitted_by']} 代提交，原指派账号 {task['assignee_username']}）" if task.get("admin_debug") else ""
+                content.append(f"### {task['expert_name']}{debug_note}\n\n已回避：{task['conflict_reason']}")
         content.extend(["", "## 终审意见", "", comment, ""])
+        task_audit = [
+            {
+                "task_id": task["id"],
+                "expert_name": task["expert_name"],
+                "status": task["status"],
+                "assignee_username": task["assignee_username"],
+                "admin_debug": bool(task.get("admin_debug")),
+                "submitted_by": task.get("submitted_by", ""),
+            }
+            for task in tasks
+        ]
         artifact_id = _artifact(
             conn,
             case_id=case_id,
@@ -1064,7 +1117,7 @@ def finalize_case(
             title=f"终审决定 · {DECISIONS[decision]}",
             round_number=case["round"],
             content="\n".join(content),
-            payload={"decision": decision, "comment": comment},
+            payload={"decision": decision, "comment": comment, "task_audit": task_audit},
             source_doc_id=case["doc_id"],
             actor=actor,
         )
@@ -1084,7 +1137,7 @@ def finalize_case(
             case_id,
             actor,
             "final_decision",
-            {"decision": decision, "artifact_id": artifact_id},
+            {"decision": decision, "artifact_id": artifact_id, "task_audit": task_audit},
         )
     return get_case(case_id, {"username": actor, "role": "admin"})
 
@@ -1106,18 +1159,20 @@ def list_artifacts(user: dict, case_id: str | None = None) -> list[dict[str, Any
     with db.connect() as conn:
         rows = conn.execute(
             f"""
-            SELECT a.*, c.title AS case_title, d.name AS doc_name, COALESCE(r.root_case_id, c.id) AS flow_id
+            SELECT a.*, c.title AS case_title,
+                   COALESCE(NULLIF(d.name, ''), NULLIF(a.source_doc_name, ''), '来源文档已删除或未记录') AS doc_name,
+                   COALESCE(r.root_case_id, c.id) AS flow_id
             FROM review_artifacts a
             JOIN review_cases c ON c.id = a.case_id
             LEFT JOIN review_case_rounds r ON r.case_id = c.id
-            JOIN documents d ON d.id = a.source_doc_id
+            LEFT JOIN documents d ON d.id = a.source_doc_id
             {where}
             ORDER BY a.created_at DESC, a.id DESC
             """,
             tuple(params),
         ).fetchall()
     visible = (row for row in rows if _artifact_visible(row, user))
-    result = [_row(row) for row in visible]
+    result = [_artifact_row(row) for row in visible]
     if user.get("role") == "reviewer":
         for artifact in result:
             artifact.pop("round", None)
@@ -1129,11 +1184,13 @@ def get_artifact(artifact_id: str, user: dict) -> dict[str, Any]:
     with db.connect() as conn:
         row = conn.execute(
             """
-            SELECT a.*, c.title AS case_title, d.name AS doc_name, COALESCE(r.root_case_id, c.id) AS flow_id
+            SELECT a.*, c.title AS case_title,
+                   COALESCE(NULLIF(d.name, ''), NULLIF(a.source_doc_name, ''), '来源文档已删除或未记录') AS doc_name,
+                   COALESCE(r.root_case_id, c.id) AS flow_id
             FROM review_artifacts a
             JOIN review_cases c ON c.id = a.case_id
             LEFT JOIN review_case_rounds r ON r.case_id = c.id
-            JOIN documents d ON d.id = a.source_doc_id
+            LEFT JOIN documents d ON d.id = a.source_doc_id
             WHERE a.id = ?
             """,
             (artifact_id,),
@@ -1143,7 +1200,7 @@ def get_artifact(artifact_id: str, user: dict) -> dict[str, Any]:
         _require_access(conn, row["case_id"], user)
         if not _artifact_visible(row, user):
             raise PermissionError("无权访问其他专家的审核记录")
-    result = _row(row) or {}
+    result = _artifact_row(row)
     if user.get("role") == "reviewer":
         result.pop("round", None)
         result.pop("flow_id", None)

@@ -157,7 +157,7 @@ function CuratedGraph() {
 
   const chooseNode = (id: string) => {
     setSelectedId(id);
-    if (window.matchMedia("(max-width: 1050px)").matches) setCompactPane("detail");
+    if (window.matchMedia("(max-width: 1050px), (max-height: 720px)").matches) setCompactPane("detail");
     const next = new URLSearchParams(params);
     next.set("focus", id);
     setParams(next);

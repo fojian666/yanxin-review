@@ -239,6 +239,9 @@ def test_legacy_archive_projection_preserves_original_signature(secured, legacy_
     response = client.get(f"/api/review-artifacts/{original['id']}").json()["artifact"]
     assert_private_absent(response)
     assert response["redacted"] is True and response["original_sha256"] == digest
+    assert response["integrity_status"] == "redacted_copy"
+    assert response["integrity_verified"] is False
+    assert response["original_integrity_status"] == "verified"
     assert response["sha256"] == hashlib.sha256(response["content"].encode()).hexdigest()
     login(client, "manager")
     full = client.get(f"/api/review-artifacts/{original['id']}").json()["artifact"]

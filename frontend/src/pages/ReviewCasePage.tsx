@@ -98,6 +98,10 @@ export function ReviewCasePage() {
   const selectedCaseRef = useRef(caseId);
   const [stage, setStage] = useState<FlowStage>("pre_review");
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const [caseError, setCaseError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [caseReloadKey, setCaseReloadKey] = useState(0);
   const [busy, setBusy] = useState("");
   const [creating, setCreating] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
@@ -105,7 +109,7 @@ export function ReviewCasePage() {
   const [createDocId, setCreateDocId] = useState("");
   const [selectedExperts, setSelectedExperts] = useState<number[]>([]);
   const [assignee, setAssignee] = useState("");
-  const [decision, setDecision] = useState<ReviewDecision>("approved");
+  const [decision, setDecision] = useState<ReviewDecision | "">("");
   const [finalComment, setFinalComment] = useState("");
   const [resubmitDocId, setResubmitDocId] = useState("");
 
@@ -115,16 +119,16 @@ export function ReviewCasePage() {
     () => docs.filter((doc) => doc.kind === "proposal" || doc.kind === "other"),
     [docs]
   );
+  const latestArtifact = (type: "tool_check" | "pre_review") =>
+    [...(current?.artifacts ?? [])]
+      .filter((artifact) => artifact.artifact_type === type)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
   const toolResult = useMemo(
-    () =>
-      current?.artifacts?.find((artifact) => artifact.artifact_type === "tool_check")
-        ?.payload as unknown as ToolCheckResult | undefined,
+    () => latestArtifact("tool_check")?.payload as unknown as ToolCheckResult | undefined,
     [current]
   );
   const preReview = useMemo(
-    () =>
-      current?.artifacts?.find((artifact) => artifact.artifact_type === "pre_review")
-        ?.payload as unknown as ReviewReport | undefined,
+    () => latestArtifact("pre_review")?.payload as unknown as ReviewReport | undefined,
     [current]
   );
   const candidates = toolResult?.match?.candidates ?? [];
@@ -147,6 +151,8 @@ export function ReviewCasePage() {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setListError("");
     void Promise.all([api.reviewCases(), api.reviewCaseReviewers()])
       .then(([caseResult, reviewerResult]) => {
         if (!active) return;
@@ -164,12 +170,15 @@ export function ReviewCasePage() {
           setCreateDocId(availableDocs.find((doc) => doc.id === activeDocId)?.id || availableDocs[0]?.id || "");
         }
       })
-      .catch((error) => toast(`评审案卷加载失败：${(error as Error).message}`, "error"))
-      .finally(() => setLoading(false));
+      .catch((error) => {
+        if (!active) return;
+        setListError((error as Error).message);
+        toast(`评审案卷加载失败：${(error as Error).message}`, "error");
+      })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-    // Initial data load only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (creating || createDocId || !availableDocs.length) return;
@@ -184,12 +193,13 @@ export function ReviewCasePage() {
     let active = true;
     setCurrent(null);
     setSelectedExperts([]);
-    setDecision("approved");
+    setDecision("");
     setFinalComment("");
     setResubmitDocId("");
     setStage("pre_review");
     setProcessStep(0);
     setLoading(true);
+    setCaseError("");
     void api.reviewCase(caseId)
       .then((result) => {
         if (!active) return;
@@ -197,17 +207,20 @@ export function ReviewCasePage() {
         // 服务端阶段决定可用操作，但进入页面始终从预审证据开始展示。
         setStage("pre_review");
         setFinalComment(result.case.final_comment || "");
-        setDecision(result.case.final_decision || "approved");
+        setDecision(result.case.final_decision || "");
         const nextParams = new URLSearchParams(params);
         nextParams.set("case", result.case.id);
         setParams(nextParams, { replace: true });
       })
-      .catch((error) => toast(`案卷读取失败：${(error as Error).message}`, "error"))
+      .catch((error) => {
+        if (!active) return;
+        setCaseError((error as Error).message);
+        toast(`案卷读取失败：${(error as Error).message}`, "error");
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-    // caseId is the sole reload key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseId]);
+  }, [caseId, caseReloadKey]);
 
   const applyCase = async (next: ReviewCase, targetStage: FlowStage = stageForCase(next), created = false) => {
     setCases((items) => {
@@ -303,6 +316,10 @@ export function ReviewCasePage() {
 
   const submitFinal = async () => {
     if (!current) return;
+    if (!decision) {
+      toast("请明确选择终审决定", "error");
+      return;
+    }
     if (!confirm("终审决定签署后将归档且不可覆盖，确认继续？")) return;
     setBusy("final");
     try {
@@ -335,7 +352,8 @@ export function ReviewCasePage() {
     if (!current) return;
     try {
       const result = await api.reviewCase(current.id);
-      await applyCase(result.case);
+      // 刷新数据不等于跳转章节；保留用户当前工作面，避免专家任务刷新把管理员送回预审。
+      await applyCase(result.case, stage);
     } catch (error) {
       toast(`案卷刷新失败：${(error as Error).message}`, "error");
     }
@@ -362,6 +380,30 @@ export function ReviewCasePage() {
       || dossier.materials.find((material) => material.is_current);
     if (proposal) setCreateDocId(proposal.doc_id);
   };
+
+  if (listError && !cases.length) {
+    return (
+      <div className="review-case-workspace">
+        <section className="panel review-case-loading" role="alert">
+          <AlertTriangle size={20} />
+          评审案卷读取失败：{listError}
+          <button type="button" className="btn btn-primary" onClick={() => setReloadKey((value) => value + 1)}>重新读取</button>
+        </section>
+      </div>
+    );
+  }
+
+  if (caseError && !current) {
+    return (
+      <div className="review-case-workspace">
+        <section className="panel review-case-loading" role="alert">
+          <AlertTriangle size={20} />
+          当前案卷读取失败：{caseError}
+          <button type="button" className="btn btn-primary" onClick={() => setCaseReloadKey((value) => value + 1)}>重新读取</button>
+        </section>
+      </div>
+    );
+  }
 
   if (loading && !current) {
     return <div className="panel review-case-loading"><Loader2 className="spin" size={20} />正在读取评审案卷…</div>;
@@ -630,7 +672,7 @@ export function ReviewCasePage() {
                         ))}
                       </div>
                       <textarea value={finalComment} onChange={(event) => setFinalComment(event.target.value)} placeholder="填写终审理由、修改要求或通过条件（至少 10 字）" />
-                      <button type="button" className="btn btn-primary" onClick={() => void submitFinal()} disabled={busy === "final" || finalComment.trim().length < 10}>
+                      <button type="button" className="btn btn-primary" onClick={() => void submitFinal()} disabled={busy === "final" || !decision || finalComment.trim().length < 10}>
                         {busy === "final" ? <Loader2 className="spin" size={16} /> : <Send size={16} />}签署并归档
                       </button>
                     </>

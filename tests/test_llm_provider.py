@@ -8,6 +8,7 @@
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from rag import config, qa as qa_service, review as review_service
 
@@ -238,6 +239,325 @@ def test_qa_keeps_low_score_tfidf_candidates_that_contain_question_terms(monkeyp
     monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
     prepared = qa_service.prepare("什么是光合作用", scope=[])
     assert [citation["doc_id"] for citation in prepared["citations"]] == ["d1"]
+
+
+def test_qa_keeps_business_term_hit_when_full_alias_phrase_is_absent(monkeypatch):
+    monkeypatch.setattr(
+        qa_service.retriever,
+        "search",
+        lambda *args, **kwargs: [
+            {
+                "doc_id": "d1",
+                "doc_name": "科研诚信政策汇编",
+                "section": "基本要求",
+                "text": "科研诚信是申报和评审的基本要求。",
+                "score": 0.12,
+                "idx": 0,
+            }
+        ],
+    )
+    monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
+    prepared = qa_service.prepare("科研诚信管理办法是什么", scope=["d1"])
+    assert [item["doc_id"] for item in prepared["citations"]] == ["d1"]
+    assert prepared["grounding"] == "documents"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "这个项目的研究内容是什么",
+        "本项目的研究内容是什么",
+        "该项目的技术路线是什么",
+        "科研诚信有哪些要求",
+        "“科研诚信”是什么",
+        "What is RAG",
+        "科研诚信管理办法是什么",
+        "水",
+        "科研失信调查人员是否需要签署保密协议？",
+    ],
+)
+def test_qa_question_variants_keep_matching_tfidf_citations(monkeypatch, question):
+    citation = {
+        "doc_id": "d1",
+        "doc_name": "科研诚信管理办法",
+        "section": "研究内容",
+        "text": "本项目研究内容包括技术路线、科研诚信要求与水资源数据治理；科研失信调查人员签署保密协议；RAG 用于证据检索。",
+        "score": 0.18,
+        "idx": 0,
+    }
+    monkeypatch.setattr(qa_service.retriever, "search", lambda *args, **kwargs: [dict(citation)])
+    monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
+    prepared = qa_service.prepare(question, scope=["d1"])
+    assert [item["doc_id"] for item in prepared["citations"]] == ["d1"]
+    assert prepared["grounding"] == "documents"
+    offline = qa_service.answer(question, scope=["d1"])
+    assert [item["doc_id"] for item in offline["citations"]] == ["d1"]
+    assert "当前离线模式未检索到" not in offline["answer"]
+
+
+def test_llm_general_answer_is_deterministically_marked_and_bad_citations_removed(monkeypatch):
+    monkeypatch.setattr(qa_service.retriever, "search", lambda *args, **kwargs: [])
+    client = SimpleNamespace(
+        configured=True,
+        model="test-model",
+        strength="default",
+        info={"provider": "qwen", "label": "测试模型"},
+        chat=lambda *_: "光合作用把光能转化为化学能。[9]",
+    )
+    result = qa_service.answer("什么是光合作用", scope=[], client=client)
+    assert result["grounding"] == "general_knowledge"
+    assert result["answer"].startswith(qa_service.GENERAL_GROUNDING_PREFIX)
+    assert "[9]" not in result["answer"]
+    assert "不存在的引用编号" in result["warning"]
+
+
+def test_llm_document_answer_drops_out_of_range_citation(monkeypatch):
+    citation = {
+        "doc_id": "d1",
+        "doc_name": "申报书",
+        "section": "研究内容",
+        "text": "本项目研究内容为数据治理。",
+        "score": 0.2,
+    }
+    monkeypatch.setattr(qa_service.retriever, "search", lambda *args, **kwargs: [dict(citation)])
+    monkeypatch.setattr(type(qa_service.retriever), "uses_embedding", property(lambda self: False))
+    client = SimpleNamespace(
+        configured=True,
+        model="test-model",
+        strength="default",
+        info={"provider": "qwen", "label": "测试模型"},
+        chat=lambda *_: "依据资料形成结论[1]，另一项没有依据[9]。",
+    )
+    result = qa_service.answer("这个项目的研究内容是什么", scope=["d1"], client=client)
+    assert "[1]" in result["answer"]
+    assert "[9]" not in result["answer"]
+    assert "不存在的引用编号" in result["warning"]
+
+
+def test_llm_answer_with_only_invalid_citation_falls_back(monkeypatch):
+    prepared = {
+        "mode": "qwen",
+        "messages": [{"role": "user", "content": "测试"}],
+        "fallback": "离线兜底正文",
+        "citations": [],
+        "warning": "",
+        "grounding": "none",
+    }
+    client = SimpleNamespace(
+        configured=True,
+        model="bad-citation-model",
+        strength="default",
+        info={"provider": "qwen", "label": "测试模型"},
+        chat=lambda *_: "[9]",
+    )
+    monkeypatch.setattr(qa_service, "prepare", lambda *args, **kwargs: prepared)
+    result = qa_service.answer("测试", client=client)
+    assert result["answer"] == "离线兜底正文"
+    assert result["mode"] == "offline"
+    assert result["generation"]["status"] == "fallback"
+    assert "大模型调用失败" in result["warning"]
+
+
+def test_stream_citation_sanitizer_handles_labels_split_across_tokens():
+    state = {"invalid_citations": 0}
+    chunks = list(
+        qa_service.iter_sanitized_citations(
+            iter(["结论[", "1", "]，越界[", "9", "]"]),
+            1,
+            state,
+        )
+    )
+    assert "".join(chunks) == "结论[1]，越界"
+    assert state["invalid_citations"] == 1
+
+
+def test_llm_public_status_omits_internal_endpoint(monkeypatch):
+    import app as application
+    from rag.llm import LLMClient
+
+    client = LLMClient(
+        {
+            "configured": True,
+            "provider": "custom",
+            "label": "内网模型",
+            "model": "local-model",
+            "base_url": "http://10.0.0.9:8000/v1",
+            "api_key": "secret",
+        }
+    )
+    status = client.status()
+    assert status == {
+        "configured": True,
+        "provider": "custom",
+        "label": "内网模型",
+        "model": "local-model",
+    }
+    monkeypatch.setattr(application, "llm", client)
+    assert application.health()["llm"] == status
+
+
+def test_chat_request_limits_question_and_history():
+    import app as application
+
+    with pytest.raises(ValidationError):
+        application.ChatRequest(question="x" * 4_001)
+    with pytest.raises(ValidationError):
+        application.ChatRequest(
+            history=[{"role": "user", "content": "x" * 12_001}]
+        )
+
+
+def test_stream_empty_model_falls_back_instead_of_returning_blank(monkeypatch):
+    import asyncio
+    import json
+    import app as application
+
+    prepared = {
+        "mode": "qwen",
+        "messages": [{"role": "user", "content": "测试"}],
+        "fallback": "离线兜底正文",
+        "citations": [],
+        "warning": "",
+        "grounding": "none",
+    }
+    client = SimpleNamespace(
+        configured=True,
+        model="empty-model",
+        strength="default",
+        info={"provider": "qwen", "label": "空流模型"},
+    )
+    client.status = lambda: {
+        "configured": True,
+        "provider": "qwen",
+        "label": "空流模型",
+        "model": "empty-model",
+    }
+    client.stream_chat = lambda *args, **kwargs: iter(())
+    monkeypatch.setattr(application.qa, "prepare", lambda *args, **kwargs: prepared)
+    monkeypatch.setattr(application, "llm", client)
+
+    async def collect():
+        response = application.chat_stream(
+            application.ChatRequest(question="测试"),
+            SimpleNamespace(scope=lambda _: [], audit=lambda *_: None),
+        )
+        return [
+            json.loads(chunk.removeprefix("data: ").strip())
+            async for chunk in response.body_iterator
+        ]
+
+    frames = asyncio.run(collect())
+    meta = next(frame for frame in frames if frame["type"] == "meta")
+    assert set(meta["provider"]) == {"configured", "provider", "label", "model"}
+    token_text = "".join(
+        frame.get("text", "") for frame in frames if frame["type"] == "token"
+    )
+    assert token_text == "离线兜底正文"
+    assert any(
+        frame["type"] == "warning" and "没有返回可用正文" in frame["message"]
+        for frame in frames
+    )
+    assert frames[-1]["generation"]["status"] == "fallback"
+
+
+def test_stream_general_answer_gets_server_grounding_marker(monkeypatch):
+    import asyncio
+    import json
+    import app as application
+
+    prepared = {
+        "mode": "qwen",
+        "messages": [{"role": "user", "content": "测试"}],
+        "fallback": "离线兜底正文",
+        "citations": [],
+        "warning": "",
+        "grounding": "none",
+    }
+    client = SimpleNamespace(
+        configured=True,
+        model="general-model",
+        strength="default",
+        info={"provider": "qwen", "label": "通用模型"},
+    )
+    client.status = lambda: {
+        "configured": True,
+        "provider": "qwen",
+        "label": "通用模型",
+        "model": "general-model",
+    }
+    client.stream_chat = lambda *args, **kwargs: iter(["[9] 这是一个通用回答。"])
+    monkeypatch.setattr(application.qa, "prepare", lambda *args, **kwargs: prepared)
+    monkeypatch.setattr(application, "llm", client)
+
+    async def collect():
+        response = application.chat_stream(
+            application.ChatRequest(question="测试"),
+            SimpleNamespace(scope=lambda _: [], audit=lambda *_: None),
+        )
+        return [
+            json.loads(chunk.removeprefix("data: ").strip())
+            async for chunk in response.body_iterator
+        ]
+
+    frames = asyncio.run(collect())
+    token_text = "".join(
+        frame.get("text", "") for frame in frames if frame["type"] == "token"
+    )
+    assert token_text.startswith(qa_service.GENERAL_GROUNDING_PREFIX)
+    assert "[9]" not in token_text
+    assert frames[-1]["grounding"] == "general_knowledge"
+    assert any(
+        frame["type"] == "warning" and "不存在的引用编号" in frame["message"]
+        for frame in frames
+    )
+
+
+def test_offline_stream_does_not_sleep_between_pieces(monkeypatch):
+    import asyncio
+    import json
+    import app as application
+
+    prepared = {
+        "mode": "offline",
+        "messages": [],
+        "fallback": "短回答",
+        "citations": [],
+        "warning": "",
+        "grounding": "none",
+    }
+    client = SimpleNamespace(
+        configured=False,
+        model="",
+        strength="default",
+        info={"provider": "offline", "label": "离线检索"},
+    )
+    client.status = lambda: {
+        "configured": False,
+        "provider": "offline",
+        "label": "离线检索",
+        "model": "检索式回答（未配置大模型）",
+    }
+    monkeypatch.setattr(application.qa, "prepare", lambda *args, **kwargs: prepared)
+    monkeypatch.setattr(application, "llm", client)
+    monkeypatch.setattr(
+        application.time,
+        "sleep",
+        lambda *_: (_ for _ in ()).throw(AssertionError("SSE 不应 sleep")),
+    )
+
+    async def collect():
+        response = application.chat_stream(
+            application.ChatRequest(question="测试"),
+            SimpleNamespace(scope=lambda _: [], audit=lambda *_: None),
+        )
+        return [
+            json.loads(chunk.removeprefix("data: ").strip())
+            async for chunk in response.body_iterator
+        ]
+
+    frames = asyncio.run(collect())
+    assert any(frame["type"] == "token" and frame["text"] == "短回答" for frame in frames)
+    assert frames[-1]["type"] == "done"
 
 
 def test_configured_model_can_answer_general_question_without_citations(monkeypatch):
@@ -488,7 +808,10 @@ def test_chat_alternate_model_works_when_default_offline(monkeypatch):
     monkeypatch.setattr(qa_service, "prepare", lambda *a, **k: {"mode": "offline", "messages": [{"role": "user", "content": "x"}], "fallback": "原文", "citations": [], "warning": ""})
     monkeypatch.setattr(client, "chat", lambda messages: "受控模型结果")
     result = qa_service.answer("测试", client=client)
-    assert result["answer"] == "受控模型结果" and result["generation"]["provider"] == "deepseek"
+    assert result["answer"].endswith("受控模型结果") and result["answer"].startswith(
+        qa_service.GENERAL_GROUNDING_PREFIX
+    )
+    assert result["generation"]["provider"] == "deepseek"
     assert result["generation"]["strength"] == "quick"
 
 

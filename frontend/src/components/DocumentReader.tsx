@@ -8,7 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useMotionPreference } from "../motion";
-import { materialBusy, QUALITY_LABELS } from "../materialQuality";
+import { materialBusy, materialCancelable, QUALITY_LABELS } from "../materialQuality";
 import type { DocItem, DocumentContent } from "../types";
 
 interface DocumentReaderProps {
@@ -33,7 +33,9 @@ interface DocumentReaderProps {
   onRetry: () => void;
   onAccess?: () => void;
   onProcess?: () => void;
+  onCancel?: () => void;
   processing?: boolean;
+  canceling?: boolean;
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -67,7 +69,9 @@ export function DocumentReader({
   onRetry,
   onAccess,
   onProcess,
+  onCancel,
   processing,
+  canceling,
 }: DocumentReaderProps) {
   const reduce = useMotionPreference();
   const waiting = loading || (!content && !error);
@@ -101,9 +105,17 @@ export function DocumentReader({
 
       <div className="document-reader-actions">
         {onAccess && <button type="button" className="btn btn-ghost btn-sm" onClick={onAccess}>阅读权限</button>}
-        {onProcess && <button type="button" className="btn btn-ghost btn-sm" onClick={onProcess} disabled={processing || materialBusy(selected.quality?.state)}>
-          {materialBusy(selected.quality?.state) ? "处理中" : selected.quality?.state === "failed" ? "重试处理" : "处理原文"}
-        </button>}
+        {onProcess && !materialBusy(selected.quality?.state) && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onProcess} disabled={processing}>
+            {["failed", "cancelled"].includes(selected.quality?.state || "") ? "重新处理" : "处理原文"}
+          </button>
+        )}
+        {onCancel && materialCancelable(selected.quality?.state) && (
+          <button type="button" className="btn btn-ghost btn-sm danger" onClick={onCancel} disabled={canceling}>
+            {canceling ? <Loader2 size={14} className="spin" /> : null}
+            {canceling ? "取消中…" : "取消处理"}
+          </button>
+        )}
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAsk(selected)}>
           <MessageSquareText size={14} />文档问答
         </button>

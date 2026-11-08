@@ -58,6 +58,7 @@ export function ReviewPage() {
   const [reportReady, setReportReady] = useState(false);
   const [section, setSection] = useState<ReviewSection>("run");
   const [checkView, setCheckView] = useState<"scoring" | "supplement">("scoring");
+  const [queryResolved, setQueryResolved] = useState(!params.get("doc"));
   // 政策条款全文展开态，键为「分区-序号」，换一份报告时清空
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(() => new Set());
   useEffect(() => {
@@ -76,6 +77,7 @@ export function ReviewPage() {
   const reportRef = useRef<HTMLDivElement>(null);
   const runFocusRef = useRef<Element | null>(null);
   const userScrolledRef = useRef(false);
+  const pendingQueryDoc = useRef(params.get("doc") || "");
   const progress = report ? 100 : busy ? Math.min(96, ((step + 1) / STEPS.length) * 100) : 0;
 
   const sortedDocs = useMemo(() => {
@@ -90,13 +92,18 @@ export function ReviewPage() {
   );
 
   useEffect(() => {
+    const requested = params.get("doc");
+    if (requested) pendingQueryDoc.current = requested;
+  }, [params]);
+
+  useEffect(() => {
     if (!sortedDocs.length) {
       setDocId("");
       return;
     }
-    const fromQuery = params.get("doc");
+    const fromQuery = params.get("doc") || pendingQueryDoc.current;
     if (!fromQuery) {
-      setSelectionError("");
+      setQueryResolved(true);
       return;
     }
     const requested = sortedDocs.find((doc) => doc.id === fromQuery);
@@ -105,6 +112,8 @@ export function ReviewPage() {
       setActiveDossierId("");
       setActiveDocId(fromQuery);
       setSelectionError("");
+      pendingQueryDoc.current = "";
+      setQueryResolved(true);
       // 消费后移除参数，避免用户改选文档时又被 URL 拉回
       const next = new URLSearchParams(params);
       next.delete("doc");
@@ -119,9 +128,17 @@ export function ReviewPage() {
     setBusy(false);
     setSection("run");
     setSelectionError("所选文档类型不支持项目预审，请从上方选择申报书或实际材料。");
+    pendingQueryDoc.current = "";
+    setQueryResolved(true);
+    // Consume invalid deep links as well; otherwise a document refresh replays the
+    // rejected parameter and clears a report the user has since generated.
+    const next = new URLSearchParams(params);
+    next.delete("doc");
+    setParams(next, { replace: true });
   }, [sortedDocs, params, setActiveDocId, setActiveDossierId, setParams]);
 
   useEffect(() => {
+    if (!queryResolved) return;
     if (!activeDocId) {
       requestSequence.current += 1;
       runningRef.current = false;
@@ -137,11 +154,12 @@ export function ReviewPage() {
     runningRef.current = false;
     setBusy(false);
     setDocId(activeDocId);
+    setSelectionError("");
     setReport(null);
     setReportReady(false);
     setError("");
     setSection("run");
-  }, [activeDocId, activeDocExists]);
+  }, [activeDocId, activeDocExists, queryResolved]);
 
   useEffect(() => {
     if (!busy) return;

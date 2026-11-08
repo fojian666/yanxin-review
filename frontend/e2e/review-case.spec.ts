@@ -1,5 +1,7 @@
 import { expect, loginUI, navigate, test } from './fixtures';
 
+test.use({ trace: 'off' });
+
 test('重审迟到响应不会切回已离开的案卷', async ({ app: page, documents, context }) => {
   const created: Array<{ id: string }> = [];
   for (const title of ['原案卷', '当前案卷']) {
@@ -178,7 +180,7 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await context.request.post('/api/auth/logout');
   await loginUI(page, 'reviewer');
   await navigate(page, '专家审核');
-  await expect(page.getByRole('heading', { name: 'E2E 全过程评审' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'E2E 全过程评审' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: '审核意见已提交' })).toBeVisible();
   await expect(page.getByText('项目材料完整，技术路线清晰，建议通过并补充年度监测计划。')).toBeVisible();
   await expect(page.getByText(/管理员 admin 调试代提交/)).toBeVisible();
@@ -198,6 +200,7 @@ test('项目评审一条龙、专家独立审核、终审与文档中心归档',
   await expect(page.getByText(/管理员 admin 调试代提交/)).toBeVisible();
   await page.getByRole('button', { name: '进入终审' }).click();
   await expect(page.getByRole('tab', { name: '终审' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: '签署并归档' })).toBeDisabled();
   await page.getByLabel('退回修改').check();
   await page.getByPlaceholder('填写终审理由、修改要求或通过条件（至少 10 字）').fill('专家意见已核对，同意通过并按要求补充年度监测计划。');
   await page.route('**/api/review-cases/*/final', async route => {

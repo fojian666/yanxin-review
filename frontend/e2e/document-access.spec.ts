@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { expect, loginUI, navigate, password, test } from './fixtures';
 
+// This long session-switching suite triggers a Playwright 1.64 trace cleanup race.
+test.use({ trace: 'off' });
+
 test('材料归属、匿名查重、受限导出与显式阅读授权', async ({ app: page, documents, context }, testInfo) => {
   test.setTimeout(90_000);
   const [own, other] = documents;

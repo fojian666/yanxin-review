@@ -201,6 +201,7 @@ class Retriever:
             )
             if scores is None:
                 scores = self._score_tfidf(query)
+            raw_scores = scores.copy()
             terms = extract_terms(query, max_terms=8)
             for i, chunk in enumerate(self.chunks):
                 hits = self._keyword_hits(terms, chunk.get("text", ""))
@@ -213,13 +214,18 @@ class Retriever:
                 scope_set = set(scope)
                 mask = np.array([c["doc_id"] in scope_set for c in self.chunks])
                 scores = np.where(mask, scores, -1.0)
+                raw_scores = np.where(mask, raw_scores, -1.0)
             order = np.argsort(-scores)
             results: list[dict] = []
             per_doc: dict[str, int] = {}
             floor = self.score_floor
             for idx in order:
                 score = float(scores[idx])
-                if score <= floor:
+                if self.uses_embedding and float(raw_scores[idx]) <= floor:
+                    # 关键词/章节加权只能重排已通过原始向量下限的候选，
+                    # 不能把低相关向量人工抬进证据集。
+                    continue
+                if not self.uses_embedding and score <= floor:
                     break
                 chunk = self.chunks[int(idx)]
                 doc_id = chunk["doc_id"]

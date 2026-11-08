@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac as _hmac
+import hashlib
 import json
 import logging
 import os
@@ -18,7 +19,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
 from rag import auth, config, db, dossiers as dossier_service, qa, review, review_cases, schemas, trends
@@ -37,6 +38,8 @@ logger = logging.getLogger("uvicorn.error")
 
 BODY_LIMITS = {
     "/api/auth/login": 16 * 1024,
+    "/api/chat": 64 * 1024,
+    "/api/chat/stream": 64 * 1024,
     "/api/ingest/experts": 2 * 1024 * 1024,
     "/api/ingest/papers": 2 * 1024 * 1024,
     "/api/documents": config.MAX_UPLOAD_BYTES + 1024 * 1024,
@@ -243,11 +246,25 @@ class DocumentAccessRequest(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str = ""
-    history: list[dict[str, Any]] = Field(default_factory=list)
+    question: str = Field(default="", max_length=4_000)
+    history: list[dict[str, Any]] = Field(default_factory=list, max_length=24)
     scope: list[str] = Field(default_factory=list)
     model: str = Field(default="default", max_length=80)
     strength: str = Field(default="default", max_length=20)
+
+    @model_validator(mode="after")
+    def limit_chat_context(self):
+        self.history = self.history[-12:]
+        total = 0
+        for item in self.history:
+            role = item.get("role")
+            content = item.get("content", "")
+            if role not in {"user", "assistant"} or not isinstance(content, str):
+                raise ValueError("历史消息格式无效")
+            total += len(content)
+        if total > 12_000:
+            raise ValueError("历史消息总长度超过限制")
+        return self
 
 
 class ReviewRequest(BaseModel):
@@ -423,7 +440,7 @@ def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _pieces(text: str, size: int = 18) -> list[str]:
+def _pieces(text: str, size: int = 48) -> list[str]:
     return [text[i : i + size] for i in range(0, len(text), size)]
 
 
@@ -609,7 +626,7 @@ def knowledge_keywords(
             raise document_access.DocumentAccessDenied("未找到该材料或无权读取")
         doc_ids = doc_ids & {document_id}
     result = keyword_graph.build_keyword_graph(limit, doc_ids, retriever.chunks)
-    access.audit([source["doc_id"] for node in result.get("nodes") or [] for source in node.get("sources") or []], "keyword-evidence")
+    access.audit(sorted(doc_ids), "keyword-evidence")
     return result
 
 
@@ -620,13 +637,21 @@ def dossier_options():
 
 @app.get("/api/dossiers")
 def dossiers(access: document_access.Access = Depends(document_reader)):
-    return {
-        "dossiers": [
-            dossier_service.dossier_summary(dossier, access.readable)
-            for dossier in db.list_dossiers()
-            if access.can_dossier(dossier["id"])
-        ]
-    }
+    summaries = [
+        dossier_service.dossier_summary(dossier, access.readable)
+        for dossier in db.list_dossiers()
+        if access.can_dossier(dossier["id"])
+    ]
+    access.audit(
+        sorted({
+            material["doc_id"]
+            for dossier in summaries
+            for material in dossier.get("materials") or []
+            if material.get("doc_id")
+        }),
+        "dossier-list",
+    )
+    return {"dossiers": summaries}
 
 
 @app.post(
@@ -846,6 +871,7 @@ async def upload_document(
     kind: str = Form("auto"),
     year: str = Form(""),
     title: str = Form(""),
+    import_batch: str = Form(""),
     _user: dict = Depends(require_role("manager", "admin")),
 ):
     if not file or not file.filename:
@@ -862,6 +888,11 @@ async def upload_document(
     doc_id = db.new_id()
     target = config.UPLOAD_DIR / f"{doc_id}_{filename}"
     await _save_upload(file, target)
+    source_hash = hashlib.sha256()
+    with target.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            source_hash.update(chunk)
+    source_sha256 = source_hash.hexdigest()
     try:
         parsed = await run_in_threadpool(parse_upload, target)
         text = "\n".join(p.get("text", "") for p in parsed["pages"])
@@ -886,6 +917,8 @@ async def upload_document(
     warning = parsed.get("warning") or ""
     if not chunks:
         warning = warning or "未生成可用文本块，请确认文件内容。"
+    batch_value = import_batch if isinstance(import_batch, str) else ""
+    batch_id = (batch_value or f"upload-{time.strftime('%Y%m%d%H%M%S')}-{doc_id[:6]}").strip()[:100]
     doc = {
         "id": doc_id,
         "name": title_value,
@@ -897,7 +930,13 @@ async def upload_document(
         "page_count": parsed.get("page_count", 0),
         "warning": warning,
         "status": "ready" if chunks else "needs_review",
-        "meta": {"original_name": file.filename, "suffix": suffix, "quality": parsed.get("quality", {})},
+        "meta": {
+            "original_name": file.filename,
+            "suffix": suffix,
+            "quality": parsed.get("quality", {}),
+            "import_batch": batch_id,
+            "sha256": source_sha256,
+        },
         "owner_username": _user["username"],
     }
     try:
@@ -936,11 +975,23 @@ def process_material(doc_id: str, _user: dict = Depends(require_role("manager", 
     return {"quality": quality}
 
 
+@app.post("/api/documents/{doc_id}/process/cancel")
+def cancel_material_processing(doc_id: str, _user: dict = Depends(require_role("manager", "admin"))):
+    try:
+        quality = material_processing.cancel(doc_id, _user["username"])
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"quality": quality}
+
+
 # FastAPI 按声明顺序匹配路径：固定段 sample 必须先于 {doc_id} 声明，
 # 否则 DELETE /api/documents/sample 会被参数路由吃掉并返回 404
 @app.delete("/api/documents/sample")
 def remove_sample_documents(_user: dict = Depends(require_role("manager", "admin"))):
-    removed = db.delete_sample_documents()
+    try:
+        removed = db.delete_sample_documents()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     retriever.rebuild()
     return {"ok": True, "removed": removed}
 
@@ -1012,14 +1063,47 @@ def chat_stream(payload: ChatRequest, access: document_access.Access = Depends(d
             }
         )
         emitted = False
+        stream_state = {"invalid_citations": 0}
         status = "complete"
         if use_model:
             try:
-                for token in client.stream_chat(prepared["messages"]):
+                chunks = qa.iter_sanitized_citations(
+                    client.stream_chat(prepared["messages"]),
+                    len(citations),
+                    stream_state,
+                )
+                for token in chunks:
+                    if not token:
+                        continue
                     if not emitted:
+                        if not token.strip():
+                            continue
                         yield _sse({"type": "generation", "generation": model_generation})
+                        if not citations:
+                            yield _sse(
+                                {
+                                    "type": "token",
+                                    "text": f"{qa.GENERAL_GROUNDING_PREFIX}。\n\n",
+                                }
+                            )
                     emitted = True
                     yield _sse({"type": "token", "text": token})
+                if not emitted:
+                    status = "fallback"
+                    yield _sse(
+                        {
+                            "type": "generation",
+                            "generation": generation_info(client, status=status),
+                        }
+                    )
+                    for piece in _pieces(prepared["fallback"]):
+                        yield _sse({"type": "token", "text": piece})
+                    yield _sse(
+                        {
+                            "type": "warning",
+                            "message": "大模型没有返回可用正文，已回退到离线检索。",
+                        }
+                    )
             except LLMError as exc:
                 if not emitted:
                     status = "fallback"
@@ -1030,13 +1114,30 @@ def chat_stream(payload: ChatRequest, access: document_access.Access = Depends(d
                 else:
                     status = "interrupted"
                     yield _sse({"type": "warning", "message": f"生成中断：{exc}"})
+            citation_warning = qa.invalid_citation_warning(
+                stream_state.get("invalid_citations", 0)
+            )
+            if citation_warning:
+                yield _sse({"type": "warning", "message": citation_warning})
         else:
             yield _sse({"type": "generation", "generation": generation_info(client)})
             for piece in _pieces(prepared["fallback"]):
                 yield _sse({"type": "token", "text": piece})
-                time.sleep(0.008)
         source = {**model_generation, "status": status} if emitted else generation_info(client, status=status)
-        yield _sse({"type": "done", "mode": "qwen" if emitted else "offline", "generation": source})
+        yield _sse(
+            {
+                "type": "done",
+                "mode": "qwen" if emitted else "offline",
+                "grounding": (
+                    "general_knowledge"
+                    if emitted and not citations
+                    else "documents_and_general"
+                    if emitted
+                    else prepared.get("grounding", "none")
+                ),
+                "generation": source,
+            }
+        )
 
     return StreamingResponse(
         generate(),

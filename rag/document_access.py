@@ -182,8 +182,17 @@ class Access:
         from .review_cases import _review_markdown, _tool_markdown
         content = _review_markdown(projected) if artifact["artifact_type"] == "pre_review" else _tool_markdown(projected)
         content = "当前为按阅读权限生成的副本，原始签名归档保持不变。\n\n" + content
-        return {**artifact, "payload": projected, "content": content, "redacted": True,
-                "original_sha256": artifact.get("sha256"), "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest()}
+        return {
+            **artifact,
+            "payload": projected,
+            "content": content,
+            "redacted": True,
+            "integrity_verified": False,
+            "integrity_status": "redacted_copy",
+            "original_integrity_status": artifact.get("integrity_status", "unrecorded"),
+            "original_sha256": artifact.get("sha256"),
+            "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        }
 
     def case(self, case: dict) -> dict:
         return {**case, "artifacts": [self.artifact(a) for a in case.get("artifacts") or []]}

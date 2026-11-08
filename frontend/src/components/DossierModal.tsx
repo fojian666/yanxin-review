@@ -10,8 +10,8 @@ interface DossierModalProps {
   open: boolean;
   dossier?: Dossier | null;
   onClose: () => void;
-  onSaved: (dossier: Dossier) => void;
-  onDeleted: () => void;
+  onSaved: (dossier: Dossier) => void | string | Promise<void | string>;
+  onDeleted: () => void | Promise<void>;
 }
 
 export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: DossierModalProps) {
@@ -124,8 +124,9 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
       const result = dossier
         ? await api.updateDossier(dossier.id, payload)
         : await api.createDossier(payload);
-      onSaved(result.dossier);
-      toast(dossier ? "历史课题信息已更新" : "历史课题已建立");
+      const refreshWarning = await onSaved(result.dossier);
+      const success = dossier ? "历史课题信息已更新" : "历史课题已建立";
+      toast(refreshWarning ? `${success}；${refreshWarning}` : success, refreshWarning ? "error" : "info");
       onClose();
     } catch (err) {
       toast(`保存失败：${(err as Error).message}`, "error");
@@ -140,7 +141,7 @@ export function DossierModal({ open, dossier, onClose, onSaved, onDeleted }: Dos
     try {
       await api.deleteDossier(dossier.id);
       toast("历史课题已删除，课题文档仍保留");
-      onDeleted();
+      await onDeleted();
       onClose();
     } catch (err) {
       toast(`删除失败：${(err as Error).message}`, "error");

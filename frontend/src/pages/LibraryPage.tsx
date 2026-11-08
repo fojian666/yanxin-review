@@ -96,6 +96,9 @@ export function LibraryPage() {
   const [artifactQuery, setArtifactQuery] = useState("");
   const [selectedArtifactId, setSelectedArtifactId] = useState(params.get("artifact") || "");
   const [artifactError, setArtifactError] = useState("");
+  const [paperQuery, setPaperQuery] = useState("");
+  const [paperPage, setPaperPage] = useState(1);
+  const paperPageSize = 50;
 
   const orderedDocs = useMemo(
     () => [...docs].sort((a, b) => (KIND_RANK[a.kind] ?? 9) - (KIND_RANK[b.kind] ?? 9)),
@@ -123,11 +126,17 @@ export function LibraryPage() {
   const selectedIndex = selected ? orderedDocs.findIndex((doc) => doc.id === selected.id) : -1;
   const previous = selectedIndex > 0 ? orderedDocs[selectedIndex - 1] : null;
   const next = selectedIndex >= 0 && selectedIndex < orderedDocs.length - 1 ? orderedDocs[selectedIndex + 1] : null;
-  const visiblePapers = useMemo(() => {
-    const firstPage = papers.slice(0, 100);
-    if (!requestedPaper || firstPage.some((paper) => paper.id === requestedPaper.id)) return firstPage;
-    return [requestedPaper, ...papers.filter((paper) => paper.id !== requestedPaper.id)].slice(0, 100);
-  }, [papers, requestedPaper]);
+  const filteredPapers = useMemo(() => {
+    const query = paperQuery.trim().toLocaleLowerCase();
+    if (!query) return papers;
+    return papers.filter((paper) =>
+      [paper.title, paper.authors, paper.keywords, paper.abstract, String(paper.year ?? "")]
+        .some((value) => value.toLocaleLowerCase().includes(query))
+    );
+  }, [paperQuery, papers]);
+  const paperPageCount = Math.max(1, Math.ceil(filteredPapers.length / paperPageSize));
+  const safePaperPage = Math.min(paperPage, paperPageCount);
+  const visiblePapers = filteredPapers.slice((safePaperPage - 1) * paperPageSize, safePaperPage * paperPageSize);
   const visibleArtifacts = useMemo(() => {
     const query = artifactQuery.trim().toLowerCase();
     if (!query) return caseArtifacts;
@@ -192,8 +201,13 @@ export function LibraryPage() {
       setParams(nextParams, { replace: true });
       return;
     }
+    const index = filteredPapers.findIndex((paper) => paper.id === requestedPaperId);
+    if (index >= 0 && Math.floor(index / paperPageSize) + 1 !== paperPage) {
+      setPaperPage(Math.floor(index / paperPageSize) + 1);
+      return;
+    }
     targetPaperRow.current?.scrollIntoView({ block: "center" });
-  }, [libraryView, loading, params, requestedPaper, requestedPaperId, setParams]);
+  }, [libraryView, loading, params, requestedPaper, requestedPaperId, setParams, filteredPapers, paperPage]);
 
   useEffect(() => {
     if (uploadedDoc) {
@@ -310,12 +324,17 @@ export function LibraryPage() {
     setDeletingId(doc.id);
     try {
       await api.deleteDocument(doc.id);
-      await Promise.all([refreshDocs(), refreshPapers()]);
+      let refreshWarning = "";
+      try {
+        await Promise.all([refreshDocs(), refreshPapers()]);
+      } catch (err) {
+        refreshWarning = (err as Error).message;
+      }
       const nextParams = new URLSearchParams(params);
       if (fallback) nextParams.set("doc", fallback.id);
       else nextParams.delete("doc");
       if (mounted.current) setParams(nextParams, { replace: true });
-      toast("文档已删除");
+      toast(refreshWarning ? `文档已删除，但列表刷新失败：${refreshWarning}` : "文档已删除", refreshWarning ? "error" : "info");
     } catch (err) {
       toast(`删除失败：${(err as Error).message}`, "error");
     } finally {
@@ -333,8 +352,12 @@ export function LibraryPage() {
     if (!confirm("确定移除全部演示本子？上传的真实文档不受影响。")) return;
     try {
       const result = await api.removeSampleDocuments();
-      await refreshDocs();
-      toast(`已移除 ${result.removed || 0} 份演示本子`);
+      try {
+        await refreshDocs();
+        toast(`已移除 ${result.removed || 0} 份演示本子`);
+      } catch (err) {
+        toast(`已移除 ${result.removed || 0} 份演示本子，但列表刷新失败：${(err as Error).message}`, "error");
+      }
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
     }
@@ -344,8 +367,12 @@ export function LibraryPage() {
     if (!file) return;
     try {
       const result = await api.importPapers(file);
-      await refreshPapers();
-      toast(`已导入 ${result.count || 0} 篇文献`);
+      try {
+        await refreshPapers();
+        toast(`已导入 ${result.count || 0} 篇文献`);
+      } catch (err) {
+        toast(`已导入 ${result.count || 0} 篇文献，但列表刷新失败：${(err as Error).message}`, "error");
+      }
     } catch (err) {
       toast(`导入失败：${(err as Error).message}`, "error");
     }
@@ -369,8 +396,12 @@ export function LibraryPage() {
     if (!confirm("确定移除所有演示文献？导入的真实文献不受影响。")) return;
     try {
       const result = await api.removeSamplePapers();
-      await refreshPapers();
-      toast(`已移除 ${result.removed || 0} 篇演示文献`);
+      try {
+        await refreshPapers();
+        toast(`已移除 ${result.removed || 0} 篇演示文献`);
+      } catch (err) {
+        toast(`已移除 ${result.removed || 0} 篇演示文献，但列表刷新失败：${(err as Error).message}`, "error");
+      }
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
     }
@@ -469,6 +500,16 @@ export function LibraryPage() {
             }).catch((err) => toast((err as Error).message, "error"))
               .finally(() => { if (mounted.current) setProcessingId(""); });
           } : undefined}
+          onCancel={can("upload") && selected?.source === "upload" ? () => {
+            const id = selected.id;
+            setProcessingId(id);
+            void api.cancelDocumentProcessing(id).then(async () => {
+              toast("已取消本地处理，原有正文保持不变");
+              try { await refreshDocs(); } catch { toast("处理任务已取消，列表暂未刷新", "error"); }
+            }).catch((err) => toast(`取消失败：${(err as Error).message}`, "error"))
+              .finally(() => { if (mounted.current) setProcessingId(""); });
+          } : undefined}
+          canceling={processingId === selected?.id}
           onRetry={() => {
             if (!selected) return;
             const requestId = ++contentRequest.current;
@@ -525,9 +566,29 @@ export function LibraryPage() {
               </motion.div>
             )}
           </AnimatePresence>
+          <div className="document-literature-pagination">
+            <label className="document-filter">
+              <span className="sr-only">搜索文献</span>
+              <input
+                value={paperQuery}
+                onChange={(event) => {
+                  setPaperQuery(event.target.value);
+                  setPaperPage(1);
+                }}
+                placeholder="搜索标题、作者、关键词或年份"
+              />
+            </label>
+            <div className="inline-pager" aria-label="文献分页">
+              <span>{papers.length ? `${safePaperPage} / ${paperPageCount} 页 · 共 ${filteredPapers.length} 条` : "0 条"}</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPaperPage((page) => Math.max(1, page - 1))} disabled={safePaperPage <= 1}>上一页</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPaperPage((page) => Math.min(paperPageCount, page + 1))} disabled={safePaperPage >= paperPageCount}>下一页</button>
+            </div>
+          </div>
           <div className="table-wrap scroll-area" role="region" aria-label="文献列表，可滚动" tabIndex={0}>
             {papers.length === 0 ? (
               <EmptyState icon={<FileText size={32} />} description="文献尚空。导入 CSV，趋势分析即可成图。" />
+            ) : filteredPapers.length === 0 ? (
+              <EmptyState icon={<FileText size={32} />} description="没有匹配当前搜索条件的文献。" />
             ) : (
               <table className="data-table">
                 <thead><tr><th>标题</th><th>年份</th><th>关键词</th><th>来源</th></tr></thead>
@@ -616,6 +677,9 @@ export function LibraryPage() {
                   <div className="document-case-artifact-meta">
                     <span>{selectedArtifact.created_by}</span>
                     <span>{selectedArtifact.created_at.replace("T", " ")}</span>
+                    {selectedArtifact.integrity_status === "mismatch" && <span className="status-pill status-fail">归档校验失败</span>}
+                    {selectedArtifact.integrity_status === "redacted_copy" && <span className="status-pill status-warn">受限副本</span>}
+                    {selectedArtifact.source_doc_missing && <span className="status-pill status-warn">来源文档已删除</span>}
                   </div>
                 </header>
                 <div className="document-case-artifact-body scroll-area">

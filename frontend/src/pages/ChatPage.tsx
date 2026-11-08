@@ -75,6 +75,8 @@ export function ChatPage() {
     setChatCitations: setCitations,
     health,
     chatSelection,
+    activeDossierId,
+    activeDocId,
   } = useApp();
   const retrievalMode = health?.retrieval?.mode;
   const [input, setInput] = useState("");
@@ -102,8 +104,11 @@ export function ChatPage() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [searchParams, setSearchParams]);
 
+  const emptyDossierScope = Boolean(activeDossierId && !activeDocId && selectedDocs.length === 0);
   const scopeLabel =
-    selectedDocs.length === 0
+    emptyDossierScope
+      ? "当前历史课题暂无可提问材料"
+      : selectedDocs.length === 0
       ? "全部文档"
       : selectedDocs.length === 1
         ? docs.find((d) => d.id === selectedDocs[0])?.name ?? "已选 1 份"
@@ -168,6 +173,10 @@ export function ChatPage() {
     if (busy || runningRef.current) return;
     const question = (preset ?? input).trim();
     if (!question) return;
+    if (emptyDossierScope) {
+      toast("当前历史课题没有当前申报书或可提问材料，请先切换课题或从范围中选择文档", "error");
+      return;
+    }
     if (docs.length === 0) {
       if (can("upload")) {
         toast("请先上传一份文档，再开始提问", "error");
@@ -213,7 +222,7 @@ export function ChatPage() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, citations: meta.citations, warning: meta.warning || m.warning }
+                  ? { ...m, citations: meta.citations, warning: meta.warning || m.warning, grounding: meta.grounding }
                   : m
               )
             );
@@ -240,10 +249,19 @@ export function ChatPage() {
               )
             );
           },
-          onDone: (generation) => {
+          onDone: (generation, grounding) => {
             if (!isCurrent()) return;
             setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, streaming: false, generation: generation ?? m.generation } : m))
+              prev.map((m) => (
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      streaming: false,
+                      generation: generation ?? m.generation,
+                      grounding: grounding ?? m.grounding,
+                    }
+                  : m
+              ))
             );
           },
         },
@@ -388,6 +406,7 @@ export function ChatPage() {
                     <motion.button
                       className="quick-card"
                       key={title}
+                      disabled={emptyDossierScope}
                       onClick={() => void send(question)}
                       variants={staggerItem}
                       whileTap={{ scale: 0.985 }}
@@ -428,14 +447,15 @@ export function ChatPage() {
             aria-label="输入问题；Enter 发送，Shift + Enter 换行"
             title="Enter 发送，Shift + Enter 换行"
             value={input}
+            disabled={emptyDossierScope}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="问点什么，例如：这份本子的研究内容和技术路线是什么？"
+            placeholder={emptyDossierScope ? "当前历史课题暂无可提问材料" : "问点什么，例如：这份本子的研究内容和技术路线是什么？"}
           />
           <motion.button
             className="btn btn-primary send-btn"
             onClick={() => void send()}
-            disabled={busy}
+            disabled={busy || emptyDossierScope}
             whileTap={busy ? undefined : { scale: 0.97 }}
             transition={{ duration: 0.34, ease: EASE }}
           >
@@ -469,6 +489,17 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (ind
           <span>{message.time ?? now()}</span>
           {message.role === "assistant" && (
             <span className="generation-source">{message.streaming ? (message.generation ? `${generationLabel(message.generation)} · 生成中…` : "生成中…") : generationLabel(message.generation)}</span>
+          )}
+          {message.role === "assistant" && !message.streaming && message.grounding && (
+            <span className={`grounding-badge grounding-${message.grounding}`}>
+              {message.grounding === "documents"
+                ? "依据平台资料"
+                : message.grounding === "documents_and_general"
+                  ? "资料 + 通用知识"
+                  : message.grounding === "general_knowledge"
+                    ? "通用知识 · 未使用项目资料"
+                    : "未命中平台资料"}
+            </span>
           )}
         </div>
         {message.role === "user" ? (

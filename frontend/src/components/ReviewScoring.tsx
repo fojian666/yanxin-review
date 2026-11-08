@@ -25,9 +25,9 @@ export function reviewScoringMarkdown(scoring?: ReviewScoring): string[] {
     `- 分档规则：低风险 ≥${scoring.thresholds.low} 分，中风险 ≥${scoring.thresholds.medium} 分，高风险 <${scoring.thresholds.medium} 分；未决项跨档时待核验，关键问题单独提示。`,
     `- 规则版本：${scoring.version}`,
     "", "### 关键问题",
-    ...(scoring.critical_issues.length ? scoring.critical_issues.flatMap(issue => [
+    ...(scoring.critical_issues?.length ? scoring.critical_issues.flatMap(issue => [
       `- ${issue.label}：${issue.detail}`, ...(issue.evidence ? [`  - 依据：${issue.evidence}`] : []),
-    ]) : ["未记录关键问题，仍须人工复核。"]),
+    ]) : [scoring.critical_issues == null ? "未记录关键问题，仍须人工复核。" : "未发现关键问题，仍须人工复核。"]),
   ];
   scoring.dimensions.forEach(dimension => {
     lines.push("", `### ${dimension.label}（${itemPoints(dimension)}）`);
@@ -65,9 +65,9 @@ export function ReviewScoringSummary({ scoring, compact = false, boundaryFirst =
       </dl>
       <div className="review-score-critical">
         <h4>关键问题（独立提示）</h4>
-        {scoring.critical_issues.length ? scoring.critical_issues.map(issue => <div key={issue.key}>
+        {scoring.critical_issues?.length ? scoring.critical_issues.map(issue => <div key={issue.key}>
           <strong>{issue.label}</strong><p>{issue.detail}</p>{issue.evidence && <blockquote>{issue.evidence}</blockquote>}
-        </div>) : <p>未记录关键问题，仍须人工复核。</p>}
+        </div>) : <p>{scoring.critical_issues == null ? "未记录关键问题，仍须人工复核。" : "未发现关键问题，仍须人工复核。"}</p>}
       </div>
       {duplicate && <p className="review-score-duplicate">候选疑似字面覆盖率（非全文重复率）{duplicate.coverage == null ? "待核验" : `${(duplicate.coverage * 100).toFixed(1)}%`} · 命中字数 {duplicate.matched_characters} / {duplicate.total_characters} · 最长单来源连续覆盖 {duplicate.longest_span} 字 · 比对候选 {duplicate.candidates_checked} 份。{duplicate.scope_note}{duplicate.pending_review && " 仍待人工核验。"}</p>}
       {!boundaryFirst && <p className="review-score-disclaimer">{scoring.disclaimer}</p>}

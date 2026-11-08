@@ -1,5 +1,9 @@
 import { test, expect, navigate, proposalText, downloadText } from './fixtures';
 
+// 本文件包含多种视口截图和长材料处理，关闭 trace 可避免 Playwright 关闭
+// 并发上下文时压缩同一 artifact 目录产生 ENOENT。
+test.use({ trace: 'off' });
+
 test('目录快照缺少新授权文档时刷新后打开深链', async ({ app: page, documents }) => {
   const target = documents[0];
   let requests = 0;
@@ -30,6 +34,30 @@ test('失效深链离开后新获权限再次返回可读取', async ({ app: pag
   granted = true;
   await page.goBack();
   await expect(page.locator('.document-reader-head')).toContainText(documents[0].name);
+});
+
+test('索引更新阶段不显示会误报保留旧正文的取消按钮', async ({ app: page, documents }) => {
+  const target = documents[0];
+  await page.route('**/api/documents', async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const data = await response.json();
+    const document = data.documents.find((item: { id: string }) => item.id === target.id);
+    if (document) {
+      document.quality = {
+        ...document.quality,
+        state: 'indexing',
+        complete: true,
+        note: '正在更新检索索引',
+      };
+    }
+    await route.fulfill({ response, json: data });
+  });
+  await page.reload();
+  await page.goto(`/library?doc=${target.id}`);
+  await expect(page.getByRole('region', { name: '材料处理质量', exact: true })).toContainText('更新索引中');
+  await expect(page.getByRole('button', { name: '取消处理', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '处理原文', exact: true })).toHaveCount(0);
 });
 
 test('长材料重建文本、年度筛选与处理质量在桌面手机均可读', async ({ app: page, context }, testInfo) => {

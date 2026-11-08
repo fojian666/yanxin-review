@@ -35,13 +35,12 @@ class LLMClient:
             )
 
     def status(self) -> dict:
+        """公开状态投影：不得暴露内网端点、密钥或连接参数。"""
         return {
             "configured": self.configured,
             "provider": self.info.get("provider", "offline"),
             "label": self.info.get("label", "离线演示模式"),
             "model": self.model if self.configured else "检索式回答（未配置大模型）",
-            "base_url": self.base_url if self.configured else "",
-            "blocked_external": bool(self.info.get("blocked_external")),
         }
 
     def _headers(self) -> dict:
@@ -91,7 +90,10 @@ class LLMClient:
                 payload.pop("thinking", None)
                 payload["enable_thinking"] = strength != "quick"
                 if strength != "quick":
-                    payload["thinking_budget"] = {"low": 2048, "high": 8192, "max": 16384}[strength]
+                    thinking_budget = {"low": 2048, "high": 8192, "max": 16384}[strength]
+                    payload["thinking_budget"] = thinking_budget
+                    # 思考 token 与正文共享 max_tokens；预算越大，输出窗口也必须同步扩大。
+                    payload["max_tokens"] = max(max_tokens, thinking_budget + 2048)
         return payload
 
     def chat(
@@ -131,16 +133,16 @@ class LLMClient:
             message = data["choices"][0]["message"] or {}
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
             raise LLMError(f"大模型返回格式异常：{resp.text[:300]}") from exc
+        finish_reason = str(data["choices"][0].get("finish_reason") or "")
         content = (message.get("content") or "").strip() if isinstance(message, dict) else ""
+        if finish_reason == "length":
+            raise LLMError(
+                "大模型输出因 length 上限被截断，不能作为完整结论；"
+                "请关闭思考模式（LLM_ENABLE_THINKING=0）或调大 LLM_MAX_TOKENS"
+            )
         if content:
             return content
         if isinstance(message, dict) and message.get("reasoning_content"):
-            finish = (data["choices"][0].get("finish_reason") or "").strip()
-            if finish == "length":
-                raise LLMError(
-                    "思考过程耗尽了 max_tokens（finish_reason=length），正文被截断；"
-                    "请关闭思考模式（LLM_ENABLE_THINKING=0）或调大 LLM_MAX_TOKENS"
-                )
             raise LLMError(
                 "大模型仅返回思考内容（reasoning_content）而无正文；"
                 "请关闭思考模式（LLM_ENABLE_THINKING=0）或将结果输出到 content 字段"
@@ -179,6 +181,7 @@ class LLMClient:
             detail = resp.text[:500]
             raise LLMError(f"大模型服务返回 {resp.status_code}：{detail}")
         emitted = False
+        finish_reason = ""
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
                 line = (raw_line or "").strip()
@@ -198,6 +201,7 @@ class LLMClient:
                 if not isinstance(choices, list) or not choices:
                     continue
                 first = choices[0] if isinstance(choices[0], dict) else {}
+                finish_reason = str(first.get("finish_reason") or finish_reason)
                 delta = first.get("delta") or {}
                 if not isinstance(delta, dict):
                     continue
@@ -210,6 +214,11 @@ class LLMClient:
             raise LLMError(f"大模型流式读取失败：{exc}") from exc
         finally:
             resp.close()
+        if finish_reason == "length":
+            raise LLMError(
+                "大模型流式输出因 length 上限被截断，结果不完整；"
+                "请关闭思考模式或调大 LLM_MAX_TOKENS"
+            )
         if not emitted:
             raise LLMError(
                 "大模型没有返回正文内容（若用思考型模型，请设 LLM_ENABLE_THINKING=0，"

@@ -8,6 +8,7 @@ test('@smoke 真实离线问答、引用和跨页保留', async ({ app: page, do
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await expect(page.locator('.msg.assistant .msg-content')).not.toBeEmpty();
   await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled();
+  await expect(page.locator('.grounding-badge')).toHaveText('依据平台资料');
   await expect(page.locator('.source-card').first()).toBeVisible();
   await expect(page.locator('.source-card .source-name').first()).toHaveAttribute('href', /^\/library\?doc=/);
   await page.screenshot({ path: testInfo.outputPath('chat-source-link.png') });
@@ -53,6 +54,23 @@ test('两轮受控回答的旧引用恢复旧证据', async ({ app: page }) => {
   await page.getByRole('button', { name: '查看引用 1', exact: true }).first().click();
   await expect(page.locator('.sources-panel')).toContainText('第1轮文档的证据');
   await expect(page.locator('.sources-panel')).not.toContainText('第2轮文档的证据');
+});
+
+test('受控通用知识回答使用 stream done 的最终来源标记', async ({ app: page }) => {
+  await page.route('**/api/chat/stream', route => route.fulfill({
+    contentType: 'text/event-stream',
+    body: sse([
+      { type: 'meta', mode: 'qwen', citations: [], warning: '', grounding: 'none' },
+      { type: 'generation', generation: { provider: 'qwen', label: '测试模型', model: 'test-model', status: 'complete' } },
+      { type: 'token', text: '受控通用知识回答。' },
+      { type: 'done', grounding: 'general_knowledge', generation: { provider: 'qwen', label: '测试模型', model: 'test-model', status: 'complete' } },
+    ]),
+  }));
+  await navigate(page, '智能问答');
+  await page.locator('textarea').fill('请介绍一个平台外问题');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled();
+  await expect(page.locator('.grounding-badge')).toHaveText('通用知识 · 未使用项目资料');
 });
 
 test('受控流错误提示和真实请求重试', async ({ app: page }) => {

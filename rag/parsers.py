@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import codecs
 import io
 import posixpath
 import re
@@ -21,6 +22,11 @@ W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 class ParseError(RuntimeError):
     pass
+
+
+def _check_parse_deadline(deadline: float, label: str) -> None:
+    if time.monotonic() > deadline:
+        raise ParseError(f"{label}解析超时，请压缩或拆分文件后重试")
 
 
 def _check_zip_size(z: zipfile.ZipFile) -> None:
@@ -121,7 +127,7 @@ def _docx_paragraph_text(p: ET.Element) -> str:
     parts: list[str] = []
     for node in p.iter():
         tag = node.tag.split("}")[-1]
-        if tag == "t":
+        if tag in {"t", "delText"}:
             parts.append(node.text or "")
         elif tag == "tab":
             parts.append("\t")
@@ -142,6 +148,24 @@ def _docx_table_text(tbl: ET.Element) -> str:
         if cells:
             lines.append(" | ".join(cells))
     return "\n".join(lines)
+
+
+def _docx_body_blocks(container: ET.Element) -> list[str]:
+    """按文档顺序读取普通段落、表格和常见内容控件容器。"""
+    blocks: list[str] = []
+    for child in list(container):
+        tag = child.tag.split("}")[-1]
+        if tag == "p":
+            text = _docx_paragraph_text(child)
+            if text:
+                blocks.append(text)
+        elif tag == "tbl":
+            text = _docx_table_text(child)
+            if text:
+                blocks.append(text)
+        elif tag in {"sdt", "sdtContent", "customXml", "ins", "del"}:
+            blocks.extend(_docx_body_blocks(child))
+    return blocks
 
 
 def _docx_notes_text(z: zipfile.ZipFile) -> list[str]:
@@ -182,17 +206,7 @@ def parse_docx(path: Path) -> dict:
     body = root.find(f"{W}body")
     if body is None:
         raise ParseError("DOCX 中没有找到正文")
-    blocks: list[str] = []
-    for child in list(body):
-        tag = child.tag.split("}")[-1]
-        if tag == "p":
-            text = _docx_paragraph_text(child)
-            if text:
-                blocks.append(text)
-        elif tag == "tbl":
-            text = _docx_table_text(child)
-            if text:
-                blocks.append(text)
+    blocks = _docx_body_blocks(body)
     if notes:
         blocks.extend(notes)
     full = normalize_text("\n".join(blocks))
@@ -205,9 +219,23 @@ def parse_docx(path: Path) -> dict:
 
 
 def parse_pdf(path: Path) -> dict:
+    physical_count: int | None = None
+    try:
+        info = subprocess.run(
+            ["pdfinfo", str(path)],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        match = re.search(r"^Pages:\s+(\d+)", info.stdout.decode(errors="replace"), re.M)
+        if info.returncode == 0 and match:
+            physical_count = int(match.group(1))
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
     cmd = ["pdftotext", "-layout", "-enc", "UTF-8", "-q"]
     if config.MAX_PDF_PAGES > 0:
-        cmd += ["-l", str(config.MAX_PDF_PAGES)]
+        # 多读一页作为哨兵，区分“恰好达到上限”与“超过上限”。
+        cmd += ["-l", str(config.MAX_PDF_PAGES + 1)]
     cmd += [str(path), "-"]
     try:
         proc = subprocess.run(
@@ -224,9 +252,12 @@ def parse_pdf(path: Path) -> dict:
         msg = proc.stderr.decode("utf-8", errors="ignore").strip()
         raise ParseError(f"PDF 解析失败：{msg or 'pdftotext 返回错误'}")
     raw = proc.stdout.decode("utf-8", errors="ignore")
-    pages_raw = raw.split("\f")
-    if pages_raw and not pages_raw[-1].strip():
-        pages_raw.pop()
+    detected_pages = raw.split("\f")
+    if detected_pages and not detected_pages[-1].strip():
+        detected_pages.pop()
+    detected_count = max(len(detected_pages), physical_count or 0)
+    page_limit_reached = bool(config.MAX_PDF_PAGES > 0 and detected_count > config.MAX_PDF_PAGES)
+    pages_raw = detected_pages[: config.MAX_PDF_PAGES] if config.MAX_PDF_PAGES > 0 else detected_pages
     pages: list[dict] = []
     empty = 0
     for i, page_text in enumerate(pages_raw):
@@ -241,8 +272,8 @@ def parse_pdf(path: Path) -> dict:
         warning = "未提取到可复制文本，可能是扫描件。可由管理人员在文档中心运行本地 OCR，或提供可复制文本的 PDF/DOCX。"
     elif empty and empty >= max(2, len(pages_raw) // 3):
         warning = f"有 {empty} 页未提取到文本，可能是扫描页；建议人工核对。"
-    page_count = len(pages_raw)
-    if config.MAX_PDF_PAGES > 0 and page_count >= config.MAX_PDF_PAGES:
+    page_count = detected_count
+    if page_limit_reached:
         limit_note = f"仅解析前 {config.MAX_PDF_PAGES} 页；如需完整内容请拆分文件。"
         warning = f"{warning} {limit_note}".strip() if warning else limit_note
     return {
@@ -250,7 +281,7 @@ def parse_pdf(path: Path) -> dict:
         "page_count": page_count,
         "warning": warning,
         "text_len": full_len,
-        "page_limit_reached": bool(config.MAX_PDF_PAGES > 0 and page_count >= config.MAX_PDF_PAGES),
+        "page_limit_reached": page_limit_reached,
         "missing_pages": [i + 1 for i, value in enumerate(pages_raw) if len(re.sub(r"\s+", "", value)) < 80],
     }
 
@@ -302,20 +333,60 @@ class _HTMLTextParser(HTMLParser):
             self.parts.append(data)
 
 
-def _html_text(raw: bytes | str) -> str:
+def _decode_html_bytes(raw: bytes) -> tuple[str, str, bool]:
+    if raw.startswith(codecs.BOM_UTF8):
+        return raw.decode("utf-8-sig"), "", False
+    head = raw[:8192].decode("latin1", errors="ignore")
+    match = re.search(
+        r"""(?:<meta[^>]+charset\s*=\s*["']?|<\?xml[^>]+encoding\s*=\s*["'])"""
+        r"""\s*([a-zA-Z0-9._-]+)""",
+        head,
+        re.IGNORECASE,
+    )
+    declared = match.group(1) if match else ""
+    candidates = ([declared] if declared else []) + ["utf-8", "gb18030"]
+    for index, encoding in enumerate(dict.fromkeys(candidates)):
+        try:
+            # 未知字符集名称会抛 LookupError；继续尝试安全回退。
+            codecs.lookup(encoding)
+            text = raw.decode(encoding)
+        except (LookupError, UnicodeDecodeError):
+            continue
+        if declared and encoding.lower() == declared.lower():
+            return text, "", False
+        uncertain = not declared or index > 0
+        warning = (
+            f"HTML 未声明字符集，已按 {encoding} 解码。"
+            if not declared
+            else f"HTML 声明的字符集 {declared} 无法解码，已按 {encoding} 回退。"
+        )
+        return text, warning, uncertain
+    text = raw.decode("utf-8", errors="ignore")
+    return text, "HTML 字符集无法确认，已忽略无法解码的字节。", True
+
+
+def _html_text(raw: bytes | str) -> tuple[str, str, bool]:
+    if isinstance(raw, bytes):
+        decoded, warning, uncertain = _decode_html_bytes(raw)
+    else:
+        decoded, warning, uncertain = raw, "", False
     parser = _HTMLTextParser()
-    parser.feed(raw.decode("utf-8", errors="ignore") if isinstance(raw, bytes) else raw)
+    parser.feed(decoded)
     lines = [" ".join(line.split()) for line in "".join(parser.parts).splitlines()]
-    return normalize_text("\n".join(line for line in lines if line))
+    return normalize_text("\n".join(line for line in lines if line)), warning, uncertain
 
 
 def parse_html(path: Path) -> dict:
-    text = _html_text(path.read_bytes())
+    text, encoding_warning, encoding_uncertain = _html_text(path.read_bytes())
+    warnings = [encoding_warning]
+    if not text:
+        warnings.append("未从 HTML 中提取到可读正文。")
     return {
         "pages": [{"page": None, "text": text}],
         "page_count": 0,
-        "warning": "" if text else "未从 HTML 中提取到可读正文。",
+        "warning": " ".join(value for value in warnings if value),
         "text_len": len(text),
+        "encoding_uncertain": encoding_uncertain,
     }
 
 
@@ -327,6 +398,24 @@ def _decode_rtf_bytes(values: list[int]) -> str:
         except UnicodeDecodeError:
             continue
     return raw.decode("gb18030", errors="ignore")
+
+
+def _merge_utf16_surrogates(value: str) -> str:
+    """合并 RTF Unicode 控制字产生的 UTF-16 代理对，并丢弃孤立代理项。"""
+    output: list[str] = []
+    index = 0
+    while index < len(value):
+        codepoint = ord(value[index])
+        if 0xD800 <= codepoint <= 0xDBFF and index + 1 < len(value):
+            low = ord(value[index + 1])
+            if 0xDC00 <= low <= 0xDFFF:
+                output.append(chr(0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00)))
+                index += 2
+                continue
+        if not 0xD800 <= codepoint <= 0xDFFF:
+            output.append(value[index])
+        index += 1
+    return "".join(output)
 
 
 def parse_rtf(path: Path) -> dict:
@@ -416,7 +505,7 @@ def parse_rtf(path: Path) -> dict:
                     consumed += 1
         i += consumed
     flush_bytes()
-    text = normalize_text("".join(out))
+    text = normalize_text(_merge_utf16_surrogates("".join(out)))
     return {
         "pages": [{"page": None, "text": text}],
         "page_count": 0,
@@ -426,7 +515,6 @@ def parse_rtf(path: Path) -> dict:
 
 
 def _zip_xml(z: zipfile.ZipFile, member: str) -> ET.Element:
-    _check_zip_size(z)
     try:
         xml = z.read(member)
     except KeyError as exc:
@@ -445,6 +533,8 @@ def _natural_key(value: str) -> list[object]:
 def parse_odt(path: Path) -> dict:
     try:
         with zipfile.ZipFile(path) as z:
+            _check_zip_size(z)
+            _check_parse_deadline(time.monotonic() + config.OFFICE_PARSE_TIMEOUT_SECONDS, "ODT")
             root = _zip_xml(z, "content.xml")
     except ParseError:
         raise
@@ -469,6 +559,8 @@ def parse_ofd(path: Path) -> dict:
     """从 OFD 容器各页的 TextCode 节点提取可复制文本。"""
     try:
         with zipfile.ZipFile(path) as z:
+            _check_zip_size(z)
+            deadline = time.monotonic() + config.OFFICE_PARSE_TIMEOUT_SECONDS
             page_members = sorted(
                 (
                     name for name in z.namelist()
@@ -480,6 +572,7 @@ def parse_ofd(path: Path) -> dict:
                 raise ParseError("OFD 中未找到页面内容")
             pages: list[dict] = []
             for index, member in enumerate(page_members, 1):
+                _check_parse_deadline(deadline, "OFD")
                 root = _zip_xml(z, member)
                 parts = [
                     (node.text or "").strip()
@@ -505,6 +598,8 @@ def parse_ofd(path: Path) -> dict:
 def parse_pptx(path: Path) -> dict:
     try:
         with zipfile.ZipFile(path) as z:
+            _check_zip_size(z)
+            deadline = time.monotonic() + config.OFFICE_PARSE_TIMEOUT_SECONDS
             slide_members = sorted(
                 (
                     name for name in z.namelist()
@@ -538,6 +633,7 @@ def parse_pptx(path: Path) -> dict:
                 raise ParseError("PPTX 中未找到幻灯片")
             pages: list[dict] = []
             for index, member in enumerate(slide_members, 1):
+                _check_parse_deadline(deadline, "PPTX")
                 root = _zip_xml(z, member)
                 parts = [
                     (node.text or "").strip()
@@ -564,6 +660,8 @@ def parse_xlsx(path: Path) -> dict:
     """按工作表提取 XLSX 单元格文本，避免把表格内容误当普通段落。"""
     try:
         with zipfile.ZipFile(path) as z:
+            _check_zip_size(z)
+            deadline = time.monotonic() + config.OFFICE_PARSE_TIMEOUT_SECONDS
             names = set(z.namelist())
             shared: list[str] = []
             if "xl/sharedStrings.xml" in names:
@@ -593,6 +691,7 @@ def parse_xlsx(path: Path) -> dict:
                 sheets = [(Path(name).stem, name) for name in sorted(names, key=_natural_key) if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", name)]
             pages: list[dict] = []
             for index, (sheet_name, member) in enumerate(sheets, 1):
+                _check_parse_deadline(deadline, "XLSX")
                 if member not in names:
                     continue
                 root = _zip_xml(z, member)
@@ -737,10 +836,11 @@ def parse_upload(path: Path) -> dict:
     limited = apply_content_limit(result)
     missing = result.get("missing_pages", [])
     truncated = result.get("text_len", 0) > limited.get("text_len", 0) or bool(result.get("page_limit_reached"))
+    encoding_uncertain = bool(result.get("encoding_uncertain"))
     usable = bool(limited.get("text_len"))
     limited["quality"] = {
-        "state": "partial" if truncated or missing or not usable else "ready",
-        "complete": usable and not truncated and not missing,
+        "state": "partial" if truncated or missing or encoding_uncertain or not usable else "ready",
+        "complete": usable and not truncated and not missing and not encoding_uncertain,
         "source_chars": result.get("text_len", 0),
         "indexed_chars": limited.get("text_len", 0),
         "total_pages": None if result.get("page_limit_reached") else result.get("page_count", 0),

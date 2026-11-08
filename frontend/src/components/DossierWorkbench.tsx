@@ -112,8 +112,24 @@ export function DossierWorkbench() {
   };
 
   const saved = async (next: Dossier) => {
-    await refreshDossiers();
+    let warning = "";
+    try {
+      await refreshDossiers();
+    } catch (err) {
+      warning = `列表刷新失败：${(err as Error).message}`;
+    }
     chooseDossier(next);
+    return warning;
+  };
+
+  const refreshAfterMutation = async (): Promise<string> => {
+    try {
+      await refreshDossiers();
+      await loadChecklist();
+      return "";
+    } catch (err) {
+      return `状态刷新失败：${(err as Error).message}`;
+    }
   };
 
   const attach = async () => {
@@ -121,10 +137,9 @@ export function DossierWorkbench() {
     setSaving("attach");
     try {
       await api.attachDossierDocument(dossier.id, selectedDoc, selectedRole);
-      await refreshDossiers();
-      await loadChecklist();
       if (selectedRole === "proposal_text") setActiveDocId(selectedDoc);
-      toast("资料已归入历史课题");
+      const refreshWarning = await refreshAfterMutation();
+      toast(refreshWarning ? `资料已归入历史课题；${refreshWarning}` : "资料已归入历史课题", refreshWarning ? "error" : "info");
     } catch (err) {
       toast(`归档失败：${(err as Error).message}`, "error");
     } finally {
@@ -143,9 +158,9 @@ export function DossierWorkbench() {
     setSaving(`verify-${docId}`);
     try {
       await api.updateDossierDocument(dossier.id, docId, { human_verified: checked });
-      await refreshDossiers();
-      await loadChecklist();
-      toast(checked ? "已记录人工确认" : "已撤销人工确认");
+      const refreshWarning = await refreshAfterMutation();
+      const message = checked ? "已记录人工确认" : "已撤销人工确认";
+      toast(refreshWarning ? `${message}；${refreshWarning}` : message, refreshWarning ? "error" : "info");
     } catch (err) {
       toast(`更新失败：${(err as Error).message}`, "error");
     } finally {
@@ -159,9 +174,8 @@ export function DossierWorkbench() {
     try {
       await api.updateDossierDocument(dossier.id, docId, { is_current: true });
       if (dossier.materials.find((item) => item.doc_id === docId)?.role === "proposal_text") setActiveDocId(docId);
-      await refreshDossiers();
-      await loadChecklist();
-      toast("已切换当前版本");
+      const refreshWarning = await refreshAfterMutation();
+      toast(refreshWarning ? `已切换当前版本；${refreshWarning}` : "已切换当前版本", refreshWarning ? "error" : "info");
     } catch (err) {
       toast(`切换失败：${(err as Error).message}`, "error");
     } finally {
@@ -175,9 +189,8 @@ export function DossierWorkbench() {
     try {
       await api.detachDossierDocument(dossier.id, docId);
       if (dossier.materials.some((item) => item.doc_id === docId && item.role === "proposal_text" && item.is_current)) setActiveDocId("");
-      await refreshDossiers();
-      await loadChecklist();
-      toast("已从历史课题材料中移除");
+      const refreshWarning = await refreshAfterMutation();
+      toast(refreshWarning ? `已从历史课题材料中移除；${refreshWarning}` : "已从历史课题材料中移除", refreshWarning ? "error" : "info");
     } catch (err) {
       toast(`移除失败：${(err as Error).message}`, "error");
     } finally {
@@ -199,7 +212,7 @@ export function DossierWorkbench() {
         { key: "disclaimer", label: "免责声明", text: checklist.disclaimer },
       ]
     : [];
-  const overallStatus = checklist?.overall.status ?? "warn";
+  const overallStatus = checklist?.overall.status ?? (error ? "error" : "idle");
   const workflowIndex = dossier ? currentWorkflowIndex(dossier.phase) : -1;
   const dossierSteps = DOSSIER_STEPS.filter((step) => step.id !== "attach" || can("upload"));
 
@@ -474,12 +487,14 @@ export function DossierWorkbench() {
         open={modalOpen}
         dossier={editing ? dossier : null}
         onClose={() => setModalOpen(false)}
-        onSaved={(next) => void saved(next)}
+        onSaved={(next) => saved(next)}
         onDeleted={() => {
           setChecklist(null);
           setActiveDossierId("");
           setActiveDocId("");
-          void refreshDossiers();
+          return refreshDossiers().catch((err) => {
+            toast(`历史课题已删除，但列表刷新失败：${(err as Error).message}`, "error");
+          });
         }}
       />
     </section>
