@@ -293,7 +293,7 @@ test('清理演示数据保留自建文档、文献、专家与公开政策', as
   await expect(page.getByRole('row').filter({ hasText: 'E2E保留专家' })).toBeVisible();
 });
 
-test('工作台选择申报书并在预审、匹配、问答间保持上下文', async ({ app: page, documents }, testInfo) => {
+test('工作台选择申报书并在预审、匹配、问答间保持上下文', async ({ app: page, documents, context }, testInfo) => {
   await page.getByLabel('当前课题').selectOption(documents[1].id);
   await page.screenshot({ path: testInfo.outputPath('workspace-desktop.png') });
   await page.locator('.nav').getByRole('link', { name: '项目预审', exact: true }).click();
@@ -308,7 +308,10 @@ test('工作台选择申报书并在预审、匹配、问答间保持上下文',
   await page.locator('.nav').getByRole('link', { name: '智能问答', exact: true }).click();
   await expect(page.locator('.scope-btn')).toContainText(documents[0].name);
   await navigate(page, '文档中心');
-  await page.locator('.document-directory-group').filter({ has: page.getByRole('heading', { name: '政策' }) }).getByRole('button').first().click();
+  const listed = await (await context.request.get('/api/documents')).json();
+  const policy = listed.documents.find((doc: { kind: string }) => doc.kind === 'policy');
+  expect(policy).toBeTruthy();
+  await page.getByRole('button', { name: new RegExp(policy.name) }).click();
   await page.getByRole('button', { name: '文档问答', exact: true }).click();
   await page.locator('.brand-home').click();
   await expect(page.getByLabel('当前课题')).toHaveValue(documents[0].id);
