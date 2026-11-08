@@ -6,6 +6,7 @@ import socket
 import shutil
 import sys
 import tempfile
+import time
 
 root = Path(__file__).resolve().parents[2]
 data = Path(sys.argv[1]).resolve()
@@ -36,7 +37,22 @@ db.init_db()
 load_policies()
 # 快照构建产物，避免其他 harness 重建 dist 时改变正在测试的资源。
 ui = data / "ui"
-shutil.copytree(root / "frontend" / "dist", ui)
+source_ui = root / "frontend" / "dist"
+last_error: Exception | None = None
+for attempt in range(3):
+    try:
+        shutil.copytree(source_ui, ui)
+        if (ui / "assets").is_dir() and (ui / "index.html").is_file():
+            break
+        raise RuntimeError("前端快照缺少 assets 或 index.html")
+    except (OSError, RuntimeError) as exc:
+        last_error = exc
+        if ui.exists():
+            shutil.rmtree(ui)
+        if attempt < 2:
+            time.sleep(0.1)
+else:
+    raise RuntimeError(f"无法建立完整的前端测试快照：{last_error}")
 import app as app_module
 from starlette.staticfiles import StaticFiles
 app_module.DIST_DIR = ui
