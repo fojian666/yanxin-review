@@ -19,6 +19,7 @@ command -v python3 >/dev/null || die "python3 is required"
 
 source_dir="$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)"
 [[ -n "$source_dir" ]] || die "run from a Git checkout"
+git config --global --add safe.directory "$source_dir"
 
 if [[ "$(git -C "$source_dir" status --porcelain)" != "" ]]; then
   die "refusing to deploy a dirty worktree; commit or stash changes first"
