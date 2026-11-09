@@ -7,6 +7,7 @@ CONF_DIR="${CONF_DIR:-/etc/yanxin-review}"
 DATA_DIR="${DATA_DIR:-/var/lib/yanxin-review/data}"
 SERVER_NAME="${SERVER_NAME:-}"
 CERT_NAME="${CERT_NAME:-}"
+REBUILD_FRONTEND="${REBUILD_FRONTEND:-0}"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -35,6 +36,7 @@ id "$APP_USER" >/dev/null 2>&1 || useradd \
 install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
 install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$DATA_DIR"
 install -d -m 700 -o root -g root "$CONF_DIR"
+install -d -m 700 -o root -g root /var/backups/yanxin-review
 
 if [[ ! -f "$CONF_DIR/app.env" ]]; then
   die "missing $CONF_DIR/app.env; create it from .env.example first"
@@ -64,13 +66,27 @@ fi
 "$APP_DIR/.venv/bin/python" -m pip install --upgrade pip
 "$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
 
-if command -v npm >/dev/null; then
+build_frontend=false
+if [[ "$REBUILD_FRONTEND" == "1" || ! -f "$APP_DIR/frontend/dist/index.html" ]]; then
+  build_frontend=true
+elif find \
+  "$APP_DIR/frontend/src" \
+  "$APP_DIR/frontend/public" \
+  "$APP_DIR/frontend/package.json" \
+  "$APP_DIR/frontend/package-lock.json" \
+  "$APP_DIR/frontend/vite.config.ts" \
+  -type f -newer "$APP_DIR/frontend/dist/index.html" \
+  -print -quit 2>/dev/null | grep -q .; then
+  build_frontend=true
+fi
+
+if [[ "$build_frontend" == true ]] && command -v npm >/dev/null; then
   (
     cd "$APP_DIR/frontend"
     npm ci
     npm run build
   )
-elif [[ ! -f "$APP_DIR/frontend/dist/index.html" ]]; then
+elif [[ "$build_frontend" == true ]]; then
   die "npm is required because frontend/dist is absent"
 fi
 

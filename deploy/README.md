@@ -84,6 +84,10 @@ cd /opt/yanxin-review
 sudo ./deploy/install.sh
 ```
 
+The installer rebuilds the frontend only when `frontend/dist` is missing or a
+tracked frontend source file is newer than the build. Set
+`REBUILD_FRONTEND=1` to force a rebuild.
+
 Optional Nginx installation:
 
 ```bash

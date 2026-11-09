@@ -70,8 +70,7 @@ runuser -u postgres -- pg_restore \
   --exit-on-error \
   --no-owner \
   --no-acl \
-  -d "$target_db" \
-  "$db_dump"
+  -d "$target_db" < "$db_dump"
 
 install -d -m 700 "$target_dir"
 tar -xzf "$data_archive" -C "$target_dir"

@@ -26,8 +26,7 @@ runuser -u postgres -- pg_dump \
   --format=custom \
   --no-owner \
   --no-acl \
-  --file="$tmp_dir/db.dump" \
-  "$DB_NAME"
+  "$DB_NAME" > "$tmp_dir/db.dump"
 
 tar \
   --numeric-owner \
