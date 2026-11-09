@@ -1,0 +1,13 @@
+[Unit]
+Description=Health, capacity, and certificate checks for the Yanxin review platform
+After=network-online.target yanxin-review.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/yanxin-review/deploy/monitor.sh
+TimeoutStartSec=45
+PrivateTmp=true
+NoNewPrivileges=true

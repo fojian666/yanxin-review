@@ -119,6 +119,8 @@ python3 -m tools.migrate_sqlite_to_postgres \
 
 迁移脚本幂等保留主键；目标已有相同主键时保留目标记录，不能用重复迁移覆盖权限配置。`--clear` 仅允许名称以 `_test` 结尾的隔离测试库，生产迁移不清空目标业务表。PostgreSQL 后端首次初始化会创建业务表、`chunk_vectors` 和 pgvector HNSW 索引。
 
+云主机部署、备份恢复、巡检和远程冒烟脚本见 [`deploy/README.md`](deploy/README.md)。部署文件要求运行配置与模型密钥放在 `/etc/yanxin-review/` 的 root-only 环境文件中，不写入源码目录；公开演示只使用合成数据。
+
 首次启动会自动：
 
 1. 创建当前数据库表、`data/uploads/` 与嵌入缓存目录；

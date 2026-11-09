@@ -143,12 +143,15 @@
 ## 9. 部署安全检查清单（内网上线前）
 
 - [ ] 保持 `HOST=127.0.0.1`，或确需多机访问时：防火墙限源 + 强口令（`SEED_DEMO_USERS=1` + `DEMO_USER_PASSWORD`，勿用默认口令）；
+- [ ] 运维使用专用非 root 账号和 SSH 密钥；验证新密钥后关闭密码登录与 root 直登，并只开放 SSH/HTTP/HTTPS；
 - [ ] HTTPS 反向代理并设 `COOKIE_SECURE=1`；
 - [ ] 设置 `INGEST_TOKEN` 并仅向对接系统下发；
 - [ ] 确认 `ALLOW_EXTERNAL_LLM` 与 `ALLOW_EXTERNAL_EMBED` 均未设置（除非已完成数据出域审批）；嵌入后端设为 `local` 或内网端点；
 - [ ] 确认 `SEED_SAMPLE_DOC=0`，真实个人信息文件不入库、不入仓库；
 - [ ] 生产关闭 FastAPI 交互文档（`docs_url=None`）或由网关鉴权（当前默认开放 `/docs`，见 §10）；
 - [ ] 备份策略：按实际后端备份 SQLite `data/app.db`（WAL）或 PostgreSQL 业务库（含 `document_access` 与 `document_access_events`），同时备份 `data/uploads/`；
+- [ ] 使用 `deploy/backup.sh`、`deploy/restore.sh`、`deploy/monitor.sh` 和 `deploy/smoke.sh` 建立每日备份、隔离恢复演练、容量/证书巡检与远程回归；
+- [ ] 运行配置、演示口令、接入令牌和模型密钥放在 `/etc/yanxin-review/` 的 root-only 环境文件中，禁止保存在源码工作区或版本库；
 - [ ] 多 worker/进程守护/Nginx/日志归集按生产标准配置（当前为开发模式单进程）。
 
 ## 10. 已知边界与待办（勿误报为漏洞）

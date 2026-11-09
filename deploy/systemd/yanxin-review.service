@@ -1,0 +1,29 @@
+[Unit]
+Description=Yanxin Research Integrity Platform
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=yanxin
+Group=yanxin
+WorkingDirectory=/opt/yanxin-review
+Environment=HOME=/var/lib/yanxin-review
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-/etc/yanxin-review/app.env
+EnvironmentFile=-/etc/yanxin-review/model.env
+ExecStart=/usr/bin/env bash /opt/yanxin-review/run.sh
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/yanxin-review
+
+[Install]
+WantedBy=multi-user.target

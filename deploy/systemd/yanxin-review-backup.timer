@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily backup for the Yanxin review platform
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Asia/Shanghai
+RandomizedDelaySec=15m
+Persistent=true
+Unit=yanxin-review-backup.service
+
+[Install]
+WantedBy=timers.target

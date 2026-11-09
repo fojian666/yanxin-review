@@ -1,0 +1,12 @@
+[Unit]
+Description=Five-minute health checks for the Yanxin review platform
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Persistent=true
+Unit=yanxin-review-monitor.service
+
+[Install]
+WantedBy=timers.target

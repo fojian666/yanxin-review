@@ -1,0 +1,18 @@
+[Unit]
+Description=Back up the Yanxin review PostgreSQL database and uploads
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/yanxin-review/deploy/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/yanxin-review /var/lib/yanxin-review
+UMask=0077
